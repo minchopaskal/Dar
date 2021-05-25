@@ -14,6 +14,7 @@ struct D3D12HelloTriangle : D3D12App {
 	virtual void deinit() override;
 	virtual void update() override;
 	virtual void render() override;
+	virtual void resize(int width, int height) override;
 
 private:
 	bool loadPipeline();

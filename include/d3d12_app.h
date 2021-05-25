@@ -32,6 +32,7 @@ struct D3D12App {
 	virtual void deinit() = 0;
 	virtual void update() = 0;
 	virtual void render() = 0;
+	virtual void resize(int width, int height) = 0;
 
 protected:
 	char title[256];

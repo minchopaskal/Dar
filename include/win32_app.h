@@ -2,14 +2,14 @@
 #include <Windows.h>
 
 struct D3D12App;
+struct GLFWwindow;
 
 struct Win32App {
-	static int Run(D3D12App *app, HINSTANCE hInstance, int cmdShow);
+	static int Run(D3D12App *app);
 	static HWND getWindow();
+	static D3D12App* getApp();
 
 private:
-	static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-
-private:
+	static D3D12App *app;
 	static HWND window;
 };

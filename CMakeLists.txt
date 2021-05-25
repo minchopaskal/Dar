@@ -11,6 +11,7 @@ set(RESOURCES_DIR ${PROJECT_SOURCE_DIR}/res)
 set(SHADERS_DIR ${RESOURCES_DIR}/shaders)
 set(SUBMODULE_DIR ${PROJECT_SOURCE_DIR}/third_party)
 set(GLM_DIR ${SUBMODULE_DIR}/glm)
+set(LIB_DIR ${PROJECT_SOURCE_DIR}/lib)
 
 set(HEADERS
 	${INCLUDE_DIR}/defines.h
@@ -43,7 +44,7 @@ source_group("include"     FILES ${HEADERS})
 source_group("third_party" FILES ${SUBMODULES})
 source_group("shaders"     FILES ${SHADERS})
 
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:CONSOLE")
 
 add_executable(D3D12Dive ${HEADERS} ${SOURCES} ${SUBMODULES}) # ${SHADERS})
 
@@ -64,7 +65,10 @@ target_compile_definitions(
 	_CRT_SECURE_NO_WARNINGS
 )
 
-target_link_libraries(D3D12Dive "d3d12.lib" "dxgi.lib" "d3dcompiler.lib" "dxguid.lib")
+target_link_directories(D3D12Dive PRIVATE ${LIB_DIR})
+
+target_link_libraries(D3D12Dive "d3d12.lib" "dxgi.lib" "d3dcompiler.lib" "dxguid.lib" "glfw3.lib")
+
 target_include_directories(
 	D3D12Dive
 	PRIVATE

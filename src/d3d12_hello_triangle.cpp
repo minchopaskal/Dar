@@ -47,6 +47,9 @@ void D3D12HelloTriangle::render() {
 	gpuSync();
 }
 
+void D3D12HelloTriangle::resize(int width, int height) {
+}
+
 _Use_decl_annotations_
 void GetHardwareAdapter(
 		IDXGIFactory1 *pFactory,
