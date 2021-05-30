@@ -17,14 +17,19 @@ if (!SUCCEEDED(cmd)) { \
   return retval; \
 }
 
-//#define RETURN_FALSE_ON_ERROR(cmd, msg) RETURN_ON_ERROR(cmd, false, msg)
-static void RETURN_FALSE_ON_ERROR(HRESULT res, const char *msg) {
-  if (!SUCCEEDED(res)) {
-    auto err = GetLastError();
-    OutputDebugString((msg));
-    DebugBreak();
-  }
-}
+//static void RETURN_FALSE_ON_ERROR(HRESULT res, const char *msg) {
+#define RETURN_FALSE_ON_ERROR(res, msg) \
+do { \
+  if (!SUCCEEDED(res)) { \
+      auto err = GetLastError(); \
+      OutputDebugString((msg)); \
+      DebugBreak(); \
+      return false; \
+    } \
+  } \
+while (false)
+
+#define RETURN_NULL_ON_ERROR(res, msg) RETURN_FALSE_ON_ERROR((res), (msg))
 
 #define RETURN_FALSE_ON_ERROR_FMT(cmd, msg, ...) RETURN_ON_ERROR_FMT(cmd, false, msg, __VA_ARGS__)
 

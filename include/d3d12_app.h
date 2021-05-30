@@ -2,7 +2,7 @@
 
 #include <D3d12.h>
 #include <dxgi.h>
-#include <dxgi1_4.h>
+#include <dxgi1_5.h>
 
 #include <wrl/client.h>
 

@@ -21,21 +21,34 @@ private:
 	bool loadAssets();
 
 	void populateCommandList();
-	void gpuSync();
+
+	UINT64 signal();
+	void waitForFenceValue(UINT64 fenceVal);
+	void flush();
+
+	void timeIt();
+
+	ComPtr<ID3D12CommandQueue> createCommandQueue(D3D12_COMMAND_LIST_TYPE type);
+	ComPtr<ID3D12CommandAllocator> createCommandAllocator(D3D12_COMMAND_LIST_TYPE type);
+	ComPtr<ID3D12GraphicsCommandList> createCommandList(ComPtr<ID3D12CommandAllocator> cmdAllocator, D3D12_COMMAND_LIST_TYPE type);
+	bool updateRenderTargetViews();
 
 private:
-	static const UINT frameCount = 2;
+	static const UINT frameCount = 3;
 
-	ComPtr<ID3D12CommandAllocator> commandAllocator;
-	ComPtr<ID3D12GraphicsCommandList> commandList;
 	ComPtr<ID3D12Device6> device;
-	ComPtr<ID3D12DescriptorHeap> rtvHeap;
-	ComPtr<ID3D12CommandQueue> commandQueue;
-	ComPtr<IDXGISwapChain3> swapChain;
-	ComPtr<ID3D12PipelineState> pipelineState;
-	ComPtr<ID3D12Resource> renderTargets[frameCount];
-	ComPtr<ID3D12RootSignature> rootSignature;
+
+	ComPtr<ID3D12CommandQueue> commandQueueDirect;
+	ComPtr<ID3D12CommandAllocator> commandAllocatorsDirect[frameCount];
+	ComPtr<ID3D12GraphicsCommandList> commandListsDirect[frameCount];
 	
+	ComPtr<IDXGISwapChain4> swapChain;
+	ComPtr<ID3D12DescriptorHeap> rtvHeap;
+	ComPtr<ID3D12Resource> backBuffers[frameCount];
+	
+	ComPtr<ID3D12RootSignature> rootSignature;
+	ComPtr<ID3D12PipelineState> pipelineState;
+
 	// Vertex buffer
 	ComPtr<ID3D12Resource> vertexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
@@ -44,11 +57,16 @@ private:
 	ComPtr<ID3D12Fence> fence;
 	HANDLE fenceEvent;
 	UINT64 fenceValue;
+	UINT64 frameFenceValues[frameCount];
 
+	// viewport
 	D3D12_VIEWPORT viewport;
 	D3D12_RECT scissorRect;
 	real aspectRatio;
 
 	UINT frameIndex;
 	UINT rtvHeapHandleIncrementSize;
+
+	// timing
+	double fps;
 };

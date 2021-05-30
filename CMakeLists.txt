@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 
-project(D3D12Dive VERSION 1.0)
+project(D3D12Base VERSION 0.1)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -46,12 +46,12 @@ source_group("shaders"     FILES ${SHADERS})
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:CONSOLE")
 
-add_executable(D3D12Dive ${HEADERS} ${SOURCES} ${SUBMODULES}) # ${SHADERS})
+add_executable(D3D12Base ${HEADERS} ${SOURCES} ${SUBMODULES}) # ${SHADERS})
 
-set_property(TARGET D3D12Dive PROPERTY VS_DEBUGGER_WORKING_DIRECTORY $<TARGET_FILE_DIR:D3D12Dive>)
+set_property(TARGET D3D12Base PROPERTY VS_DEBUGGER_WORKING_DIRECTORY $<TARGET_FILE_DIR:D3D12Base>)
 
 target_compile_definitions(
-	D3D12Dive
+	D3D12Base
 	PRIVATE
 	$<$<CONFIG:Debug>:D3D12_DEBUG>
 	$<$<CONFIG:RelWithDebInfo>:D3D12_DEBUG>
@@ -60,24 +60,24 @@ target_compile_definitions(
 )
 
 target_compile_definitions(
-	D3D12Dive
+	D3D12Base
 	PRIVATE
 	_CRT_SECURE_NO_WARNINGS
 )
 
-target_link_directories(D3D12Dive PRIVATE ${LIB_DIR})
+target_link_directories(D3D12Base PRIVATE ${LIB_DIR})
 
-target_link_libraries(D3D12Dive "d3d12.lib" "dxgi.lib" "d3dcompiler.lib" "dxguid.lib" "glfw3.lib")
+target_link_libraries(D3D12Base "d3d12.lib" "dxgi.lib" "d3dcompiler.lib" "dxguid.lib" "glfw3.lib")
 
 target_include_directories(
-	D3D12Dive
+	D3D12Base
 	PRIVATE
 	${INCLUDE_DIR}
 	${SUBMODULE_DIR}
 	${GLM_DIR}
 )
 
-add_custom_command(TARGET D3D12Dive PRE_BUILD
+add_custom_command(TARGET D3D12Base PRE_BUILD
 	COMMAND ${CMAKE_COMMAND} -E copy_directory
-	${RESOURCES_DIR} $<TARGET_FILE_DIR:D3D12Dive>/res/
+	${RESOURCES_DIR} $<TARGET_FILE_DIR:D3D12Base>/res/
 )

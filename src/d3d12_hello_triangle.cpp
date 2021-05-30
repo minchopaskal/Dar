@@ -1,6 +1,8 @@
 #include "d3d12_hello_triangle.h"
 
+#include <algorithm>
 #include <cstdio>
+#include <chrono>
 #include <d3dcompiler.h>
 #include <dxgi1_6.h>
 
@@ -12,14 +14,17 @@
 
 D3D12HelloTriangle::D3D12HelloTriangle(UINT width, UINT height, const std::string &windowTitle) :
 	D3D12App(width, height, windowTitle.c_str()),
-	viewport{ 0.f, 0.f, static_cast<float>(width), static_cast<float>(height)},
-	scissorRect{0, 0, static_cast<LONG>(width), static_cast<LONG>(height)},
-	frameIndex(0),
-	rtvHeapHandleIncrementSize(0),
-	aspectRatio(width / real(height)),
+	vertexBufferView{ },
 	fenceEvent(NULL),
 	fenceValue(0),
-	vertexBufferView() { }
+	frameFenceValues{ 0 },
+	viewport{ 0.f, 0.f, static_cast<float>(width), static_cast<float>(height) },
+	scissorRect{ 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) },
+	aspectRatio(width / real(height)),
+	frameIndex(0),
+	rtvHeapHandleIncrementSize(0),
+	fps(0.0)
+{ }
 
 bool D3D12HelloTriangle::init() {
 	if (!loadPipeline()) {
@@ -30,31 +35,72 @@ bool D3D12HelloTriangle::init() {
 }
 
 void D3D12HelloTriangle::deinit() {
-	gpuSync();
+	flush();
 }
 
 void D3D12HelloTriangle::update() {
-
+	timeIt();
 }
 
 void D3D12HelloTriangle::render() {
 	populateCommandList();
 
-	ID3D12CommandList *const commandLists[] = { commandList.Get() };
-	commandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
-	RETURN_ON_ERROR(swapChain->Present(0, 0), ,"Failed to execute command list!\n");
+	ID3D12CommandList *const commandLists[] = { commandListsDirect[frameIndex].Get() };
+	commandQueueDirect->ExecuteCommandLists(_countof(commandLists), commandLists);
 
-	gpuSync();
+	UINT syncInterval = Win32App::vSyncEnabled ? 1 : 0;
+	UINT presentFlags = Win32App::tearingEnabled && !Win32App::vSyncEnabled ? DXGI_PRESENT_ALLOW_TEARING : 0;
+	RETURN_ON_ERROR(swapChain->Present(syncInterval, presentFlags), ,"Failed to execute command list!\n");
+	
+	frameFenceValues[frameIndex] = signal();
+	frameIndex = swapChain->GetCurrentBackBufferIndex();
+	waitForFenceValue(frameFenceValues[frameIndex]);
 }
 
-void D3D12HelloTriangle::resize(int width, int height) {
+void D3D12HelloTriangle::resize(int w, int h) {
+	if (width == w && height == h) {
+		return;
+	}
+
+	this->width = std::max(1, w);
+	this->height = std::max(1, h);
+	viewport = { 0.f, 0.f, static_cast<float>(width), static_cast<float>(height) };
+	scissorRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
+	aspectRatio = width / real(height);
+
+	flush();
+
+	for (int i = 0; i < frameCount; ++i) {
+		backBuffers[i].Reset();
+		frameFenceValues[i] = frameFenceValues[frameIndex];
+	}
+
+	DXGI_SWAP_CHAIN_DESC scDesc = { };
+	RETURN_ON_ERROR(
+		swapChain->GetDesc(&scDesc), ,
+		"Failed to retrieve swap chain's description"
+	);
+	RETURN_ON_ERROR(
+		swapChain->ResizeBuffers(
+			frameCount,
+			this->width,
+			this->height,
+			scDesc.BufferDesc.Format,
+			scDesc.Flags
+		), ,
+		"Failed to resize swap chain buffer"
+	);
+
+	frameIndex = swapChain->GetCurrentBackBufferIndex();
+
+	updateRenderTargetViews();
 }
 
-_Use_decl_annotations_
 void GetHardwareAdapter(
 		IDXGIFactory1 *pFactory,
 		IDXGIAdapter1 **ppAdapter,
-		bool requestHighPerformanceAdapter) {
+		bool requestHighPerformanceAdapter
+) {
 	*ppAdapter = nullptr;
 
 	ComPtr<IDXGIAdapter1> adapter;
@@ -64,16 +110,15 @@ void GetHardwareAdapter(
 		for (
 				UINT adapterIndex = 0;
 				DXGI_ERROR_NOT_FOUND != factory6->EnumAdapterByGpuPreference(
-			adapterIndex,
-			requestHighPerformanceAdapter == true ? DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE : DXGI_GPU_PREFERENCE_UNSPECIFIED,
-			IID_PPV_ARGS(&adapter));
+					adapterIndex,
+					requestHighPerformanceAdapter == true ? DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE : DXGI_GPU_PREFERENCE_UNSPECIFIED,
+					IID_PPV_ARGS(&adapter)
+				);
 				++adapterIndex) {
 			DXGI_ADAPTER_DESC1 desc;
 			adapter->GetDesc1(&desc);
 
 			if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) {
-					// Don't select the Basic Render Driver adapter.
-					// If you want a software adapter, pass in "/warp" on the command line.
 				continue;
 			}
 
@@ -89,8 +134,6 @@ void GetHardwareAdapter(
 			adapter->GetDesc1(&desc);
 
 			if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) {
-					// Don't select the Basic Render Driver adapter.
-					// If you want a software adapter, pass in "/warp" on the command line.
 				continue;
 			}
 
@@ -103,6 +146,73 @@ void GetHardwareAdapter(
 	}
 
 	*ppAdapter = adapter.Detach();
+}
+
+bool checkTearingSupport() {
+	ComPtr<IDXGIFactory5> dxgiFactory;
+	if (!SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&dxgiFactory)))) {
+		return false;
+	}
+
+	bool allowTearing = false;
+	if (FAILED(dxgiFactory->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowTearing, sizeof(allowTearing)))) {
+		allowTearing = false;
+	}
+
+	return (allowTearing == true);
+}
+
+ComPtr<ID3D12CommandQueue> D3D12HelloTriangle::createCommandQueue(D3D12_COMMAND_LIST_TYPE type) {
+	ComPtr<ID3D12CommandQueue> cmdQueue;
+	D3D12_COMMAND_QUEUE_DESC cqDesc = {};
+	cqDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+	cqDesc.Type = type;
+
+	RETURN_FALSE_ON_ERROR(
+	device->CreateCommandQueue(&cqDesc, IID_PPV_ARGS(&cmdQueue)),
+		"Failed to create command queue!\n"
+	);
+
+	return cmdQueue;
+}
+
+ComPtr<ID3D12CommandAllocator> D3D12HelloTriangle::createCommandAllocator(D3D12_COMMAND_LIST_TYPE type) {
+	ComPtr<ID3D12CommandAllocator> cmdAllocator;
+	RETURN_NULL_ON_ERROR(
+		device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&cmdAllocator)),
+		"Failed to create command allocator!\n"
+	);
+	return cmdAllocator;
+}
+
+
+ComPtr<ID3D12GraphicsCommandList> D3D12HelloTriangle::createCommandList(ComPtr<ID3D12CommandAllocator> cmdAllocator, D3D12_COMMAND_LIST_TYPE type) {
+	ComPtr<ID3D12GraphicsCommandList> cmdList;
+
+	RETURN_FALSE_ON_ERROR(
+		device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, cmdAllocator.Get(), nullptr, IID_PPV_ARGS(&cmdList)),
+		"Failed to create command list!\n"
+	);
+
+	RETURN_FALSE_ON_ERROR(
+		cmdList->Close(),
+		"Failed to close the command list after creation!\n"
+	);
+
+	return cmdList;
+}
+
+bool D3D12HelloTriangle::updateRenderTargetViews() {
+	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(rtvHeap->GetCPUDescriptorHandleForHeapStart());
+
+	for (UINT i = 0; i < frameCount; ++i) {
+		RETURN_FALSE_ON_ERROR_FMT(
+			swapChain->GetBuffer(i, IID_PPV_ARGS(&backBuffers[i])),
+			"Failed to create Render-Target-View for buffer %u!\n", i
+		);
+		device->CreateRenderTargetView(backBuffers[i].Get(), nullptr, rtvHandle);
+		rtvHandle.Offset(rtvHeapHandleIncrementSize);
+	}
 }
 
 bool D3D12HelloTriangle::loadPipeline() {
@@ -119,8 +229,13 @@ bool D3D12HelloTriangle::loadPipeline() {
 
 	/* Create the device */
 	ComPtr<IDXGIFactory4> dxgiFactory;
+	UINT createFactoryFlags = 0;
+#if defined(D3D12_DEBUG)
+	createFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
+#endif // defined(D3D12_DEBUG)
+
 	RETURN_FALSE_ON_ERROR(
-		CreateDXGIFactory1(IID_PPV_ARGS(&dxgiFactory)),
+		CreateDXGIFactory2(createFactoryFlags, IID_PPV_ARGS(&dxgiFactory)),
 		"Error while creating DXGI Factory!\n"
 	);
 
@@ -133,41 +248,41 @@ bool D3D12HelloTriangle::loadPipeline() {
 	);
 
 	/* Create command queue */
-	D3D12_COMMAND_QUEUE_DESC cqDesc = {};
-	cqDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-	cqDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-
-	RETURN_FALSE_ON_ERROR(
-	device->CreateCommandQueue(&cqDesc, IID_PPV_ARGS(&commandQueue)),
-		"Failed to create command queue!\n"
-	);
+	commandQueueDirect = createCommandQueue(D3D12_COMMAND_LIST_TYPE_DIRECT);
 
 	/* Create a swap chain */
-	DXGI_SWAP_CHAIN_DESC scDesc = {};
-	scDesc.BufferCount = frameCount;
-	scDesc.BufferDesc.Width = width;
-	scDesc.BufferDesc.Height = height;
-	scDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	Win32App::tearingEnabled = checkTearingSupport();
+
+	DXGI_SWAP_CHAIN_DESC1 scDesc = {};
+	scDesc.Width = width;
+	scDesc.Height = height;
+	scDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	scDesc.Stereo = FALSE;
+	// NOTE: if multisampling should be enabled the bitblt transfer swap method should be used
+	scDesc.SampleDesc = { 1, 0 }; // Not using multi-sampling.
 	scDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	scDesc.BufferCount = frameCount;
+	scDesc.Scaling = DXGI_SCALING_STRETCH;
 	scDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-	scDesc.OutputWindow = Win32App::getWindow();
-	scDesc.SampleDesc.Count = 1;
-	scDesc.Windowed = TRUE;
-
-	//DXGI_SWAP_CHAIN_FULLSCREEN_DESC fscDesc = {};
-	//fscDesc.RefreshRate = { 0, 0 };
-	//fscDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_PROGRESSIVE;
-	////fscDesc.Scaling = DXGI_MODE_SCALING_STRETCHED;
-
-	ComPtr<IDXGISwapChain> swapChainPlaceholder;
-		
+	scDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
+	scDesc.Flags = Win32App::tearingEnabled ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
+	
+	ComPtr<IDXGISwapChain1> swapChainPlaceholder;
 	RETURN_FALSE_ON_ERROR(
-		dxgiFactory->CreateSwapChain(
-			commandQueue.Get(),        // Swap chain needs the queue so that it can force a flush on it.
+		dxgiFactory->CreateSwapChainForHwnd(
+			commandQueueDirect.Get(), // Swap chain needs the queue so that it can force a flush on it.
+			Win32App::getWindow(),
 			&scDesc,
+			NULL /*DXGI_SWAP_CHAIN_FULLSCREEN_DESC*/, // will be handled manually
+			NULL /*pRestrictToOutput*/,
 			&swapChainPlaceholder
 		),
 		"Failed to create swap chain!\n"
+	);
+
+	RETURN_FALSE_ON_ERROR(
+		dxgiFactory->MakeWindowAssociation(Win32App::getWindow(), DXGI_MWA_NO_ALT_ENTER),
+		"Failed to make window association NO_ALT_ENTER\n"
 	);
 	
 	RETURN_FALSE_ON_ERROR(
@@ -177,38 +292,30 @@ bool D3D12HelloTriangle::loadPipeline() {
 
 	frameIndex = swapChain->GetCurrentBackBufferIndex();
 
-	/* Create a descriptor heap */
+	/* Create a descriptor heap for RTVs */
 	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = { };
 	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 	rtvHeapDesc.NumDescriptors = frameCount;
 	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	// TODO: 0 since using only one device. Look into that.
 	rtvHeapDesc.NodeMask = 0;
 
 	RETURN_FALSE_ON_ERROR(
 		device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&rtvHeap)),
 		"Failed to create descriptor heap!\n"
 	);
-	rtvHeapHandleIncrementSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
 	/* Create render target view */
-	{
-		CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(rtvHeap->GetCPUDescriptorHandleForHeapStart());
-
-		for (UINT i = 0; i < frameCount; ++i) {
-			RETURN_FALSE_ON_ERROR_FMT(
-				swapChain->GetBuffer(i, IID_PPV_ARGS(&renderTargets[i])),
-				"Failed to create Render-Target-View for buffer %u!\n", i
-			);
-			device->CreateRenderTargetView(renderTargets[i].Get(), nullptr, rtvHandle);
-			rtvHandle.Offset(1, rtvHeapHandleIncrementSize);
-		}
+	rtvHeapHandleIncrementSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	if (!updateRenderTargetViews()) {
+		return false;
 	}
 
-	/* Lastly, create the command allocator */
-	RETURN_FALSE_ON_ERROR(
-		device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocator)),
-		"Failed to create command allocator!\n"
-	);
+	/* Lastly, create a command list for each back buffer and their responding allocators */
+	for (int i = 0; i < frameCount; ++i) {
+		commandAllocatorsDirect[i] = createCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT);
+		commandListsDirect[i] = createCommandList(commandAllocatorsDirect[i], D3D12_COMMAND_LIST_TYPE_DIRECT);
+	}
 
 	return true;
 }
@@ -234,6 +341,7 @@ bool D3D12HelloTriangle::loadAssets() {
 	}
 
 	/* Load & Compile the shaders */
+	// TODO: do not compile shaders runtime
 	{
 		ComPtr<ID3DBlob> vertexShader;
 		ComPtr<ID3DBlob> pixelShader;
@@ -298,17 +406,6 @@ bool D3D12HelloTriangle::loadAssets() {
 		);
 	}
 
-	/* Create the command list */
-	RETURN_FALSE_ON_ERROR(
-		device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator.Get(), pipelineState.Get(), IID_PPV_ARGS(&commandList)),
-		"Failed to create command list!\n"
-	);
-
-	RETURN_FALSE_ON_ERROR(
-		commandList->Close(),
-		"Failed to close the command list after creation!\n"
-	);
-
 	/* Create and copy data to the vertex buffer*/
 	{
 		Vertex triangleVertices[] =
@@ -364,52 +461,55 @@ bool D3D12HelloTriangle::loadAssets() {
 		}
 	}
 
-	gpuSync();
+	flush();
 
 	return true;
 }
 
 void D3D12HelloTriangle::populateCommandList() {
-	RETURN_ON_ERROR(commandAllocator->Reset(), , "Failed to reset the command allocator!\n");
+	RETURN_ON_ERROR(commandAllocatorsDirect[frameIndex]->Reset(), , "Failed to reset the command allocator!\n");
+	RETURN_ON_ERROR(commandListsDirect[frameIndex]->Reset(commandAllocatorsDirect[frameIndex].Get(), pipelineState.Get()), , "Failed to reset the command list!\n");
 
-	RETURN_ON_ERROR(commandList->Reset(commandAllocator.Get(), pipelineState.Get()), , "Failed to reset the command list!\n");
-
-	commandList->SetPipelineState(pipelineState.Get());
-	commandList->SetGraphicsRootSignature(rootSignature.Get());
-	commandList->RSSetViewports(1, &viewport);
-	commandList->RSSetScissorRects(1, &scissorRect);
+	commandListsDirect[frameIndex]->SetPipelineState(pipelineState.Get());
+	commandListsDirect[frameIndex]->SetGraphicsRootSignature(rootSignature.Get());
+	commandListsDirect[frameIndex]->RSSetViewports(1, &viewport);
+	commandListsDirect[frameIndex]->RSSetScissorRects(1, &scissorRect);
 
 	CD3DX12_RESOURCE_BARRIER resBarrierPresetToRT = CD3DX12_RESOURCE_BARRIER::Transition(
-		renderTargets[frameIndex].Get(),
+		backBuffers[frameIndex].Get(),
 		D3D12_RESOURCE_STATE_PRESENT,
 		D3D12_RESOURCE_STATE_RENDER_TARGET
 	);
-	commandList->ResourceBarrier(1, &resBarrierPresetToRT);
+	commandListsDirect[frameIndex]->ResourceBarrier(1, &resBarrierPresetToRT);
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(rtvHeap->GetCPUDescriptorHandleForHeapStart(), frameIndex, rtvHeapHandleIncrementSize);
-	commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+	commandListsDirect[frameIndex]->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
 
 	const float clearColor[] = { 0.2f, 0.2f, 0.8f, 1.f };
-	commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
-	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
-	commandList->DrawInstanced(3, 1, 0, 0);
+	commandListsDirect[frameIndex]->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+	
+	commandListsDirect[frameIndex]->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	commandListsDirect[frameIndex]->IASetVertexBuffers(0, 1, &vertexBufferView);
+	commandListsDirect[frameIndex]->DrawInstanced(3, 1, 0, 0);
 
 	CD3DX12_RESOURCE_BARRIER resBarrierRTtoPresent = CD3DX12_RESOURCE_BARRIER::Transition(
-		renderTargets[frameIndex].Get(),
+		backBuffers[frameIndex].Get(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET,
 		D3D12_RESOURCE_STATE_PRESENT
 	);
-	commandList->ResourceBarrier(1, &resBarrierRTtoPresent);
+	commandListsDirect[frameIndex]->ResourceBarrier(1, &resBarrierRTtoPresent);
 
-	commandList->Close();
+	commandListsDirect[frameIndex]->Close();
 }
 
-void D3D12HelloTriangle::gpuSync() {
-	UINT64 fenceVal = fenceValue;
-	RETURN_ON_ERROR(commandQueue->Signal(fence.Get(), fenceVal), , "Failed to signal command queue!\n");
-	fenceValue++;
-	
+UINT64 D3D12HelloTriangle::signal() {
+	UINT64 fenceVal = ++fenceValue;
+	RETURN_ON_ERROR(commandQueueDirect->Signal(fence.Get(), fenceVal), 0, "Failed to signal command queue!\n");
+
+	return fenceVal;
+}
+
+void D3D12HelloTriangle::waitForFenceValue(UINT64 fenceVal) {
 	while (fence->GetCompletedValue() < fenceVal) {
 		RETURN_ON_ERROR(
 			fence->SetEventOnCompletion(fenceVal, fenceEvent), ,
@@ -417,6 +517,40 @@ void D3D12HelloTriangle::gpuSync() {
 		);
 		WaitForSingleObject(fenceEvent, INFINITE);
 	}
+}
 
-	frameIndex = swapChain->GetCurrentBackBufferIndex();
+void D3D12HelloTriangle::flush() {
+	UINT64 fenceVal = signal();
+	waitForFenceValue(fenceVal);
+}
+
+void D3D12HelloTriangle::timeIt() {
+	using std::chrono::duration_cast;
+	using HRC = std::chrono::high_resolution_clock;
+	
+	static constexpr double SECONDS_IN_NANOSECOND = 1e-9;
+	static UINT64 frameCount = 0;
+	static double elapsedTime = 0.0;
+	static HRC clock;
+	static HRC::time_point t0 = clock.now();
+
+	HRC::time_point t1 = clock.now();
+	std::chrono::nanoseconds deltaTime = t1 - t0;
+	elapsedTime += deltaTime.count() * SECONDS_IN_NANOSECOND;
+	
+	++frameCount;
+	t0 = t1;
+
+	if (elapsedTime > 1.0) {
+		fps = frameCount / elapsedTime;
+
+#if defined(D3D12_DEBUG)
+		char buffer[512];
+		sprintf_s(buffer, "FPS: %.2f\n", fps);
+		OutputDebugString(buffer);
+#endif // defined(D3D12_DEBUG)
+
+		frameCount = 0;
+		elapsedTime = 0.0;
+	}
 }
