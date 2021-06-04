@@ -1,8 +1,5 @@
 #pragma once
 
-#include <bitset>
-#include <string>
-
 #include "d3d12_app.h"
 #include "defines.h"
 
@@ -15,11 +12,14 @@ struct D3D12HelloTriangle : D3D12App {
 	virtual void deinit() override;
 	virtual void update() override;
 	virtual void render() override;
-	virtual void resize(int width, int height) override;
-	virtual void keyboardInput(int key, int action) override;
+	virtual void onResize(int width, int height) override;
+	virtual void onKeyboardInput(int key, int action) override;
+	virtual void onMouseScroll(double xOffset, double yOffset) override;
 
 private:
 	ComPtr<ID3D12GraphicsCommandList2> populateCommandList();
+	bool updateRenderTargetViews();
+	bool resizeDepthBuffer(int width, int height);
 
 	void timeIt();
 
@@ -27,20 +27,32 @@ private:
 	ComPtr<ID3D12RootSignature> rootSignature;
 	ComPtr<ID3D12PipelineState> pipelineState;
 
+	// Descriptors
+	ComPtr<ID3D12DescriptorHeap> rtvHeap;
+	UINT rtvHeapHandleIncrementSize;
+	ComPtr<ID3D12DescriptorHeap> dsvHeap;
+
 	// Vertex buffer
 	ComPtr<ID3D12Resource> vertexBuffer;
+	ComPtr<ID3D12Resource> indexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
+	D3D12_INDEX_BUFFER_VIEW indexBufferView;
+	ComPtr<ID3D12Resource> depthBuffer;
+
+	// MVP matrices
+	Mat4 modelMat;
+	Mat4 viewMat;
+	Mat4 projectionMat;
 
 	// viewport
 	D3D12_VIEWPORT viewport;
 	D3D12_RECT scissorRect;
 	real aspectRatio;
 
-	// Input
-	static const int keysCount = 90; // see GLFW_KEY_Z
-	std::bitset<keysCount> keyPressed;
-	std::bitset<keysCount> keyRepeated;
+	float FOV;
 
 	// timing
 	double fps;
+	double totalTime;
+	double deltaTime;
 };

@@ -20,6 +20,8 @@ set(HEADERS
 	${INCLUDE_DIR}/asset_manager.h
 	${INCLUDE_DIR}/geometry.h
 	${INCLUDE_DIR}/command_queue.h
+	${INCLUDE_DIR}/d3d12_utils.h
+	${INCLUDE_DIR}/d3d12_includes.h
 )
 
 set(SOURCES
@@ -28,6 +30,7 @@ set(SOURCES
 	${SRC_DIR}/d3d12_app.cpp
 	${SRC_DIR}/command_queue.cpp
 	${SRC_DIR}/asset_manager.cpp
+	${SRC_DIR}/d3d12_utils.cpp
 )
 
 # Include only the files one wants to be seen in the IDE
@@ -61,7 +64,7 @@ foreach(SHADER_FILE ${SHADERS})
 		message(FATAL_ERROR "Invalid shader name - either it's not ps/vs or it's not a .hlsl file!")
 	endif()
 
-	set_source_files_properties(${SHADER_FILE} PROPERTIES VS_SHADER_MODEL "5.0")
+	set_source_files_properties(${SHADER_FILE} PROPERTIES VS_SHADER_MODEL "5.1")
 
 	# Using the VS's generating expresions here to avoid nasty string manipulation in CMake
 	set_source_files_properties(${SHADER_FILE} PROPERTIES VS_SHADER_OBJECT_FILE_NAME "$(OutDir)/res/shaders/%(Filename).cso")

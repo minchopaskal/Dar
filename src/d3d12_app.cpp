@@ -25,14 +25,23 @@ D3D12App* app = nullptr;
 // GLFW
 ////////////
 void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
-	app->resize(width, height);
+	app->onResize(width, height);
 }
 
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
 	if (key < GLFW_KEY_0 || key > GLFW_KEY_Z) {
 		return;
 	}
-	app->keyboardInput(key, action);
+	
+	app->keyPressed[key] = !(action == GLFW_RELEASE);
+	app->keyRepeated[key] = (action == GLFW_REPEAT);
+
+	// TODO: mapping keys to engine actions
+	app->onKeyboardInput(key, action);
+}
+
+void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
+	app->onMouseScroll(xoffset, yoffset);
 }
 
 void processKeyboardInput(GLFWwindow *window) {
@@ -46,9 +55,9 @@ void processKeyboardInput(GLFWwindow *window) {
 ////////////
 D3D12App::D3D12App(UINT width, UINT height, const char *windowTitle) :
 	commandQueueDirect(D3D12_COMMAND_LIST_TYPE_DIRECT),
+	commandQueueCopy(D3D12_COMMAND_LIST_TYPE_COPY),
 	fenceValues{ 0 },
 	frameIndex(0),
-	rtvHeapHandleIncrementSize(0),
 	width(width),
 	height(height),
 	window(nullptr),
@@ -75,12 +84,15 @@ void GetHardwareAdapter(
 	if (SUCCEEDED(pFactory->QueryInterface(IID_PPV_ARGS(&factory6)))) {
 		for (
 				UINT adapterIndex = 0;
-				DXGI_ERROR_NOT_FOUND != factory6->EnumAdapterByGpuPreference(
-			adapterIndex,
-			requestHighPerformanceAdapter == true ? DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE : DXGI_GPU_PREFERENCE_UNSPECIFIED,
-			IID_PPV_ARGS(&adapter)
-			);
+				DXGI_ERROR_NOT_FOUND != factory6->EnumAdapters1(
+					adapterIndex,
+					&adapter
+				);
 				++adapterIndex) {
+			if (adapter == nullptr) {
+				continue;
+			}
+
 			DXGI_ADAPTER_DESC1 desc;
 			adapter->GetDesc1(&desc);
 
@@ -128,21 +140,6 @@ bool checkTearingSupport() {
 	return (allowTearing == true);
 }
 
-bool D3D12App::updateRenderTargetViews() {
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(rtvHeap->GetCPUDescriptorHandleForHeapStart());
-
-	for (UINT i = 0; i < frameCount; ++i) {
-		RETURN_FALSE_ON_ERROR_FMT(
-			swapChain->GetBuffer(i, IID_PPV_ARGS(&backBuffers[i])),
-			"Failed to create Render-Target-View for buffer %u!\n", i
-		);
-		device->CreateRenderTargetView(backBuffers[i].Get(), nullptr, rtvHandle);
-		rtvHandle.Offset(rtvHeapHandleIncrementSize);
-	}
-
-	return true;
-}
-
 int D3D12App::init() {
 	glfwInit();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -153,6 +150,7 @@ int D3D12App::init() {
 
 	glfwSetFramebufferSizeCallback(glfwWindow, framebufferSizeCallback);
 	glfwSetKeyCallback(glfwWindow, keyCallback);
+	glfwSetScrollCallback(glfwWindow, scrollCallback);
 
 	window = glfwGetWin32Window(glfwWindow);
 
@@ -162,7 +160,6 @@ int D3D12App::init() {
 		ComPtr<ID3D12Debug> debugLayer;
 		if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugLayer)))) {
 			debugLayer->EnableDebugLayer();
-			debugLayer->Release();
 		}
 	}
 #endif // defined(D3D12_DEBUG)
@@ -189,6 +186,7 @@ int D3D12App::init() {
 
 	/* Create command queue */
 	commandQueueDirect.init(device);
+	commandQueueCopy.init(device);
 
 	/* Create a swap chain */
 	tearingEnabled = checkTearingSupport();
@@ -232,25 +230,6 @@ int D3D12App::init() {
 
 	frameIndex = swapChain->GetCurrentBackBufferIndex();
 
-	/* Create a descriptor heap for RTVs */
-	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = { };
-	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	rtvHeapDesc.NumDescriptors = frameCount;
-	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	// TODO: 0 since using only one device. Look into that.
-	rtvHeapDesc.NodeMask = 0;
-
-	RETURN_FALSE_ON_ERROR(
-		device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&rtvHeap)),
-		"Failed to create descriptor heap!\n"
-	);
-
-	/* Create render target view */
-	rtvHeapHandleIncrementSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	if (!updateRenderTargetViews()) {
-		return false;
-	}
-
 	return true;
 }
 
@@ -292,6 +271,11 @@ void D3D12App::toggleFullscreen() {
 
 HWND D3D12App::getWindow() const {
 	return window;
+}
+
+void D3D12App::flush() {
+	commandQueueDirect.flush();
+	commandQueueCopy.flush();
 }
 
 int D3D12App::run() {

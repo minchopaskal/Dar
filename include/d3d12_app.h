@@ -1,16 +1,12 @@
 #pragma once
 
-#define WINDOWS_LEAN_AND_MEAN
-#include <Windows.h>
-
-#include <D3d12.h>
-#include <dxgi.h>
-#include <dxgi1_5.h>
-
-#include <wrl/client.h>
-using Microsoft::WRL::ComPtr;
+#include "d3d12_includes.h"
 
 #include "command_queue.h"
+
+#include <bitset>
+
+struct GLFWwindow;
 
 struct D3D12App {
 	D3D12App(UINT width, UINT height, const char *windowTitle);
@@ -19,6 +15,7 @@ struct D3D12App {
 	int run();
 	void toggleFullscreen();
 	HWND getWindow() const;
+	void flush();
 
 	virtual int init();
 	virtual int loadAssets() = 0;
@@ -27,30 +24,32 @@ struct D3D12App {
 	virtual void render() = 0;
 
 	// TODO: mouse callback, etc.
-	virtual void resize(int width, int height) = 0;
-	virtual void keyboardInput(int key, int action) = 0;
-
-protected:
-	bool updateRenderTargetViews();
+	virtual void onResize(int width, int height) = 0;
+	virtual void onKeyboardInput(int key, int action) = 0;
+	virtual void onMouseScroll(double xOffset, double yOffset) = 0;
 
 public:
 	bool vSyncEnabled;
 	bool tearingEnabled;
 
 protected:
-	static const UINT frameCount = 3;
+	static const UINT frameCount = 2;
+	
+	// Input
+	static const int keysCount = 90; // see GLFW_KEY_Z
+	std::bitset<keysCount> keyPressed;
+	std::bitset<keysCount> keyRepeated;
 
 	ComPtr<ID3D12Device2> device;
 
 	CommandQueue commandQueueDirect;
+	CommandQueue commandQueueCopy;
 
 	ComPtr<IDXGISwapChain4> swapChain;
-	ComPtr<ID3D12DescriptorHeap> rtvHeap;
 	ComPtr<ID3D12Resource> backBuffers[frameCount];
 	UINT64 fenceValues[frameCount];
 
 	UINT frameIndex;
-	UINT rtvHeapHandleIncrementSize;
 
 	char title[256];
 	UINT width, height;
@@ -59,4 +58,9 @@ private:
 	HWND window;
 	RECT windowRect;
 	bool fullscreen;
+
+	// GLFW callbacks
+	friend void framebufferSizeCallback(GLFWwindow *window, int width, int height);
+	friend void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
+	friend void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 };

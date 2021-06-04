@@ -41,4 +41,5 @@ template <int N>
 using Vec = glm::vec<N, real>;
 
 using Mat = glm::mat4;
+using Mat4 = glm::mat4;
 using Mat43 = glm::mat4x3;
