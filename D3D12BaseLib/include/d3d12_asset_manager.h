@@ -1,9 +1,9 @@
 #pragma once
 
-#include <string>
+#include "d3d12_defines.h"
 
 enum class AssetType : int {
 	shader = 0,
 };
 
-std::wstring getAssetFullPath(const wchar_t *assetName, AssetType assetType);
+WString getAssetFullPath(const wchar_t *assetName, AssetType assetType);

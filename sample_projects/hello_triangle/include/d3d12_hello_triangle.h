@@ -1,10 +1,11 @@
 #pragma once
 
 #include "d3d12_app.h"
+#include "d3d12_defines.h"
 #include "defines.h"
 
 struct D3D12HelloTriangle : D3D12App {
-	D3D12HelloTriangle(UINT width, UINT height, const std::string &windowTitle);
+	D3D12HelloTriangle(UINT width, UINT height, const String &windowTitle);
 
 	// Inherited via D3D12App
 	virtual int init() override;

@@ -4,7 +4,7 @@
 #include <wrl/client.h>
 using Microsoft::WRL::ComPtr;
 
-#include <queue>
+#include "d3d12_defines.h"
 
 struct CommandQueue {
 	CommandQueue(D3D12_COMMAND_LIST_TYPE type);
@@ -34,8 +34,8 @@ private:
 	ComPtr<ID3D12Device2> device;
 	ComPtr<ID3D12CommandQueue> commandQueue;
 
-	std::queue<ComPtr<ID3D12GraphicsCommandList2>> commandListQueue;
-	std::queue<CommandAllocator> commandAllocatorQueue;
+	Queue<ComPtr<ID3D12GraphicsCommandList2>> commandListQueue;
+	Queue<CommandAllocator> commandAllocatorQueue;
 
 	ComPtr<ID3D12Fence> fence;
 	HANDLE fenceEvent;

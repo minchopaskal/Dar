@@ -18,6 +18,8 @@ set(HEADERS
 	${INCLUDE_DIR}/d3d12_command_queue.h
 	${INCLUDE_DIR}/d3d12_utils.h
 	${INCLUDE_DIR}/d3d12_includes.h
+	${INCLUDE_DIR}/d3d12_math.h
+	${INCLUDE_DIR}/d3d12_pipeline_state.h
 )
 
 set(SOURCES
@@ -25,6 +27,7 @@ set(SOURCES
 	${SRC_DIR}/d3d12_command_queue.cpp
 	${SRC_DIR}/d3d12_asset_manager.cpp
 	${SRC_DIR}/d3d12_utils.cpp
+	${SRC_DIR}/d3d12_pipeline_state.cpp
 )
 
 # Include only the files one wants to be seen in the IDE

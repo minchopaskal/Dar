@@ -12,12 +12,13 @@
 #include "d3d12_geometry.h"
 #include "d3d12_app.h"
 #include "d3d12_utils.h"
+#include "d3d12_pipeline_state.h"
 
 // TODO: To make things simple, child projects should not rely on third party software
 // Expose some input controller interface or something like that.
 #include <glfw/glfw3.h> // keyboard input
 
-D3D12HelloTriangle::D3D12HelloTriangle(UINT width, UINT height, const std::string &windowTitle) :
+D3D12HelloTriangle::D3D12HelloTriangle(UINT width, UINT height, const String &windowTitle) :
 	D3D12App(width, height, windowTitle.c_str()),
 	rtvHeapHandleIncrementSize(0),
 	viewport{ 0.f, 0.f, static_cast<float>(width), static_cast<float>(height) },
@@ -212,56 +213,56 @@ int D3D12HelloTriangle::loadAssets() {
 
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
-				getAssetFullPath(L"basic_vs.cso", AssetType::shader).c_str(),
-				&vertexShader
-			),
+			getAssetFullPath(L"basic_vs.cso", AssetType::shader).c_str(),
+			&vertexShader
+		),
 			"Failed to load vertex shader!\n"
 		);
 
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
-				getAssetFullPath(L"basic_ps.cso", AssetType::shader).c_str(),
-				&pixelShader
-			),
+			getAssetFullPath(L"basic_ps.cso", AssetType::shader).c_str(),
+			&pixelShader
+		),
 			"Failed to load pixel shader!\n"
 		);
 
 		// TODO: find a better way 
 		// (idea: struct with all tokens - set all wanted tokens and init a stream object with all non null tokens)
 		PipelineStateStream pipelineStateStream;
-		
-		CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE rootSignatureToken = rootSignature.Get();
-		pipelineStateStream.insert(rootSignatureToken);
 
+		RootSignatureToken rootSignatureToken = rootSignature.Get();
+		
 		D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 			{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 		};
-		CD3DX12_PIPELINE_STATE_STREAM_INPUT_LAYOUT inputLayoutToken;
-		inputLayoutToken = { inputLayouts, _countof(inputLayouts) };
-		pipelineStateStream.insert(inputLayoutToken);
-
-		CD3DX12_PIPELINE_STATE_STREAM_VS vsToken= CD3DX12_SHADER_BYTECODE(vertexShader.Get());
-		pipelineStateStream.insert(vsToken);
-
-		CD3DX12_PIPELINE_STATE_STREAM_PS psToken = CD3DX12_SHADER_BYTECODE(pixelShader.Get());
-		pipelineStateStream.insert(psToken);
-
-		CD3DX12_PIPELINE_STATE_STREAM_PRIMITIVE_TOPOLOGY topologyToken = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-		pipelineStateStream.insert(topologyToken);
-
+		InputLayoutToken inputLayoutToken = D3D12_INPUT_LAYOUT_DESC{ inputLayouts, _countof(inputLayouts) };
+		
+		VertexShaderToken vsToken = D3D12_SHADER_BYTECODE{ vertexShader->GetBufferPointer(), vertexShader->GetBufferSize() };
+		
+		PixelShaderToken psToken = D3D12_SHADER_BYTECODE{ pixelShader->GetBufferPointer(), pixelShader->GetBufferSize() };
+		
+		PrimitiveTopologyToken topologyToken = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		
 		D3D12_RT_FORMAT_ARRAY rtFormat = {};
 		rtFormat.NumRenderTargets = 1;
 		rtFormat.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-		CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS rtFormatToken = rtFormat;
-		pipelineStateStream.insert(rtFormatToken);
-
-		CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT dsFormatToken = DXGI_FORMAT_D32_FLOAT;
-		pipelineStateStream.insert(dsFormatToken);
+		RTFormatsToken rtFormatToken = rtFormat;
 		
+		DepthStencilFormatToken dsFormatToken = DXGI_FORMAT_D32_FLOAT;
+
+		pipelineStateStream.insert(rootSignatureToken);
+		pipelineStateStream.insert(inputLayoutToken);
+		pipelineStateStream.insert(vsToken);
+		pipelineStateStream.insert(psToken);
+		pipelineStateStream.insert(topologyToken);
+		pipelineStateStream.insert(rtFormatToken);
+		pipelineStateStream.insert(dsFormatToken);
+
 		D3D12_PIPELINE_STATE_STREAM_DESC pipelineDesc = {};
-		pipelineDesc.pPipelineStateSubobjectStream = pipelineStateStream.get();
-		pipelineDesc.SizeInBytes = pipelineStateStream.size();
+		pipelineDesc.pPipelineStateSubobjectStream = pipelineStateStream.getData();
+		pipelineDesc.SizeInBytes = pipelineStateStream.getSize();
 
 		RETURN_FALSE_ON_ERROR(
 			device->CreatePipelineState(&pipelineDesc, IID_PPV_ARGS(&pipelineState)),

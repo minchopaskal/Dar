@@ -107,10 +107,7 @@ bool CommandQueue::fenceCompleted(UINT64 fenceVal) const {
 #include <unordered_set>
 
 void CommandQueue::waitForFenceValue(UINT64 fenceVal) {
-	static std::unordered_set<UINT64> fenceVals = {};
 	while (!fenceCompleted(fenceVal)) {
-		fenceVals.insert(fenceVal);
-
 		RETURN_ON_ERROR(
 			fence->SetEventOnCompletion(fenceVal, fenceEvent), ,
 			"Failed to set fence event on completion!\n"

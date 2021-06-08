@@ -1,5 +1,10 @@
 #pragma once
 
+#include <vector>
+#include <queue>
+#include <bitset>
+#include <string>
+
 #define RETURN_ON_ERROR(cmd, retval, msg) \
 if (!SUCCEEDED(cmd)) { \
   OutputDebugString((msg)); \
@@ -28,3 +33,15 @@ while (false)
 #define RETURN_NULL_ON_ERROR(res, msg) RETURN_FALSE_ON_ERROR((res), (msg))
 
 #define RETURN_FALSE_ON_ERROR_FMT(cmd, msg, ...) RETURN_ON_ERROR_FMT(cmd, false, msg, __VA_ARGS__)
+
+template <class T>
+using Vector = std::vector<T>;
+
+template <class T>
+using Queue = std::queue<T>;
+
+template <size_t N>
+using Bitset = std::bitset<N>;
+
+using String = std::string;
+using WString = std::wstring;

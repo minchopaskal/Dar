@@ -37,8 +37,8 @@ protected:
 	
 	// Input
 	static const int keysCount = 90; // see GLFW_KEY_Z
-	std::bitset<keysCount> keyPressed;
-	std::bitset<keysCount> keyRepeated;
+	Bitset<keysCount> keyPressed;
+	Bitset<keysCount> keyRepeated;
 
 	ComPtr<ID3D12Device2> device;
 

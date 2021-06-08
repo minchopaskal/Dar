@@ -1,7 +1,7 @@
 #include "d3d12_asset_manager.h"
 
-std::wstring getAssetFullPath(const wchar_t *assetName, AssetType assetType) {
-	std::wstring path;
+WString getAssetFullPath(const wchar_t *assetName, AssetType assetType) {
+	WString path;
 
 	switch (assetType) {
 	case AssetType::shader:
