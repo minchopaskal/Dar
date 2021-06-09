@@ -22,7 +22,7 @@ VSOutput main(VSInput IN)
 	VSOutput result;
 
 	result.color = IN.color;
-	result.position = mul(MVPConstBuf.MVP, IN.position);
+	result.position = mul(IN.position, MVPConstBuf.MVP);
 	
 	return result;
 }

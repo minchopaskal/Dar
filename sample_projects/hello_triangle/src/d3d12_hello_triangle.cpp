@@ -8,7 +8,6 @@
 #include <dxgi1_6.h>
 
 #include "d3d12_asset_manager.h"
-#include "d3d12_defines.h"
 #include "d3d12_geometry.h"
 #include "d3d12_app.h"
 #include "d3d12_utils.h"
@@ -83,15 +82,17 @@ void D3D12HelloTriangle::update() {
 	// Update MVP matrices
 	float angle = static_cast<float>(totalTime * 90.0);
 	const Vec3 rotationAxis = Vec3(0, 1, 1);
-	modelMat = Mat4(1.f);
-	modelMat = glm::rotate(modelMat, glm::radians(angle), rotationAxis);
+	Mat4 modelMat = Mat4(1.f);
+	modelMat = modelMat.rotate(rotationAxis, angle);
+	modelMat = modelMat.translate({ 1, 0, 0 });
 
 	const Vec3 eyePosition = Vec3(0, 0, -10);
 	const Vec3 focusPoint  = Vec3(0, 0, 0);
 	const Vec3 upDirection = Vec3(0, 1, 0);
-	viewMat = glm::lookAtLH(eyePosition, focusPoint, upDirection);
+	Mat4 viewMat = lookAt(focusPoint, eyePosition, upDirection);
+	Mat4 projectionMat = perspective(FOV, aspectRatio, 0.1f, 100.f);
 
-	projectionMat = glm::perspectiveFovLH(FOV, float(this->width), float(this->height), 0.1f, 100.f);
+	MVP = projectionMat * viewMat * modelMat;
 }
 
 void D3D12HelloTriangle::render() {
@@ -158,7 +159,7 @@ void D3D12HelloTriangle::onKeyboardInput(int key, int action) {
 }
 
 void D3D12HelloTriangle::onMouseScroll(double xOffset, double yOffset) {
-	static const double speed = 10.f;
+	static const double speed = 500.f;
 	FOV -= speed * deltaTime * yOffset;
 	FOV = std::min(std::max(30.f, FOV), 120.f);
 }
@@ -362,8 +363,7 @@ ComPtr<ID3D12GraphicsCommandList2> D3D12HelloTriangle::populateCommandList() {
 	commandList->IASetIndexBuffer(&indexBufferView);
 
 	commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
-	Mat4 mvp = projectionMat * viewMat * modelMat;
-	commandList->SetGraphicsRoot32BitConstants(0, sizeof(Mat4) / sizeof(float), &mvp[0], 0);
+	commandList->SetGraphicsRoot32BitConstants(0, sizeof(Mat4) / sizeof(float), MVP.data, 0);
 	commandList->DrawIndexedInstanced(3, 1, 0, 0, 0);
 
 	CD3DX12_RESOURCE_BARRIER resBarrierRTtoPresent = CD3DX12_RESOURCE_BARRIER::Transition(
