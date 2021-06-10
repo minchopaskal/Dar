@@ -1,6 +1,6 @@
 struct ModelViewProjection
 {
-	matrix MVP;
+	row_major matrix MVP;
 };
  
 ConstantBuffer<ModelViewProjection> MVPConstBuf : register(b0);
@@ -22,7 +22,7 @@ VSOutput main(VSInput IN)
 	VSOutput result;
 
 	result.color = IN.color;
-	result.position = mul(IN.position, MVPConstBuf.MVP);
+	result.position = mul(MVPConstBuf.MVP, IN.position);
 	
 	return result;
 }

@@ -2,6 +2,16 @@
 
 #include <cmath>
 
+#ifdef min
+#undef min
+#endif
+
+#ifdef max
+#undef max
+#endif
+
+namespace dmath {
+
 template <class T>
 T radians(T degrees) {
 	return degrees * static_cast<T>(0.01745329251994329576923690768489);
@@ -10,6 +20,16 @@ T radians(T degrees) {
 template <class T>
 T degrees(T radians) {
 	return radians * static_cast<T>(57.295779513082320876798154814105);
+}
+
+template <class T>
+T max(T v1, T v2) {
+	return v1 > v2 ? v1 : v2;
+}
+
+template <class T>
+T min(T v1, T v2) {
+	return v1 < v2 ? v1 : v2;
 }
 
 #pragma pack(push, 1)
@@ -34,9 +54,9 @@ struct Vec2t {
 	Vec2t(T x) : x(x), y(x) { }
 
 	Vec2t(T x, T y) : x(x), y(y) { }
-	
+
 	Vec2t(const Vec2t &other) : x(other.x), y(other.y) { }
-	Vec2t& operator=(const Vec2t &other) { 
+	Vec2t& operator=(const Vec2t &other) {
 		if (this == &other) {
 			return this;
 		}
@@ -60,7 +80,7 @@ struct Vec2t {
 	}
 
 	Vec2t operator/(T v) const {
-		return Vec2t{ x / v, y / v};
+		return Vec2t{ x / v, y / v };
 	}
 
 	Vec2t operator-() const {
@@ -87,11 +107,6 @@ struct Vec2t {
 		return *this / lenght();
 	}
 };
-
-template <class T>
-Vec2t<T> operator*(T f, Vec2t<T> v) {
-	return Vec2t{ v.x * f, v.y * f };
-}
 
 template <typename T>
 struct Vec3t {
@@ -174,11 +189,6 @@ struct Vec3t {
 	}
 };
 
-template <class T>
-Vec3t<T> operator*(T f, Vec3t<T> v) {
-	return Vec3t<T>{ v.x * f, v.y * f, v.z * f };
-}
-
 template <typename T>
 struct Vec4t {
 	union {
@@ -256,11 +266,6 @@ struct Vec4t {
 	}
 };
 
-template <class VecT>
-VecT normalized(const VecT vec) {
-	return vec.normalized();
-}
-
 template <class T>
 struct Mat4t {
 	using VecType = Vec4t<T>;
@@ -296,7 +301,7 @@ struct Mat4t {
 
 	Mat4t(const VecType &row1, const VecType &row2, const VecType &row3, const VecType &row4) :
 		row1(row1), row2(row2), row3(row3), row4(row4) {
-	
+
 	}
 
 	Mat4t(const Mat4t &other) {
@@ -340,7 +345,7 @@ struct Mat4t {
 		Vec3t<T> isin = sin * axis;
 
 		Mat4t result(one);
-		
+
 		result.data[0] = cos + icos.x * axis.x;
 		result.data[1] = icos.x * axis.y - isin.z;
 		result.data[2] = icos.x * axis.z + isin.y;
@@ -357,7 +362,7 @@ struct Mat4t {
 	}
 
 	Mat4t scale(const Vec3t<T> &scalar) {
-		return Mat4t {
+		return Mat4t{
 			row1 * scalar.x,
 			row2 * scalar.y,
 			row3 * scalar.z,
@@ -371,38 +376,16 @@ private:
 	}
 };
 
-template <class T>
-Mat4t<T> operator*(const Mat4t<T> &m1, const Mat4t<T> &m2) {
-	using VecType = Mat4t<T>::VecType;
+} // namespace /*Packed*/
+#pragma pack(pop)
 
-	Mat4t<T> m = m2.transpose();
-	return Mat4t<T> {
-		VecType { m1.row1.dot(m.row1), m1.row1.dot(m.row2), m1.row1.dot(m.row3), m1.row1.dot(m.row4) },
-		VecType { m1.row2.dot(m.row1), m1.row2.dot(m.row2), m1.row2.dot(m.row3), m1.row2.dot(m.row4) },
-		VecType { m1.row3.dot(m.row1), m1.row3.dot(m.row2), m1.row3.dot(m.row3), m1.row3.dot(m.row4) },
-		VecType { m1.row4.dot(m.row1), m1.row4.dot(m.row2), m1.row4.dot(m.row3), m1.row4.dot(m.row4) },
-	};
-}
-
-template <class T>
-Vec4t<T> operator*(const Mat4t<T> &m, const Vec4t<T> &v) {
-	return Vec3t<T> {
-		m.row1.dot(v), m.row2.dot(v), m.row3.dot(v)
-	};
-}
-
-template <class T>
-Vec3t<T> operator*(const Mat4t<T> &m, const Vec3t<T> &vec) {
-	auto v = Vec4t<T>(vec);
-	v.w = T(1);
-	return Vec3t<T> {
-		m.row1.dot(v), m.row2.dot(v), m.row3.dot(v)
-	};
+template <class VecT>
+VecT normalized(const VecT vec) {
+	return vec.normalized();
 }
 
 template <class T>
 Mat4t<T> lookAt(const Vec3t<T> &target, const Vec3t<T> &pos, const Vec3t<T> &upTmp) {
-
 	// LH view
 	const Vec3t<T> in = (target - pos).normalized();
 	const Vec3t<T> right = upTmp.cross(in);
@@ -411,9 +394,9 @@ Mat4t<T> lookAt(const Vec3t<T> &target, const Vec3t<T> &pos, const Vec3t<T> &upT
 	using VecType = Mat4t<T>::VecType;
 	return Mat4t<T> {
 		VecType(right, -right.dot(pos)),
-		VecType(up, -up.dot(pos)),
-		VecType(in, -in.dot(pos)),
-		VecType(T(0), T(0), T(0), T(1))
+			VecType(up, -up.dot(pos)),
+			VecType(in, -in.dot(pos)),
+			VecType(T(0), T(0), T(0), T(1))
 	};
 }
 
@@ -446,16 +429,54 @@ Mat4t<T> orthographic() {
 	return Mat4t<T>(T(1));
 }
 
-} // namespace /*Packed*/
-#pragma pack(pop)
+} // namespace dmath
 
-using Vec2 = Vec2t<float>;
-using Vec3 = Vec3t<float>;
-using Vec4 = Vec4t<float>;
+template <class T>
+dmath::Vec2t<T> operator*(T f, dmath::Vec2t<T> v) {
+	return Vec2t{ v.x * f, v.y * f };
+}
 
-using Vec2i = Vec2t<int>;
-using Vec3i = Vec3t<int>;
-using Vec4i = Vec4t<int>;
+template <class T>
+dmath::Vec3t<T> operator*(T f, dmath::Vec3t<T> v) {
+	return dmath::Vec3t<T>{ v.x * f, v.y * f, v.z * f };
+}
 
-using Mat = Mat4t<float>;
+template <class T>
+dmath::Mat4t<T> operator*(const dmath::Mat4t<T> &m1, const dmath::Mat4t<T> &m2) {
+	using VecType = dmath::Mat4t<T>::VecType;
+
+	dmath::Mat4t<T> m = m2.transpose();
+	return dmath::Mat4t<T> {
+		VecType{ m1.row1.dot(m.row1), m1.row1.dot(m.row2), m1.row1.dot(m.row3), m1.row1.dot(m.row4) },
+		VecType{ m1.row2.dot(m.row1), m1.row2.dot(m.row2), m1.row2.dot(m.row3), m1.row2.dot(m.row4) },
+		VecType{ m1.row3.dot(m.row1), m1.row3.dot(m.row2), m1.row3.dot(m.row3), m1.row3.dot(m.row4) },
+		VecType{ m1.row4.dot(m.row1), m1.row4.dot(m.row2), m1.row4.dot(m.row3), m1.row4.dot(m.row4) },
+	};
+}
+
+template <class T>
+dmath::Vec4t<T> operator*(const dmath::Mat4t<T> &m, const dmath::Vec4t<T> &v) {
+	return Vec3t<T> {
+		m.row1.dot(v), m.row2.dot(v), m.row3.dot(v)
+	};
+}
+
+template <class T>
+dmath::Vec3t<T> operator*(const dmath::Mat4t<T> &m, const dmath::Vec3t<T> &vec) {
+	auto v = Vec4t<T>(vec);
+	v.w = T(1);
+	return Vec3t<T> {
+		m.row1.dot(v), m.row2.dot(v), m.row3.dot(v)
+	};
+}
+
+using Vec2 = dmath::Vec2t<float>;
+using Vec3 = dmath::Vec3t<float>;
+using Vec4 = dmath::Vec4t<float>;
+
+using Vec2i = dmath::Vec2t<int>;
+using Vec3i = dmath::Vec3t<int>;
+using Vec4i = dmath::Vec4t<int>;
+
+using Mat  = dmath::Mat4t<float>;
 using Mat4 = Mat;

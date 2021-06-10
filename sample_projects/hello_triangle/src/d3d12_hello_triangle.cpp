@@ -81,16 +81,16 @@ void D3D12HelloTriangle::update() {
 
 	// Update MVP matrices
 	float angle = static_cast<float>(totalTime * 90.0);
-	const Vec3 rotationAxis = Vec3(0, 1, 1);
+	const Vec3 rotationAxis = Vec3(0, 1, 0);
 	Mat4 modelMat = Mat4(1.f);
 	modelMat = modelMat.rotate(rotationAxis, angle);
 	modelMat = modelMat.translate({ 1, 0, 0 });
 
-	const Vec3 eyePosition = Vec3(0, 0, -10);
-	const Vec3 focusPoint  = Vec3(0, 0, 0);
+	const Vec3 eyePosition = Vec3(1, 0, -10);
+	const Vec3 focusPoint  = Vec3(1, 0, 0);
 	const Vec3 upDirection = Vec3(0, 1, 0);
-	Mat4 viewMat = lookAt(focusPoint, eyePosition, upDirection);
-	Mat4 projectionMat = perspective(FOV, aspectRatio, 0.1f, 100.f);
+	Mat4 viewMat = dmath::lookAt(focusPoint, eyePosition, upDirection);
+	Mat4 projectionMat = dmath::perspective(FOV, aspectRatio, 0.1f, 100.f);
 
 	MVP = projectionMat * viewMat * modelMat;
 }
@@ -160,8 +160,8 @@ void D3D12HelloTriangle::onKeyboardInput(int key, int action) {
 
 void D3D12HelloTriangle::onMouseScroll(double xOffset, double yOffset) {
 	static const double speed = 500.f;
-	FOV -= speed * deltaTime * yOffset;
-	FOV = std::min(std::max(30.f, FOV), 120.f);
+	FOV -= float(speed * deltaTime * yOffset);
+	FOV = dmath::min(dmath::max(30.f, FOV), 120.f);
 }
 
 int D3D12HelloTriangle::loadAssets() {
@@ -274,9 +274,9 @@ int D3D12HelloTriangle::loadAssets() {
 	/* Create and copy data to the vertex buffer*/
 	{
 		static Vertex triangleVertices[] = {
-			{ {  0.0f,  1.5f, 0.0f, 1.f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
-			{ {  1.5f, -1.5f, 0.0f, 1.f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
-			{ { -1.5f, -1.5f, 0.0f, 1.f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
+			{ {   0.0f,  0.5f * aspectRatio, 0.0f, 1.f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+			{ {  0.5f, -0.5f * aspectRatio, 0.0f, 1.f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+			{ { -0.5f, -0.5f * aspectRatio, 0.0f, 1.f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
 		};
 		const UINT vertexBufferSize = sizeof(triangleVertices);
 		CPUBuffer cpuTriangleVertexBuffer = {
