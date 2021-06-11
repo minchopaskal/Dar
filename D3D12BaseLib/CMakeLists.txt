@@ -7,9 +7,8 @@ set(INCLUDE_DIR ${LIB_SOURCE_DIR}/include)
 set(SRC_DIR ${LIB_SOURCE_DIR}/src)
 set(RESOURCES_DIR ${LIB_SOURCE_DIR}/res)
 set(SHADERS_DIR ${RESOURCES_DIR}/shaders)
-set(SUBMODULE_DIR ${LIB_SOURCE_DIR}/third_party)
-set(GLM_DIR ${SUBMODULE_DIR}/glm)
-set(LIB_DIR ${LIB_SOURCE_DIR}/lib)
+set(SUBMODULE_DIR ${PROJECT_SOURCE_DIR}/third_party)
+set(LIB_DIR ${PROJECT_SOURCE_DIR}/lib)
 
 set(HEADERS
 	${INCLUDE_DIR}/d3d12_defines.h
@@ -30,8 +29,6 @@ set(SOURCES
 	${SRC_DIR}/d3d12_pipeline_state.cpp
 )
 
-# Include only the files one wants to be seen in the IDE
-# Each file that must linked goes to SUBMODULES_INTERNAL
 set(SUBMODULES
 	${SUBMODULE_DIR}/d3dx12.h
 )
@@ -58,6 +55,7 @@ target_compile_definitions(
 )
 
 target_link_directories(D3D12BaseLib PRIVATE ${LIB_DIR})
+
 target_link_libraries(D3D12BaseLib "d3d12.lib" "d3dcompiler.lib" "dxgi.lib" "dxguid.lib" "glfw3.lib")
 
 target_include_directories(
@@ -65,29 +63,4 @@ target_include_directories(
 	PRIVATE
 	${INCLUDE_DIR}
 	${SUBMODULE_DIR}
-	${GLM_DIR}
 )
-
-# This was redundant since target_link_libraries(D3D12BaseLib) is sufficient
-# if (COMPILE_SAMPLE_PROJECTS)
-# 	macro(SUBDIRLIST result curdir)
-# 		FILE(GLOB children RELATIVE ${curdir} ${curdir}/*)
-# 		SET(dirlist "")
-# 		foreach (child ${children})
-# 			if (IS_DIRECTORY ${curdir}/${child})
-# 				LIST(APPEND dirlist ${curdir}/${child})
-# 			endif()
-# 		endforeach()
-# 		SET(${result} ${dirlist})
-# 	endmacro()
-# 
-# 	set(SAMPLE_PROJECTS_DIR ${PROJECT_SOURCE_DIR}/sample_projects)
-# 	SUBDIRLIST(SAMPLE_PROJECTS ${SAMPLE_PROJECTS_DIR})
-# 
-# 	foreach(SAMPLE_PROJECT ${SAMPLE_PROJECTS})
-# 		add_custom_command(TARGET D3D12BaseLib POST_BUILD
-# 			COMMAND ${CMAKE_COMMAND} -E copy
-# 			$<TARGET_FILE_DIR:D3D12BaseLib>/D3D12BaseLib.lib ${SAMPLE_PROJECT}/lib/d3d12base.lib
-# 		)
-# 	endforeach()
-# endif()

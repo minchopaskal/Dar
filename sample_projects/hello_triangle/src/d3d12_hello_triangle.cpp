@@ -214,7 +214,7 @@ int D3D12HelloTriangle::loadAssets() {
 
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
-			getAssetFullPath(L"basic_vs.cso", AssetType::shader).c_str(),
+			getAssetFullPath(L"basic_vs.bin", AssetType::shader).c_str(),
 			&vertexShader
 		),
 			"Failed to load vertex shader!\n"
@@ -222,7 +222,7 @@ int D3D12HelloTriangle::loadAssets() {
 
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
-			getAssetFullPath(L"basic_ps.cso", AssetType::shader).c_str(),
+			getAssetFullPath(L"basic_ps.bin", AssetType::shader).c_str(),
 			&pixelShader
 		),
 			"Failed to load pixel shader!\n"
