@@ -48,6 +48,8 @@ protected:
 	ComPtr<IDXGISwapChain4> swapChain;
 	ComPtr<ID3D12Resource> backBuffers[frameCount];
 
+	D3D12_FEATURE_DATA_ROOT_SIGNATURE rootSignatureFeatureData;
+
 	UINT frameIndex;
 
 	char title[256];

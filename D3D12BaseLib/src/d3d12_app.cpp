@@ -238,6 +238,12 @@ int D3D12App::init() {
 
 	frameIndex = swapChain->GetCurrentBackBufferIndex();
 
+	// cache root signature's feature version
+	rootSignatureFeatureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
+	if (FAILED(device->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &rootSignatureFeatureData, sizeof(rootSignatureFeatureData)))) {
+		rootSignatureFeatureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
+	}
+
 	return true;
 }
 

@@ -8,10 +8,7 @@ template <class DataType, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE D3D12Type>
 struct alignas(void*) PipelineStateStreamToken {
 	PipelineStateStreamToken() { }
 
-	PipelineStateStreamToken(const DataType &data) {
-		token = data;
-		type = D3D12Type;
-	}
+	PipelineStateStreamToken(const DataType &data) : token(data), type(D3D12Type) { }
 
 	PipelineStateStreamToken& operator=(DataType &data) {
 		token = data;
@@ -28,6 +25,10 @@ struct alignas(void*) PipelineStateStreamToken {
 
 	void* getData() {
 		return this;
+	}
+
+	UINT64 getUnderlyingSize() const {
+		return sizeof(DataType);
 	}
 
 private:
@@ -47,7 +48,7 @@ using StreamOutputDescToken = PipelineStateStreamToken<D3D12_STREAM_OUTPUT_DESC,
 using HullShaderToken = PipelineStateStreamToken<D3D12_SHADER_BYTECODE, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_HS>;
 using DomainShaderToken = PipelineStateStreamToken<D3D12_SHADER_BYTECODE, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_DS>;
 using PixelShaderToken = PipelineStateStreamToken<D3D12_SHADER_BYTECODE, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_PS>;
-using AssemblyShaderToken = PipelineStateStreamToken<D3D12_SHADER_BYTECODE, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_AS>;
+using AmplificationShaderToken = PipelineStateStreamToken<D3D12_SHADER_BYTECODE, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_AS>;
 using MeshShaderToken = PipelineStateStreamToken<D3D12_SHADER_BYTECODE, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_MS>;
 using ComputeShaderToken = PipelineStateStreamToken<D3D12_SHADER_BYTECODE, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_CS>;
 using BlendDescToken = PipelineStateStreamToken<D3D12_BLEND_DESC, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_BLEND>;
@@ -72,8 +73,45 @@ struct PipelineStateStream {
 	}
 
 	void* getData();
-	size_t getSize();
+	size_t getSize() const;
 
 private:
 	Vector<UINT8> data;
+};
+
+enum ShaderInfoFlags : UINT8 {
+	sif_useGeometry = (1<<0),
+	sif_useDomain = (1<<1),
+	sif_useHull = (1<<2),
+	sif_useCompute = (1<<3),
+	sif_useMesh = (1<<4),
+	sif_useAmplification = (1<<5),
+	sif_useVertex = (1<<6) // TODO: depricate by using bindless buffers
+};
+
+struct PipelineStateDesc {
+	WString shaderName = L""; ///< Base name of the shader files
+	D3D12_INPUT_ELEMENT_DESC *inputLayouts = nullptr; ///< Input layout descriptions. Ignored if nullptr
+	D3D12_ROOT_SIGNATURE_FLAGS *rootSignatureFlags = nullptr; ///< Additional flags for the root signature. Ignored if nullptr.
+	D3D_ROOT_SIGNATURE_VERSION maxVersion = D3D_ROOT_SIGNATURE_VERSION_1_0; ///< Root signature features version. Used for root signature creation.
+	UINT numInputLayouts = 0; ///< Number of input layouts.
+	UINT numConstantBufferViews; ///< Number of constant buffer views. Used for root signature creation.
+	UINT8 shadersMask = 0; ///< Mask indicating which types of shaders will be used.
+};
+
+struct PipelineState {
+	PipelineState();
+
+	bool init(const ComPtr<ID3D12Device2> &device, PipelineStateStream &pss);
+	bool init(const ComPtr<ID3D12Device2> &device, const PipelineStateDesc &desc);
+
+	ID3D12PipelineState* getPipelineState();
+	ID3D12RootSignature* getRootSignature();
+
+private:
+	bool initPipeline(const ComPtr<ID3D12Device2> &device, PipelineStateStream &pss);
+
+private:
+	ComPtr<ID3D12PipelineState> pipelineState;
+	ComPtr<ID3D12RootSignature> rootSignature;
 };
