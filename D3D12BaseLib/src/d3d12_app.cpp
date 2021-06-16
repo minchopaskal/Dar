@@ -49,7 +49,7 @@ void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
 }
 
 void windowPosCallback(GLFWwindow *window, int xpos, int ypos) {
-	int a = 5;
+	app->onWindowPosChange(xpos, ypos);
 }
 
 void processKeyboardInput(GLFWwindow *window) {
@@ -191,6 +191,22 @@ int D3D12App::init() {
 		hardwareAdapter.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&device)),
 		"Failed to create device!\n"
 	);
+
+	D3D12_FEATURE_DATA_SHADER_MODEL shaderModel{ D3D_SHADER_MODEL_6_6 };
+	RETURN_FALSE_ON_ERROR(
+		device->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &shaderModel, sizeof(shaderModel)),
+		"Device does not support shader model 6.6!\n"
+	);
+
+	D3D12_FEATURE_DATA_D3D12_OPTIONS options = { };
+	RETURN_FALSE_ON_ERROR(
+		device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &options, sizeof(options)),
+		"Failed to check features support!\n"
+	);
+
+	if (options.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_3) {
+		return false;
+	}
 
 	/* Create command queue */
 	commandQueueDirect.init(device);

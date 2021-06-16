@@ -12,11 +12,25 @@ struct CPUBuffer {
 };
 
 int updateBufferResource(
-	ComPtr<ID3D12Device2> device,
-	ComPtr<ID3D12GraphicsCommandList2> commandList,
+	ComPtr<ID3D12Device2> &device,
+	ComPtr<ID3D12GraphicsCommandList2> &commandList,
 	ID3D12Resource **destinationResource,
 	ID3D12Resource **stagingBuffer,
 	CPUBuffer cpuBuffer,
-	D3D12_RESOURCE_FLAGS flags,
-	D3D12_RESOURCE_STATES dstDesiredState
+	D3D12_RESOURCE_FLAGS flags
 );
+
+int updateTex2DResource(
+	ComPtr<ID3D12Device2> &device,
+	ComPtr<ID3D12GraphicsCommandList2> &commandList,
+	ID3D12Resource **destinationResource,
+	ID3D12Resource **stagingBuffer,
+	CPUBuffer cpuBuffer,
+	UINT width,
+	UINT height,
+	DXGI_FORMAT format,
+	D3D12_RESOURCE_FLAGS flags
+);
+
+WString getCommandQueueNameByType(D3D12_COMMAND_LIST_TYPE type);
+WString getCommandListNameByType(D3D12_COMMAND_LIST_TYPE type);

@@ -5,7 +5,7 @@
 #include <chrono>
 
 #include "d3d12_asset_manager.h"
-#include "d3d12_geometry.h"
+#include "geometry.h"
 #include "d3d12_app.h"
 #include "d3d12_utils.h"
 #include "d3d12_pipeline_state.h"
@@ -13,6 +13,39 @@
 // TODO: To make things simple, child projects should not rely on third party software
 // Expose some input controller interface or something like that.
 #include <glfw/glfw3.h> // keyboard input
+
+// For loading the texture image
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_WINDOWS_UTF8
+#include "stb_image.h"
+
+struct ImageData {
+	void *data = nullptr;
+	int width = 0;
+	int height = 0;
+	int ncomp = 0;
+
+	operator CPUBuffer() {
+		return CPUBuffer{
+			data,
+			width * height * UINT64(ncomp)
+		};
+	}
+};
+
+ImageData loadImage(const wchar_t *name) {
+	WString pathStr = getAssetFullPath(name, AssetType::Texture);
+	const wchar_t *path = pathStr.c_str();
+	const size_t bufferlen = wcslen(path) * sizeof(wchar_t);
+	char *pathUTF8 = new char[bufferlen + 1];
+	stbi_convert_wchar_to_utf8(pathUTF8, bufferlen, path);
+
+	ImageData result = {};
+	result.data = stbi_load(pathUTF8, &result.width, &result.height, nullptr, 4);
+	result.ncomp = 4;
+
+	return result;
+}
 
 D3D12TexturedCube::D3D12TexturedCube(UINT width, UINT height, const String &windowTitle) :
 	D3D12App(width, height, windowTitle.c_str()),
@@ -36,7 +69,6 @@ int D3D12TexturedCube::init() {
 	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 	rtvHeapDesc.NumDescriptors = frameCount;
 	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	// TODO: 0 since using only one device. Look into that.
 	rtvHeapDesc.NodeMask = 0;
 
 	RETURN_FALSE_ON_ERROR(
@@ -50,7 +82,6 @@ int D3D12TexturedCube::init() {
 	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
 	dsvHeapDesc.NumDescriptors = 1;
 	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	// TODO: 0 since using only one device. Look into that.
 	dsvHeapDesc.NodeMask = 0;
 
 	RETURN_FALSE_ON_ERROR(
@@ -66,6 +97,16 @@ int D3D12TexturedCube::init() {
 		return false;
 	}
 
+	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
+	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	srvHeapDesc.NumDescriptors = numTextures;
+	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	srvHeapDesc.NodeMask = 0;
+	RETURN_FALSE_ON_ERROR(
+		device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&srvHeap)),
+		"Failed to create DSV descriptor heap!\n"
+	);
+
 	return true;
 }
 
@@ -78,29 +119,32 @@ void D3D12TexturedCube::update() {
 
 	// Update MVP matrices
 	float angle = static_cast<float>(totalTime * 90.0);
-	const Vec3 rotationAxis = Vec3(0, 1, 0);
+	const Vec3 rotationAxis = Vec3(0, 1, 1);
 	Mat4 modelMat = Mat4(1.f);
 	modelMat = modelMat.rotate(rotationAxis, angle);
-	modelMat = modelMat.translate({ 1, 0, 0 });
+	modelMat = modelMat.translate({ 0, 0, 0 });
 
-	const Vec3 eyePosition = Vec3(1, 0, -10);
-	const Vec3 focusPoint  = Vec3(1, 0, 0);
+	const Vec3 eyePosition = Vec3(0, 0, -10);
+	const Vec3 focusPoint  = Vec3(0, 0, 0);
 	const Vec3 upDirection = Vec3(0, 1, 0);
 	Mat4 viewMat = dmath::lookAt(focusPoint, eyePosition, upDirection);
 	Mat4 projectionMat = dmath::perspective(FOV, aspectRatio, 0.1f, 100.f);
 
 	MVP = projectionMat * viewMat * modelMat;
 
-	auto commandList = commandQueueCopy.getCommandList();
+	// We know for sure that the MVP buffer for the current `frameIndex` is not in use
+	// since we waited for the fence for the current `frameIndex` at the end of the previous call to render()
+	MVPcb[frameIndex].Reset();
+
+	ComPtr<ID3D12GraphicsCommandList2> commandList = commandQueueCopy.getCommandList();
 	ComPtr<ID3D12Resource> stagingBuffer;
 	updateBufferResource(
 		device,
 		commandList,
-		&MVPcb,
+		&MVPcb[frameIndex],
 		&stagingBuffer,
 		{ &MVP, sizeof(Mat4) },
-		D3D12_RESOURCE_FLAG_NONE,
-		D3D12_RESOURCE_STATE_INDEX_BUFFER
+		D3D12_RESOURCE_FLAG_NONE
 	);
 	auto fenceVal = commandQueueCopy.executeCommandList(commandList);
 	commandQueueCopy.waitForFenceValue(fenceVal);
@@ -135,6 +179,7 @@ void D3D12TexturedCube::onResize(int w, int h) {
 	for (int i = 0; i < frameCount; ++i) {
 		backBuffers[i].Reset();
 	}
+	depthBuffer.Reset();
 
 	DXGI_SWAP_CHAIN_DESC scDesc = { };
 	RETURN_ON_ERROR(
@@ -177,16 +222,19 @@ void D3D12TexturedCube::onMouseScroll(double xOffset, double yOffset) {
 
 int D3D12TexturedCube::loadAssets() {
 	D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 	};
 
+	CD3DX12_STATIC_SAMPLER_DESC sampler{ D3D12_FILTER_MIN_MAG_MIP_POINT };
 	PipelineStateDesc psDesc = {};
 	psDesc.shaderName = L"basic";
 	psDesc.shadersMask = sif_useVertex;
 	psDesc.inputLayouts = inputLayouts;
+	psDesc.staticSamplerDesc = &sampler;
 	psDesc.numInputLayouts = _countof(inputLayouts);
 	psDesc.numConstantBufferViews = 1;
+	psDesc.numTextures = numTextures;
 	psDesc.maxVersion = rootSignatureFeatureData.HighestVersion;
 	if (!pipelineState.init(device, psDesc)) {
 		return false;
@@ -194,21 +242,39 @@ int D3D12TexturedCube::loadAssets() {
 
 	/* Create and copy data to the vertex buffer*/
 	{
-		static Vertex triangleVertices[] = {
-			{ {   0.0f,  0.5f * aspectRatio, 0.0f, 1.f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
-			{ {  0.5f, -0.5f * aspectRatio, 0.0f, 1.f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
-			{ { -0.5f, -0.5f * aspectRatio, 0.0f, 1.f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
+		static Vertex cubeVertices[] = {
+			{ {-1.0f, -1.0f, -1.0f }, { 1.0f, 0.0f } }, // 0
+			{ {-1.0f,  1.0f, -1.0f }, { 1.0f, 1.0f } }, // 1
+			{ { 1.0f,  1.0f, -1.0f }, { 0.0f, 1.0f } }, // 2
+			{ { 1.0f, -1.0f, -1.0f }, { 0.0f, 0.0f } }, // 3
+			{ {-1.0f, -1.0f,  1.0f }, { 0.0f, 0.0f } }, // 4
+			{ {-1.0f,  1.0f,  1.0f }, { 0.0f, 1.0f } }, // 5
+			{ { 1.0f,  1.0f,  1.0f }, { 1.0f, 1.0f } }, // 6
+			{ { 1.0f, -1.0f,  1.0f }, { 1.0f, 0.0f } }, // 7
+			
+			{ {-1.0f,  1.0f, -1.0f }, { 1.0f, 0.0f } }, // 8
+			{ { 1.0f,  1.0f, -1.0f }, { 0.0f, 0.0f } }, // 9
+
+			{ {-1.0f, -1.0f, -1.0f }, { 0.0f, 1.0f } }, // 10
+			{ { 1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f } }, // 11
 		};
-		const UINT vertexBufferSize = sizeof(triangleVertices);
-		CPUBuffer cpuTriangleVertexBuffer = {
-			triangleVertices,
+		const UINT vertexBufferSize = sizeof(cubeVertices);
+		CPUBuffer cpuVertexBuffer = {
+			cubeVertices,
 			vertexBufferSize
 		};
 
-		static WORD triangleIndices[] = { 0, 1, 2 };
-		const UINT indexBufferSize = sizeof(triangleIndices);
-		CPUBuffer cpuTriangleIndexBuffer = {
-			triangleIndices,
+		static WORD cubeIndices[] = { 
+			0, 1, 2, 0, 2, 3,
+			4, 6, 5, 4, 7, 6,
+			4, 5, 1, 4, 1, 0,
+			3, 2, 6, 3, 6, 7,
+			8, 5, 6, 1, 6, 9,
+			4, 10, 11, 4, 11, 7
+		};
+		const UINT indexBufferSize = sizeof(cubeIndices);
+		CPUBuffer cpuIndexBuffer = {
+			cubeIndices,
 			indexBufferSize
 		};
 
@@ -220,9 +286,8 @@ int D3D12TexturedCube::loadAssets() {
 			commandList,
 			&vertexBuffer,
 			&stagingVertexBuffer,
-			cpuTriangleVertexBuffer,
-			D3D12_RESOURCE_FLAG_NONE,
-			D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER
+			cpuVertexBuffer,
+			D3D12_RESOURCE_FLAG_NONE
 		)) {
 			return false;
 		}
@@ -233,12 +298,35 @@ int D3D12TexturedCube::loadAssets() {
 			commandList,
 			&indexBuffer,
 			&stagingIndexBuffer,
-			cpuTriangleIndexBuffer,
-			D3D12_RESOURCE_FLAG_NONE,
-			D3D12_RESOURCE_STATE_INDEX_BUFFER
+			cpuIndexBuffer,
+			D3D12_RESOURCE_FLAG_NONE
 			)) {
 			return false;
 		}
+
+		/* Load the texture */
+		ImageData texData[numTextures];
+		ComPtr<ID3D12Resource> stagingImageBuffers[numTextures];
+		for (int i = 0; i < numTextures; ++i) {
+			texData[i] = loadImage(L"box.jpg");
+			if (!updateTex2DResource(
+				device,
+				commandList,
+				&textures[i],
+				&stagingImageBuffers[i],
+				texData[i],
+				texData[i].width,
+				texData[i].height,
+				DXGI_FORMAT_R8G8B8A8_UINT,
+				D3D12_RESOURCE_FLAG_NONE
+			)) {
+				return false;
+			}
+		}
+
+		vertexBuffer->SetName(L"VertexBuffer");
+		indexBuffer->SetName(L"IndexBuffer");
+		textures[0]->SetName(L"Textures[0]");
 
 		UINT64 fenceVal = commandQueueCopy.executeCommandList(commandList);
 		commandQueueCopy.waitForFenceValue(fenceVal);
@@ -250,6 +338,19 @@ int D3D12TexturedCube::loadAssets() {
 		indexBufferView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
 		indexBufferView.SizeInBytes = indexBufferSize;
 		indexBufferView.Format = DXGI_FORMAT_R16_UINT;
+
+		SIZE_T srvHeapHandleSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		D3D12_CPU_DESCRIPTOR_HANDLE handle = srvHeap->GetCPUDescriptorHandleForHeapStart();
+		for (int i = 0; i < numTextures; ++i) {
+			D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+			srvDesc.Format = texData[i].ncomp == 4 ? DXGI_FORMAT_R8G8B8A8_UNORM : DXGI_FORMAT_UNKNOWN;
+			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+			srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+			srvDesc.Texture2D.MipLevels = 1;
+
+			device->CreateShaderResourceView(textures[i].Get(), &srvDesc, handle);
+			handle.ptr += srvHeapHandleSize;
+		}
 	}
 
 	return true;
@@ -259,7 +360,20 @@ ComPtr<ID3D12GraphicsCommandList2> D3D12TexturedCube::populateCommandList() {
 	ComPtr<ID3D12GraphicsCommandList2> commandList = commandQueueDirect.getCommandList();
 
 	commandList->SetPipelineState(pipelineState.getPipelineState());
+
+	static bool staticResStateChange = false;
+	if (!staticResStateChange) {
+		D3D12_RESOURCE_BARRIER copyToPixel = CD3DX12_RESOURCE_BARRIER::Transition(
+			textures[0].Get(),
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+		);
+		commandList->ResourceBarrier(1, &copyToPixel);
+	}
+	commandList->SetDescriptorHeaps(1, srvHeap.GetAddressOf());
+
 	commandList->SetGraphicsRootSignature(pipelineState.getRootSignature());
+
 	commandList->RSSetViewports(1, &viewport);
 	commandList->RSSetScissorRects(1, &scissorRect);
 
@@ -280,12 +394,37 @@ ComPtr<ID3D12GraphicsCommandList2> D3D12TexturedCube::populateCommandList() {
 	commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
 	
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	// TODO: this only needs to be done once for the vertex and index buffer so we need some sort of a resource tracking mechanism
+	if (!staticResStateChange) {
+		CD3DX12_RESOURCE_BARRIER copyToBar[2];
+		copyToBar[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+			vertexBuffer.Get(),
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER
+		);
+		copyToBar[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+			indexBuffer.Get(),
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			D3D12_RESOURCE_STATE_INDEX_BUFFER
+		);
+		commandList->ResourceBarrier(2, copyToBar);
+		staticResStateChange = true;
+	}
+
+	D3D12_RESOURCE_BARRIER copyToConst = CD3DX12_RESOURCE_BARRIER::Transition(
+		MVPcb[frameIndex].Get(),
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER
+	);
+	commandList->ResourceBarrier(1, &copyToConst);
+
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
 	commandList->IASetIndexBuffer(&indexBufferView);
-
 	commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
-	commandList->SetGraphicsRootConstantBufferView(0, MVPcb->GetGPUVirtualAddress());
-	commandList->DrawIndexedInstanced(3, 1, 0, 0, 0);
+	commandList->SetGraphicsRootConstantBufferView(0, MVPcb[frameIndex]->GetGPUVirtualAddress());
+
+	commandList->DrawIndexedInstanced(36, 1, 0, 0, 0);
 
 	CD3DX12_RESOURCE_BARRIER resBarrierRTtoPresent = CD3DX12_RESOURCE_BARRIER::Transition(
 		backBuffers[frameIndex].Get(),

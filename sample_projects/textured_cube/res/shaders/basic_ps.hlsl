@@ -1,9 +1,12 @@
 struct PSInput
 {
-	float4 color : COLOR;
+	float2 uv : TEXCOORD;
 };
 
-float4 main(PSInput input) : SV_TARGET
+SamplerState Sampler : register(s0);
+
+float4 main(PSInput IN) : SV_TARGET
 {
-	return input.color;
+	Texture2D<float4> tex = ResourceDescriptorHeap[0];
+	return tex.Sample(Sampler, IN.uv);
 }

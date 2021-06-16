@@ -1,6 +1,7 @@
 #include "d3d12_command_queue.h"
 
 #include "d3d12_defines.h"
+#include "d3d12_utils.h"
 
 CommandQueue::CommandQueue(D3D12_COMMAND_LIST_TYPE type) :
 	device(nullptr),
@@ -18,6 +19,8 @@ void CommandQueue::init(ComPtr<ID3D12Device2> device) {
 		device->CreateCommandQueue(&cqDesc, IID_PPV_ARGS(&commandQueue)), ,
 		"Failed to create command queue!\n"
 	);
+
+	commandQueue->SetName(getCommandQueueNameByType(type).c_str());
 
 	RETURN_ON_ERROR(
 		device->CreateFence(fenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)), ,
@@ -138,6 +141,8 @@ ComPtr<ID3D12GraphicsCommandList2> CommandQueue::createCommandList(ComPtr<ID3D12
 		device->CreateCommandList(0, type, cmdAllocator.Get(), nullptr, IID_PPV_ARGS(&cmdList)),
 		"Failed to create command list!\n"
 	);
+
+	cmdList->SetName(getCommandListNameByType(type).c_str());
 
 	RETURN_FALSE_ON_ERROR(
 		cmdList->Close(),

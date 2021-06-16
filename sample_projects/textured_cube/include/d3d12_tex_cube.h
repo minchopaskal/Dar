@@ -42,7 +42,12 @@ private:
 
 	// MVP matrix
 	Mat4 MVP;
-	ComPtr<ID3D12Resource> MVPcb;
+	ComPtr<ID3D12Resource> MVPcb[frameCount];
+
+	// Texture data
+	static const int numTextures = 1;
+	ComPtr<ID3D12Resource> textures[numTextures];
+	ComPtr<ID3D12DescriptorHeap> srvHeap;
 
 	// viewport
 	D3D12_VIEWPORT viewport;

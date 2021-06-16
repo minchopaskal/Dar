@@ -9,6 +9,7 @@ set(LIB_DIR ${PROJECT_SOURCE_DIR}/lib)
 
 set(HEADERS
 	${INCLUDE_DIR}/d3d12_tex_cube.h
+	${INCLUDE_DIR}/geometry.h
 )
 
 set(SOURCES
@@ -61,3 +62,9 @@ target_include_directories(
 )
 
 copyD3D12Core(TexturedCube)
+
+add_custom_command(
+	TARGET TexturedCube
+	COMMAND ${CMAKE_COMMAND} -E copy_directory ${RESOURCES_DIR}/textures/ $<TARGET_FILE_DIR:TexturedCube>/res/textures/
+)
+

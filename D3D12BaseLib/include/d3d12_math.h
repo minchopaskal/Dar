@@ -408,7 +408,7 @@ Mat4t<T> perspective(T FOV, T aspectRatio, T nearPlane, T farPlane) {
 	const T one = T(1);
 
 	const T height = cosTheta / sinTheta;
-	const T width = height * aspectRatio;
+	const T width = height / aspectRatio;
 	const T invDepth = farPlane / (farPlane - nearPlane);
 	const T scaledInvDepth = -nearPlane * invDepth;
 

@@ -65,7 +65,7 @@ bool PipelineState::init(const ComPtr<ID3D12Device2> &device, const PipelineStat
 	ComPtr<ID3DBlob> psShader;
 	RETURN_FALSE_ON_ERROR(
 		D3DReadFileToBlob(
-		getAssetFullPath((base + L"_ps.bin").c_str(), AssetType::shader).c_str(),
+		getAssetFullPath((base + L"_ps.bin").c_str(), AssetType::Shader).c_str(),
 		&psShader
 	),
 		"Failed to read pixel shader!"
@@ -76,21 +76,21 @@ bool PipelineState::init(const ComPtr<ID3D12Device2> &device, const PipelineStat
 	if (mask & sif_useVertex) {
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
-			getAssetFullPath((base + L"_vs.bin").c_str(), AssetType::shader).c_str(),
+			getAssetFullPath((base + L"_vs.bin").c_str(), AssetType::Shader).c_str(),
 			&vsShader
 		),
 			"Failed to read vertex shader!"
 		);
 		stream.insert(VertexShaderToken({ vsShader->GetBufferPointer(), vsShader->GetBufferSize() }));
 	} else {
-		rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
+		rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_VERTEX_SHADER_ROOT_ACCESS;
 	}
 
 	ComPtr<ID3DBlob> geomShader;
 	if (mask & sif_useGeometry) {
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
-				getAssetFullPath((base + L"_gs.bin").c_str(), AssetType::shader).c_str(),
+				getAssetFullPath((base + L"_gs.bin").c_str(), AssetType::Shader).c_str(),
 				&geomShader
 			),
 			"Failed to read geometry shader!"
@@ -104,7 +104,7 @@ bool PipelineState::init(const ComPtr<ID3D12Device2> &device, const PipelineStat
 	if (mask & sif_useDomain) {
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
-				getAssetFullPath((base + L"_ds.bin").c_str(), AssetType::shader).c_str(),
+				getAssetFullPath((base + L"_ds.bin").c_str(), AssetType::Shader).c_str(),
 				&domShader
 			),
 			"Failed to read domain shader!"
@@ -118,7 +118,7 @@ bool PipelineState::init(const ComPtr<ID3D12Device2> &device, const PipelineStat
 	if (mask & sif_useHull) {
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
-				getAssetFullPath((base + L"_hs.bin").c_str(), AssetType::shader).c_str(),
+				getAssetFullPath((base + L"_hs.bin").c_str(), AssetType::Shader).c_str(),
 				&hullShader
 			),
 			"Failed to read hull shader!"
@@ -132,7 +132,7 @@ bool PipelineState::init(const ComPtr<ID3D12Device2> &device, const PipelineStat
 	if (mask & sif_useCompute) {
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
-				getAssetFullPath((base + L"_cs.bin").c_str(), AssetType::shader).c_str(),
+				getAssetFullPath((base + L"_cs.bin").c_str(), AssetType::Shader).c_str(),
 				&compShader
 			),
 			"Failed to read compute shader!"
@@ -144,7 +144,7 @@ bool PipelineState::init(const ComPtr<ID3D12Device2> &device, const PipelineStat
 	if (mask & sif_useMesh) {
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
-				getAssetFullPath((base + L"_ms.bin").c_str(), AssetType::shader).c_str(),
+				getAssetFullPath((base + L"_ms.bin").c_str(), AssetType::Shader).c_str(),
 				&meshShader
 			),
 			"Failed to read mesh shader!"
@@ -158,7 +158,7 @@ bool PipelineState::init(const ComPtr<ID3D12Device2> &device, const PipelineStat
 	if (mask & sif_useAmplification) {
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
-				getAssetFullPath((base + L"_gs.bin").c_str(), AssetType::shader).c_str(),
+				getAssetFullPath((base + L"_gs.bin").c_str(), AssetType::Shader).c_str(),
 				&ampShader
 			),
 			"Failed to read amplification shader!"
@@ -168,14 +168,18 @@ bool PipelineState::init(const ComPtr<ID3D12Device2> &device, const PipelineStat
 		rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_AMPLIFICATION_SHADER_ROOT_ACCESS;
 	}
 
-	int numConstantBufferViews = dmath::min(UINT(15), desc.numConstantBufferViews);
-	Vector<CD3DX12_ROOT_PARAMETER1> rsParams(numConstantBufferViews);
+	const int numConstantBufferViews = dmath::min(UINT(15), desc.numConstantBufferViews);
+	const int numParams = numConstantBufferViews;
+	Vector<CD3DX12_ROOT_PARAMETER1> rsParams(numParams);
 	for (int i = 0; i < numConstantBufferViews; ++i) {
 		rsParams[i].InitAsConstantBufferView(i);
 	}
 
+	/*CD3DX12_DESCRIPTOR_RANGE1 texture2DRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+	rsParams[numParams - 1].InitAsDescriptorTable(1, &texture2DRange, D3D12_SHADER_VISIBILITY_PIXEL);*/
+
 	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
-	rootSignatureDesc.Init_1_1(numConstantBufferViews, rsParams.data(), 0, nullptr, rsFlags);
+	rootSignatureDesc.Init_1_1(numParams, rsParams.data(), 1, desc.staticSamplerDesc, rsFlags);
 
 	ComPtr<ID3DBlob> signature;
 	ComPtr<ID3DBlob> error;
@@ -200,6 +204,8 @@ bool PipelineState::init(const ComPtr<ID3D12Device2> &device, const PipelineStat
 	stream.insert(RTFormatsToken{ rtFormat });
 
 	stream.insert(DepthStencilFormatToken{ DXGI_FORMAT_D32_FLOAT });
+
+	stream.insert(RasterizerDescToken{ CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT) });
 
 	if (desc.inputLayouts) {
 		stream.insert(InputLayoutToken(D3D12_INPUT_LAYOUT_DESC{ desc.inputLayouts, desc.numInputLayouts }));

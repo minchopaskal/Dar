@@ -94,7 +94,9 @@ struct PipelineStateDesc {
 	D3D12_INPUT_ELEMENT_DESC *inputLayouts = nullptr; ///< Input layout descriptions. Ignored if nullptr
 	D3D12_ROOT_SIGNATURE_FLAGS *rootSignatureFlags = nullptr; ///< Additional flags for the root signature. Ignored if nullptr.
 	D3D_ROOT_SIGNATURE_VERSION maxVersion = D3D_ROOT_SIGNATURE_VERSION_1_0; ///< Root signature features version. Used for root signature creation.
+	D3D12_STATIC_SAMPLER_DESC *staticSamplerDesc = nullptr; ///< Static sampler description. Used for root signature creation
 	UINT numInputLayouts = 0; ///< Number of input layouts.
+	UINT numTextures = 0; ///< Number of textures in the texture descriptor table.
 	UINT numConstantBufferViews; ///< Number of constant buffer views. Used for root signature creation.
 	UINT8 shadersMask = 0; ///< Mask indicating which types of shaders will be used.
 };

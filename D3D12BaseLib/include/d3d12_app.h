@@ -27,6 +27,7 @@ struct D3D12App {
 	virtual void onResize(int width, int height) = 0;
 	virtual void onKeyboardInput(int key, int action) = 0;
 	virtual void onMouseScroll(double xOffset, double yOffset) = 0;
+	virtual void onWindowPosChange(int xPos, int yPos) { }
 
 public:
 	bool vSyncEnabled;

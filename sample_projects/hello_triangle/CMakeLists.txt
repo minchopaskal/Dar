@@ -9,6 +9,7 @@ set(LIB_DIR ${PROJECT_SOURCE_DIR}/lib)
 
 set(HEADERS
 	${INCLUDE_DIR}/d3d12_hello_triangle.h
+	${INCLUDE_DIR}/geometry.h
 )
 
 set(SOURCES

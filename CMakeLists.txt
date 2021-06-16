@@ -15,7 +15,9 @@ set(D3D12_COMPILE_SAMPLE_PROJECTS CACHE BOOL "Compile sample projects")
 macro(copyD3D12Core TRG)
 	set(DLLS_TO_COPY
 		${LIB_DIR}/D3D12AgilitySDK/D3D12Core.dll
+		$<$<CONFIG:Debug>:${LIB_DIR}/D3D12AgilitySDK/D3D12Core.pdb>
 		$<$<CONFIG:Debug>:${LIB_DIR}/D3D12AgilitySDK/D3D12SDKLayers.dll>
+		$<$<CONFIG:Debug>:${LIB_DIR}/D3D12AgilitySDK/D3D12SDKLayers.pdb>
 	)
 	add_custom_command(TARGET ${TRG} POST_BUILD
 		COMMAND ${CMAKE_COMMAND} -E copy
@@ -65,14 +67,16 @@ macro(compile_shaders TRG SHADER_FOLDER)
 		set_source_files_properties(${SHADER_FILE} PROPERTIES VS_SETTINGS "ExcludedFromBuild=True")
 
 		add_custom_command(TARGET ${TRG} PRE_BUILD
-			COMMAND ${SUBMODULE_DIR}/dxc_1.6/dxc.exe 
+			COMMAND ${SUBMODULE_DIR}/dxc_1.6/dxc.exe
 			-E main # shader entry point. Only main is valid. Each different type of shader must be in its own file.
 			-T ${SHADER_VERSION} # target profile
 			-Fo $<TARGET_FILE_DIR:${TRG}>/res/shaders/${SF_NAME}.bin # output file location
 			$<$<CONFIG:Debug>:-Zi> # Output debug information, but only in DEBUG mode
 			$<$<CONFIG:Debug>:-Fd> $<$<CONFIG:Debug>:$<TARGET_FILE_DIR:${TRG}>/res/shaders/${SF_NAME}.pdb> # output pdb file
+			$<$<CONFIG:Debug>:-O0> # no optimizations in debug
 			${SHADER_FILE} # the .hlsl file to be compiled
 			COMMAND ${CMAKE_COMMAND} -E echo "Compiling ${SF_NAME_EXT}"
+			DEPENDS ${SHADER_FILE}
 		)
 	endforeach()
 endmacro()

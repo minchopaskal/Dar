@@ -2,8 +2,9 @@
 
 #include "d3d12_defines.h"
 
-enum class AssetType : int {
-	shader = 0,
+enum class AssetType {
+	Shader,
+	Texture,
 };
 
 WString getAssetFullPath(const wchar_t *assetName, AssetType assetType);

@@ -8,7 +8,7 @@
 #include <dxgi1_6.h>
 
 #include "d3d12_asset_manager.h"
-#include "d3d12_geometry.h"
+#include "geometry.h"
 #include "d3d12_app.h"
 #include "d3d12_utils.h"
 #include "d3d12_pipeline_state.h"
@@ -214,7 +214,7 @@ int D3D12HelloTriangle::loadAssets() {
 
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
-			getAssetFullPath(L"basic_vs.bin", AssetType::shader).c_str(),
+			getAssetFullPath(L"basic_vs.bin", AssetType::Shader).c_str(),
 			&vertexShader
 		),
 			"Failed to load vertex shader!\n"
@@ -222,7 +222,7 @@ int D3D12HelloTriangle::loadAssets() {
 
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
-			getAssetFullPath(L"basic_ps.bin", AssetType::shader).c_str(),
+			getAssetFullPath(L"basic_ps.bin", AssetType::Shader).c_str(),
 			&pixelShader
 		),
 			"Failed to load pixel shader!\n"
@@ -300,8 +300,7 @@ int D3D12HelloTriangle::loadAssets() {
 			&vertexBuffer,
 			&stagingVertexBuffer,
 			cpuTriangleVertexBuffer,
-			D3D12_RESOURCE_FLAG_NONE,
-			D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER
+			D3D12_RESOURCE_FLAG_NONE
 		)) {
 			return false;
 		}
@@ -313,8 +312,7 @@ int D3D12HelloTriangle::loadAssets() {
 			&indexBuffer,
 			&stagingIndexBuffer,
 			cpuTriangleIndexBuffer,
-			D3D12_RESOURCE_FLAG_NONE,
-			D3D12_RESOURCE_STATE_INDEX_BUFFER
+			D3D12_RESOURCE_FLAG_NONE
 			)) {
 			return false;
 		}
