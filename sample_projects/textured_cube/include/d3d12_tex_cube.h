@@ -26,6 +26,11 @@ private:
 	void timeIt();
 
 private:
+	enum class ProjectionType {
+		Perspective,
+		Orthographic
+	} projectionType = ProjectionType::Perspective;
+
 	PipelineState pipelineState;
 
 	// Descriptors
@@ -53,6 +58,7 @@ private:
 	D3D12_VIEWPORT viewport;
 	D3D12_RECT scissorRect;
 	float aspectRatio;
+	float orthoDim = 10.f;
 
 	// Keeping track of fence values for double/triple buffering
 	UINT64 fenceValues[frameCount];

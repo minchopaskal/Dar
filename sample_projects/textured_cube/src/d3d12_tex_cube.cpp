@@ -128,8 +128,9 @@ void D3D12TexturedCube::update() {
 	const Vec3 focusPoint  = Vec3(0, 0, 0);
 	const Vec3 upDirection = Vec3(0, 1, 0);
 	Mat4 viewMat = dmath::lookAt(focusPoint, eyePosition, upDirection);
-	Mat4 projectionMat = dmath::perspective(FOV, aspectRatio, 0.1f, 100.f);
-
+	Mat4 projectionMat = projectionType == ProjectionType::Perspective ? 
+		dmath::perspective(FOV, aspectRatio, 0.1f, 100.f) :
+		dmath::orthographic(-orthoDim * aspectRatio, orthoDim * aspectRatio, -orthoDim, orthoDim, 0.1f, 100.f);
 	MVP = projectionMat * viewMat * modelMat;
 
 	// We know for sure that the MVP buffer for the current `frameIndex` is not in use
@@ -212,12 +213,22 @@ void D3D12TexturedCube::onKeyboardInput(int key, int action) {
 	if (keyPressed[GLFW_KEY_V] && !keyRepeated[GLFW_KEY_V]) {
 		vSyncEnabled = !vSyncEnabled;
 	}
+
+	if (keyPressed[GLFW_KEY_O] && !keyRepeated[GLFW_KEY_O]) {
+		projectionType = static_cast<ProjectionType>((static_cast<int>(projectionType) + 1) % 2);
+	}
 }
 
 void D3D12TexturedCube::onMouseScroll(double xOffset, double yOffset) {
-	static const double speed = 500.f;
-	FOV -= float(speed * deltaTime * yOffset);
-	FOV = dmath::min(dmath::max(30.f, FOV), 120.f);
+	static const double speed = 5.f;
+	float change = float(yOffset);
+	if (projectionType == ProjectionType::Perspective) {
+		FOV -= change;
+		FOV = dmath::min(dmath::max(30.f, FOV), 120.f);
+	} else {
+		orthoDim -= change;
+		orthoDim = dmath::min(dmath::max(1.f, orthoDim), 100.f);
+	}
 }
 
 int D3D12TexturedCube::loadAssets() {

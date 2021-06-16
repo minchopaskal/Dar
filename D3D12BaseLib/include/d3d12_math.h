@@ -425,8 +425,20 @@ Mat4t<T> perspective(T FOV, T aspectRatio, T nearPlane, T farPlane) {
 
 // TODO
 template <class T>
-Mat4t<T> orthographic() {
-	return Mat4t<T>(T(1));
+Mat4t<T> orthographic(T left, T right, T bottom, T top, T nearPlane, T farPlane) {
+	auto xDivisor = 1 / (right - left);
+	auto yDivisor = 1 / (top - bottom);
+	auto zDivisor = 1 / (farPlane - nearPlane);
+
+	Mat4t<T> result(T(1));
+	result.row1.x = 2 * xDivisor;
+	result.row1.w = -(right + left) * xDivisor;
+	result.row2.y = 2 * yDivisor;
+	result.row2.w = -(top + bottom) / yDivisor;
+	result.row3.z = zDivisor;
+	result.row3.w = -nearPlane * zDivisor;
+
+	return result;
 }
 
 } // namespace dmath
