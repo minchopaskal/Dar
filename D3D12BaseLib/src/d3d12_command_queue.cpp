@@ -17,20 +17,20 @@ void CommandQueue::init(ComPtr<ID3D12Device2> device) {
 	cqDesc.Type = type;
 	RETURN_ON_ERROR(
 		device->CreateCommandQueue(&cqDesc, IID_PPV_ARGS(&commandQueue)), ,
-		"Failed to create command queue!\n"
+		"Failed to create command queue!"
 	);
 
 	commandQueue->SetName(getCommandQueueNameByType(type).c_str());
 
 	RETURN_ON_ERROR(
 		device->CreateFence(fenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)), ,
-		"Failed to create a fence!\n"
+		"Failed to create a fence!"
 	);
 
 	fenceEvent = ::CreateEvent(NULL, FALSE, FALSE, NULL);
 	RETURN_ON_ERROR(
 		static_cast<HRESULT>(fenceEvent != nullptr), ,
-		"Failed to create fence event!\n"
+		"Failed to create fence event!"
 	);
 }
 
@@ -47,7 +47,7 @@ ComPtr<ID3D12GraphicsCommandList2> CommandQueue::getCommandList() {
 
 	RETURN_FALSE_ON_ERROR(
 		cmdAllocator->Reset(),
-		"Failed to reset command allocator!\n"
+		"Failed to reset command allocator!"
 	);
 
 	if (!commandListQueue.empty()) {
@@ -59,7 +59,7 @@ ComPtr<ID3D12GraphicsCommandList2> CommandQueue::getCommandList() {
 
 	RETURN_FALSE_ON_ERROR(
 		cmdList->Reset(cmdAllocator.Get(), nullptr),
-		"Failed to reset the command list!\n"
+		"Failed to reset the command list!"
 	);
 
 	RETURN_FALSE_ON_ERROR(
@@ -98,7 +98,7 @@ ComPtr<ID3D12CommandQueue> CommandQueue::getCommandQueue() const {
 
 UINT64 CommandQueue::signal() {
 	UINT64 fenceVal = ++fenceValue;
-	RETURN_ON_ERROR(commandQueue->Signal(fence.Get(), fenceVal), 0, "Failed to signal command queue!\n");
+	RETURN_ON_ERROR(commandQueue->Signal(fence.Get(), fenceVal), 0, "Failed to signal command queue!");
 
 	return fenceVal;
 }
@@ -113,7 +113,7 @@ void CommandQueue::waitForFenceValue(UINT64 fenceVal) {
 	while (!fenceCompleted(fenceVal)) {
 		RETURN_ON_ERROR(
 			fence->SetEventOnCompletion(fenceVal, fenceEvent), ,
-			"Failed to set fence event on completion!\n"
+			"Failed to set fence event on completion!"
 		);
 		WaitForSingleObject(fenceEvent, INFINITE);
 	}
@@ -128,7 +128,7 @@ ComPtr<ID3D12CommandAllocator> CommandQueue::createCommandAllocator() {
 	ComPtr<ID3D12CommandAllocator> cmdAllocator;
 	RETURN_NULL_ON_ERROR(
 		device->CreateCommandAllocator(type, IID_PPV_ARGS(&cmdAllocator)),
-		"Failed to create command allocator!\n"
+		"Failed to create command allocator!"
 	);
 
 	return cmdAllocator;
@@ -139,14 +139,14 @@ ComPtr<ID3D12GraphicsCommandList2> CommandQueue::createCommandList(ComPtr<ID3D12
 
 	RETURN_FALSE_ON_ERROR(
 		device->CreateCommandList(0, type, cmdAllocator.Get(), nullptr, IID_PPV_ARGS(&cmdList)),
-		"Failed to create command list!\n"
+		"Failed to create command list!"
 	);
 
 	cmdList->SetName(getCommandListNameByType(type).c_str());
 
 	RETURN_FALSE_ON_ERROR(
 		cmdList->Close(),
-		"Failed to close the command list after creation!\n"
+		"Failed to close the command list after creation!"
 	);
 
 	return cmdList;

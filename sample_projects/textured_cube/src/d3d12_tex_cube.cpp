@@ -73,7 +73,7 @@ int D3D12TexturedCube::init() {
 
 	RETURN_FALSE_ON_ERROR(
 		device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&rtvHeap)),
-		"Failed to create RTV descriptor heap!\n"
+		"Failed to create RTV descriptor heap!"
 	);
 
 	rtvHeapHandleIncrementSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
@@ -86,7 +86,7 @@ int D3D12TexturedCube::init() {
 
 	RETURN_FALSE_ON_ERROR(
 		device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&dsvHeap)),
-		"Failed to create DSV descriptor heap!\n"
+		"Failed to create DSV descriptor heap!"
 	);
 	
 	if (!resizeDepthBuffer(this->width, this->height)) {
@@ -104,7 +104,7 @@ int D3D12TexturedCube::init() {
 	srvHeapDesc.NodeMask = 0;
 	RETURN_FALSE_ON_ERROR(
 		device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&srvHeap)),
-		"Failed to create DSV descriptor heap!\n"
+		"Failed to create DSV descriptor heap!"
 	);
 
 	return true;
@@ -157,7 +157,7 @@ void D3D12TexturedCube::render() {
 
 	UINT syncInterval = vSyncEnabled ? 1 : 0;
 	UINT presentFlags = allowTearing && !vSyncEnabled ? DXGI_PRESENT_ALLOW_TEARING : 0;
-	RETURN_ON_ERROR(swapChain->Present(syncInterval, presentFlags), ,"Failed to execute command list!\n");
+	RETURN_ON_ERROR(swapChain->Present(syncInterval, presentFlags), ,"Failed to execute command list!");
 	
 	frameIndex = swapChain->GetCurrentBackBufferIndex();
 
@@ -453,7 +453,7 @@ bool D3D12TexturedCube::updateRenderTargetViews() {
 	for (UINT i = 0; i < frameCount; ++i) {
 		RETURN_FALSE_ON_ERROR_FMT(
 			swapChain->GetBuffer(i, IID_PPV_ARGS(&backBuffers[i])),
-			"Failed to create Render-Target-View for buffer %u!\n", i
+			"Failed to create Render-Target-View for buffer %u!", i
 		);
 		device->CreateRenderTargetView(backBuffers[i].Get(), nullptr, rtvHandle);
 		rtvHandle.Offset(rtvHeapHandleIncrementSize);
@@ -482,7 +482,7 @@ bool D3D12TexturedCube::resizeDepthBuffer(int width, int height) {
 			&clearValue,
 			IID_PPV_ARGS(&depthBuffer)
 		),
-		"Failed to create/resize depth buffer!\n"
+		"Failed to create/resize depth buffer!"
 	);
 
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsDesc = {};

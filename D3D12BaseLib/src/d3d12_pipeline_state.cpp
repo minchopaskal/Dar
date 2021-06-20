@@ -186,12 +186,12 @@ bool PipelineState::init(const ComPtr<ID3D12Device2> &device, const PipelineStat
 	// TODO: read error if any
 	RETURN_FALSE_ON_ERROR(
 		D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, desc.maxVersion, &signature, &error),
-		"Failed to create root signature!\n"
+		"Failed to create root signature!"
 	);
 
 	RETURN_FALSE_ON_ERROR(
 		device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature)),
-		"Failed to create root signature!\n"
+		"Failed to create root signature!"
 	);
 
 	stream.insert(RootSignatureToken{ rootSignature.Get() });
@@ -229,7 +229,7 @@ bool PipelineState::initPipeline(const ComPtr<ID3D12Device2> &device, PipelineSt
 
 	RETURN_FALSE_ON_ERROR(
 		device->CreatePipelineState(&pipelineDesc, IID_PPV_ARGS(&pipelineState)),
-		"Failed to create pipeline state!\n"
+		"Failed to create pipeline state!"
 	);
 
 	return true;

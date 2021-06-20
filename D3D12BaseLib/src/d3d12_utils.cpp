@@ -25,7 +25,7 @@ int updateResource(
 			nullptr,
 			IID_PPV_ARGS(destinationResource)
 		),
-		"Failed to create GPU resource!\n"
+		"Failed to create GPU resource!"
 	);
 
 	auto size = GetRequiredIntermediateSize(*destinationResource, 0, 1);
@@ -39,7 +39,7 @@ int updateResource(
 			nullptr,
 			IID_PPV_ARGS(stagingBuffer)
 		),
-		"Failed to create staging buffer resource!\n"
+		"Failed to create staging buffer resource!"
 	);
 
 	assert(subres);

@@ -181,7 +181,7 @@ int D3D12App::init() {
 
 	RETURN_FALSE_ON_ERROR(
 		CreateDXGIFactory2(createFactoryFlags, IID_PPV_ARGS(&dxgiFactory)),
-		"Error while creating DXGI Factory!\n"
+		"Error while creating DXGI Factory!"
 	);
 
 	ComPtr<IDXGIAdapter1> hardwareAdapter;
@@ -189,40 +189,40 @@ int D3D12App::init() {
 
 	RETURN_FALSE_ON_ERROR(D3D12CreateDevice(
 		hardwareAdapter.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&device)),
-		"Failed to create device!\n"
+		"Failed to create device!"
 	);
 
 	D3D12_FEATURE_DATA_SHADER_MODEL shaderModel{ D3D_SHADER_MODEL_6_6 };
 	RETURN_FALSE_ON_ERROR(
 		device->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &shaderModel, sizeof(shaderModel)),
-		"Device does not support shader model 6.6!\n"
+		"Device does not support shader model 6.6!"
 	);
 
 	if (shaderModel.HighestShaderModel != D3D_SHADER_MODEL_6_6) {
-		fprintf(stderr, "Shader model 6.6 not supported!\n");
+		fprintf(stderr, "Shader model 6.6 not supported!");
 		return false;
 	}
 
 	D3D12_FEATURE_DATA_D3D12_OPTIONS options = { };
 	RETURN_FALSE_ON_ERROR(
 		device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &options, sizeof(options)),
-		"Failed to check features support!\n"
+		"Failed to check features support!"
 	);
 
 	if (options.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_3) {
-		fprintf(stderr, "GPU does not support resource binding tier 3!\n");
+		fprintf(stderr, "GPU does not support resource binding tier 3!");
 		return false;
 	}
 
 	D3D12_FEATURE_DATA_D3D12_OPTIONS7 options7 = { };
 	RETURN_FALSE_ON_ERROR(
 		device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7, &options, sizeof(options)),
-		"Failed to check features support!\n"
+		"Failed to check features support!"
 	);
 
 	// Note: we don't do mesh shading currently, yet we will, so we want to support it.
 	if (options7.MeshShaderTier == D3D12_MESH_SHADER_TIER_NOT_SUPPORTED) {
-		fprintf(stderr, "Mesh shading is not supported!\n");
+		fprintf(stderr, "Mesh shading is not supported!");
 		return false;
 	}
 
@@ -257,17 +257,17 @@ int D3D12App::init() {
 		NULL /*pRestrictToOutput*/,
 		&swapChainPlaceholder
 	),
-		"Failed to create swap chain!\n"
+		"Failed to create swap chain!"
 	);
 
 	RETURN_FALSE_ON_ERROR(
 		dxgiFactory->MakeWindowAssociation(window, DXGI_MWA_NO_ALT_ENTER),
-		"Failed to make window association NO_ALT_ENTER\n"
+		"Failed to make window association NO_ALT_ENTER"
 	);
 
 	RETURN_FALSE_ON_ERROR(
 		swapChainPlaceholder.As(&swapChain),
-		"Failed to create swap chain!\n"
+		"Failed to create swap chain!"
 	);
 
 	frameIndex = swapChain->GetCurrentBackBufferIndex();
