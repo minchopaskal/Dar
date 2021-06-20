@@ -11,7 +11,7 @@ CommandQueue::CommandQueue(D3D12_COMMAND_LIST_TYPE type) :
 
 void CommandQueue::init(ComPtr<ID3D12Device2> device) {
 	this->device = device;
-
+	
 	D3D12_COMMAND_QUEUE_DESC cqDesc = {};
 	cqDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 	cqDesc.Type = type;

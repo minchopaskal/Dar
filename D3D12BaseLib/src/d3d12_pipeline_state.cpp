@@ -4,7 +4,7 @@
 #include "d3d12_math.h"
 #include "d3dx12.h"
 
-#include <d3dcompiler.h>
+#include "d3dcompiler.h"
 
 PipelineStateStream::PipelineStateStream() {
 }

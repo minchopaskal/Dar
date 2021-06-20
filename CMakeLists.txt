@@ -20,8 +20,9 @@ macro(copyD3D12Core TRG)
 		$<$<CONFIG:Debug>:${LIB_DIR}/D3D12AgilitySDK/D3D12SDKLayers.pdb>
 	)
 	add_custom_command(TARGET ${TRG} POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${TRG}>/D3D12/
 		COMMAND ${CMAKE_COMMAND} -E copy
-		${DLLS_TO_COPY} $<TARGET_FILE_DIR:${TRG}>/)
+		${DLLS_TO_COPY} $<TARGET_FILE_DIR:${TRG}>/D3D12/)
 endmacro()
 
 # Temporary solution until shader model 6.6 is supported in windows.

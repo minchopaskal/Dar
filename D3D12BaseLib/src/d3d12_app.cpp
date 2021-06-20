@@ -17,7 +17,7 @@
 
 extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 4; }
 
-extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = u8".\\"; }
+extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = u8".\\D3D12\\"; }
 
 /////////////////////////////////
 // Global state
@@ -198,6 +198,11 @@ int D3D12App::init() {
 		"Device does not support shader model 6.6!\n"
 	);
 
+	if (shaderModel.HighestShaderModel != D3D_SHADER_MODEL_6_6) {
+		fprintf(stderr, "Shader model 6.6 not supported!\n");
+		return false;
+	}
+
 	D3D12_FEATURE_DATA_D3D12_OPTIONS options = { };
 	RETURN_FALSE_ON_ERROR(
 		device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &options, sizeof(options)),
@@ -205,6 +210,19 @@ int D3D12App::init() {
 	);
 
 	if (options.ResourceBindingTier < D3D12_RESOURCE_BINDING_TIER_3) {
+		fprintf(stderr, "GPU does not support resource binding tier 3!\n");
+		return false;
+	}
+
+	D3D12_FEATURE_DATA_D3D12_OPTIONS7 options7 = { };
+	RETURN_FALSE_ON_ERROR(
+		device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7, &options, sizeof(options)),
+		"Failed to check features support!\n"
+	);
+
+	// Note: we don't do mesh shading currently, yet we will, so we want to support it.
+	if (options7.MeshShaderTier == D3D12_MESH_SHADER_TIER_NOT_SUPPORTED) {
+		fprintf(stderr, "Mesh shading is not supported!\n");
 		return false;
 	}
 

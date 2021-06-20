@@ -5,34 +5,37 @@
 #include <bitset>
 #include <string>
 
-#define RETURN_ON_ERROR(cmd, retval, msg) \
-if (!SUCCEEDED(cmd)) { \
-  OutputDebugString((msg)); \
-  DebugBreak(); \
-  return retval; \
-}
-
+#ifdef D3D12_DEBUG
 #define RETURN_ON_ERROR_FMT(cmd, retval, msg, ...) \
-if (!SUCCEEDED(cmd)) { \
-  fprintf(stderr, (msg), __VA_ARGS__); \
-  return retval; \
-}
-
-//static void RETURN_FALSE_ON_ERROR(HRESULT res, const char *msg) {
-#define RETURN_FALSE_ON_ERROR(res, msg) \
 do { \
-  if (!SUCCEEDED(res)) { \
+  if (!SUCCEEDED((cmd))) { \
       auto err = GetLastError(); \
-      OutputDebugString((msg)); \
+      fprintf(stderr, "D3D12 Error: %s\n", (msg)); \
+      char error[512]; sprintf(error, "D3D12 Error: %lu\n", err); \
+      OutputDebugString(error); \
       DebugBreak(); \
-      return false; \
+      return retval; \
+  } \
+} while (false)
+#else
+#define RETURN_ON_ERROR_FMT(cmd, retval, msg, ...) \
+do { \
+  if (!SUCCEEDED((res))) { \
+      auto err = GetLastError(); \
+      fprintf(stderr, "D3D12 Error: %s. Last error: %lu\n", (msg), (err)); \
+      return (retval); \
     } \
   } \
 while (false)
+#endif
 
-#define RETURN_NULL_ON_ERROR(res, msg) RETURN_FALSE_ON_ERROR((res), (msg))
+#define RETURN_ON_ERROR(cmd, retval, msg) RETURN_ON_ERROR_FMT((cmd), retval, (msg), )
 
-#define RETURN_FALSE_ON_ERROR_FMT(cmd, msg, ...) RETURN_ON_ERROR_FMT(cmd, false, msg, __VA_ARGS__)
+#define RETURN_FALSE_ON_ERROR(cmd, msg) RETURN_ON_ERROR_FMT((cmd), false, (msg), )
+
+#define RETURN_NULL_ON_ERROR(cmd, msg) RETURN_FALSE_ON_ERROR((cmd), (msg))
+
+#define RETURN_FALSE_ON_ERROR_FMT(cmd, msg, ...) RETURN_ON_ERROR_FMT((cmd), false, (msg), __VA_ARGS__)
 
 template <class T>
 using Vector = std::vector<T>;
