@@ -41,7 +41,7 @@ protected:
 	Bitset<keysCount> keyPressed;
 	Bitset<keysCount> keyRepeated;
 
-	ComPtr<ID3D12Device2> device;
+	ComPtr<ID3D12Device8> device;
 
 	CommandQueue commandQueueDirect;
 	CommandQueue commandQueueCopy;

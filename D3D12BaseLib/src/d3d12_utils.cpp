@@ -2,8 +2,10 @@
 
 #include <cassert>
 
+#include "d3d12_res_tracker.h"
+
 int updateResource(
-	ComPtr<ID3D12Device2> &device,
+	ComPtr<ID3D12Device8> &device,
 	ComPtr<ID3D12GraphicsCommandList2> &commandList,
 	ID3D12Resource **destinationResource,
 	ID3D12Resource **stagingBuffer,
@@ -11,7 +13,7 @@ int updateResource(
 	D3D12_RESOURCE_DESC desc,
 	D3D12_RESOURCE_FLAGS flags
 ) {
-	assert(stagingBuffer != nullptr);
+	dassert(stagingBuffer != nullptr);
 
 	CD3DX12_HEAP_PROPERTIES dstProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 	D3D12_RESOURCE_STATES dstState = D3D12_RESOURCE_STATE_COPY_DEST;
@@ -28,6 +30,8 @@ int updateResource(
 		"Failed to create GPU resource!"
 	);
 
+	ResourceTracker::registerResource(*destinationResource, Vector<D3D12_RESOURCE_STATES>{dstState});
+
 	auto size = GetRequiredIntermediateSize(*destinationResource, 0, 1);
 
 	RETURN_FALSE_ON_ERROR(
@@ -42,13 +46,13 @@ int updateResource(
 		"Failed to create staging buffer resource!"
 	);
 
-	assert(subres);
+	dassert(subres);
 
-	return UpdateSubresources(commandList.Get(), *destinationResource, *stagingBuffer, 0, 0, 1, subres);
+	return (int)UpdateSubresources(commandList.Get(), *destinationResource, *stagingBuffer, 0, 0, 1, subres);
 }
 
 int updateBufferResource(
-	ComPtr<ID3D12Device2> &device,
+	ComPtr<ID3D12Device8> &device,
 	ComPtr<ID3D12GraphicsCommandList2> &commandList,
 	ID3D12Resource **destinationResource,
 	ID3D12Resource **stagingBuffer,
@@ -72,7 +76,7 @@ int updateBufferResource(
 }
 
 int updateTex2DResource(
-	ComPtr<ID3D12Device2> &device,
+	ComPtr<ID3D12Device8> &device,
 	ComPtr<ID3D12GraphicsCommandList2> &commandList,
 	ID3D12Resource **textureResource,
 	ID3D12Resource **stagingBuffer,
@@ -82,7 +86,7 @@ int updateTex2DResource(
 	DXGI_FORMAT format,
 	D3D12_RESOURCE_FLAGS flags
 ) {
-	assert(stagingBuffer != nullptr);
+	dassert(stagingBuffer != nullptr);
 
 	D3D12_RESOURCE_DESC textureDesc = CD3DX12_RESOURCE_DESC::Tex2D(format, width, height, 1, 1);
 	D3D12_SUBRESOURCE_DATA subres = {};
@@ -109,7 +113,7 @@ WString getPrefixedNameByType(D3D12_COMMAND_LIST_TYPE type, LPWSTR prefix) {
 	WString prefixStr{ prefix };
 	switch (type) {
 	case D3D12_COMMAND_LIST_TYPE_DIRECT:
-		prefixStr.append(L"Direct").c_str();
+		prefixStr.append(L"Direct");
 		break;
 	case D3D12_COMMAND_LIST_TYPE_COPY:
 		prefixStr.append(L"Copy");

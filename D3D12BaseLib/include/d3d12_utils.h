@@ -12,7 +12,7 @@ struct CPUBuffer {
 };
 
 int updateBufferResource(
-	ComPtr<ID3D12Device2> &device,
+	ComPtr<ID3D12Device8> &device,
 	ComPtr<ID3D12GraphicsCommandList2> &commandList,
 	ID3D12Resource **destinationResource,
 	ID3D12Resource **stagingBuffer,
@@ -21,7 +21,7 @@ int updateBufferResource(
 );
 
 int updateTex2DResource(
-	ComPtr<ID3D12Device2> &device,
+	ComPtr<ID3D12Device8> &device,
 	ComPtr<ID3D12GraphicsCommandList2> &commandList,
 	ID3D12Resource **destinationResource,
 	ID3D12Resource **stagingBuffer,

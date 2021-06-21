@@ -4,15 +4,19 @@
 #include <wrl/client.h>
 using Microsoft::WRL::ComPtr;
 
+#include "d3d12_async.h"
+#include "d3d12_command_list.h"
 #include "d3d12_defines.h"
 
 struct CommandQueue {
 	CommandQueue(D3D12_COMMAND_LIST_TYPE type);
 
-	void init(ComPtr<ID3D12Device2> device);
+	void init(ComPtr<ID3D12Device8> device);
 
-	ComPtr<ID3D12GraphicsCommandList2> getCommandList();
-	UINT64 executeCommandList(ComPtr<ID3D12GraphicsCommandList2> commandList);
+	CommandList getCommandList();
+	void addCommandListForExecution(CommandList &&commandList);
+
+	UINT64 executeCommandLists();
 
 	ComPtr<ID3D12CommandQueue> getCommandQueue() const;
 
@@ -23,7 +27,7 @@ struct CommandQueue {
 
 private:
 	ComPtr<ID3D12CommandAllocator> createCommandAllocator();
-	ComPtr<ID3D12GraphicsCommandList2> createCommandList(ComPtr<ID3D12CommandAllocator> cmdAllocator);
+	CommandList createCommandList(const ComPtr<ID3D12CommandAllocator> &cmdAllocator);
 
 private:
 	struct CommandAllocator {
@@ -31,11 +35,15 @@ private:
 		UINT64 fenceValue;
 	};
 
-	ComPtr<ID3D12Device2> device;
+	ComPtr<ID3D12Device8> device;
 	ComPtr<ID3D12CommandQueue> commandQueue;
 
-	Queue<ComPtr<ID3D12GraphicsCommandList2>> commandListQueue;
-	Queue<CommandAllocator> commandAllocatorQueue;
+	Vector<CommandList> pendingCommandListsQueue;
+	Queue<CommandList> commandListsPool;
+	Queue<CommandAllocator> commandAllocatorsPool;
+
+	CriticalSection commandListsPoolCS;
+	CriticalSection pendingCommandListsCS;
 
 	ComPtr<ID3D12Fence> fence;
 	HANDLE fenceEvent;

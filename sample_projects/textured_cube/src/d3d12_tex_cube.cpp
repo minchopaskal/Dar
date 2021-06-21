@@ -1,14 +1,15 @@
 #include "d3d12_tex_cube.h"
 
 #include <algorithm>
-#include <cstdio>
 #include <chrono>
+#include <cstdio>
 
-#include "d3d12_asset_manager.h"
-#include "geometry.h"
 #include "d3d12_app.h"
-#include "d3d12_utils.h"
+#include "d3d12_asset_manager.h"
 #include "d3d12_pipeline_state.h"
+#include "d3d12_res_tracker.h"
+#include "d3d12_utils.h"
+#include "geometry.h"
 
 // TODO: To make things simple, child projects should not rely on third party software
 // Expose some input controller interface or something like that.
@@ -135,25 +136,26 @@ void D3D12TexturedCube::update() {
 
 	// We know for sure that the MVP buffer for the current `frameIndex` is not in use
 	// since we waited for the fence for the current `frameIndex` at the end of the previous call to render()
-	MVPcb[frameIndex].Reset();
+	//MVPcb[frameIndex].Reset();
 
-	ComPtr<ID3D12GraphicsCommandList2> commandList = commandQueueCopy.getCommandList();
+	CommandList commandList = commandQueueCopy.getCommandList();
 	ComPtr<ID3D12Resource> stagingBuffer;
 	updateBufferResource(
 		device,
-		commandList,
+		commandList.getComPtr(),
 		&MVPcb[frameIndex],
 		&stagingBuffer,
 		{ &MVP, sizeof(Mat4) },
 		D3D12_RESOURCE_FLAG_NONE
 	);
-	auto fenceVal = commandQueueCopy.executeCommandList(commandList);
+	commandQueueCopy.addCommandListForExecution(std::move(commandList));
+	auto fenceVal = commandQueueCopy.executeCommandLists();
 	commandQueueCopy.waitForFenceValue(fenceVal);
 }
 
 void D3D12TexturedCube::render() {
-	ComPtr<ID3D12GraphicsCommandList2> cmdList = populateCommandList();
-	fenceValues[frameIndex] = commandQueueDirect.executeCommandList(cmdList);
+	commandQueueDirect.addCommandListForExecution(populateCommandList());
+	fenceValues[frameIndex] = commandQueueDirect.executeCommandLists();
 
 	UINT syncInterval = vSyncEnabled ? 1 : 0;
 	UINT presentFlags = allowTearing && !vSyncEnabled ? DXGI_PRESENT_ALLOW_TEARING : 0;
@@ -178,6 +180,7 @@ void D3D12TexturedCube::onResize(int w, int h) {
 	flush();
 
 	for (int i = 0; i < frameCount; ++i) {
+		ResourceTracker::unregisterResource(backBuffers[i].Get());
 		backBuffers[i].Reset();
 	}
 	depthBuffer.Reset();
@@ -289,12 +292,12 @@ int D3D12TexturedCube::loadAssets() {
 			indexBufferSize
 		};
 
-		ComPtr<ID3D12GraphicsCommandList2> commandList = commandQueueCopy.getCommandList();
+		CommandList commandList = commandQueueCopy.getCommandList();
 
 		ComPtr<ID3D12Resource> stagingVertexBuffer;
 		if (!updateBufferResource(
 			device,
-			commandList,
+			commandList.getComPtr(),
 			&vertexBuffer,
 			&stagingVertexBuffer,
 			cpuVertexBuffer,
@@ -306,7 +309,7 @@ int D3D12TexturedCube::loadAssets() {
 		ComPtr<ID3D12Resource> stagingIndexBuffer;
 		if (!updateBufferResource(
 			device,
-			commandList,
+			commandList.getComPtr(),
 			&indexBuffer,
 			&stagingIndexBuffer,
 			cpuIndexBuffer,
@@ -322,7 +325,7 @@ int D3D12TexturedCube::loadAssets() {
 			texData[i] = loadImage(L"box.jpg");
 			if (!updateTex2DResource(
 				device,
-				commandList,
+				commandList.getComPtr(),
 				&textures[i],
 				&stagingImageBuffers[i],
 				texData[i],
@@ -339,7 +342,8 @@ int D3D12TexturedCube::loadAssets() {
 		indexBuffer->SetName(L"IndexBuffer");
 		textures[0]->SetName(L"Textures[0]");
 
-		UINT64 fenceVal = commandQueueCopy.executeCommandList(commandList);
+		commandQueueCopy.addCommandListForExecution(std::move(commandList));
+		UINT64 fenceVal = commandQueueCopy.executeCommandLists();
 		commandQueueCopy.waitForFenceValue(fenceVal);
 
 		vertexBufferView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
@@ -367,19 +371,18 @@ int D3D12TexturedCube::loadAssets() {
 	return true;
 }
 
-ComPtr<ID3D12GraphicsCommandList2> D3D12TexturedCube::populateCommandList() {
-	ComPtr<ID3D12GraphicsCommandList2> commandList = commandQueueDirect.getCommandList();
+CommandList D3D12TexturedCube::populateCommandList() {
+	CommandList commandList = commandQueueDirect.getCommandList();
+
+	if (!commandList.isValid()) {
+		return commandList;
+	}
 
 	commandList->SetPipelineState(pipelineState.getPipelineState());
 
 	static bool staticResStateChange = false;
 	if (!staticResStateChange) {
-		D3D12_RESOURCE_BARRIER copyToPixel = CD3DX12_RESOURCE_BARRIER::Transition(
-			textures[0].Get(),
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
-		);
-		commandList->ResourceBarrier(1, &copyToPixel);
+		commandList.transition(textures[0], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	}
 	commandList->SetDescriptorHeaps(1, srvHeap.GetAddressOf());
 
@@ -388,12 +391,7 @@ ComPtr<ID3D12GraphicsCommandList2> D3D12TexturedCube::populateCommandList() {
 	commandList->RSSetViewports(1, &viewport);
 	commandList->RSSetScissorRects(1, &scissorRect);
 
-	CD3DX12_RESOURCE_BARRIER resBarrierPresetToRT = CD3DX12_RESOURCE_BARRIER::Transition(
-		backBuffers[frameIndex].Get(),
-		D3D12_RESOURCE_STATE_PRESENT,
-		D3D12_RESOURCE_STATE_RENDER_TARGET
-	);
-	commandList->ResourceBarrier(1, &resBarrierPresetToRT);
+	commandList.transition(backBuffers[frameIndex], D3D12_RESOURCE_STATE_RENDER_TARGET);
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(rtvHeap->GetCPUDescriptorHandleForHeapStart(), frameIndex, rtvHeapHandleIncrementSize);
 	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = dsvHeap->GetCPUDescriptorHandleForHeapStart();
@@ -408,21 +406,10 @@ ComPtr<ID3D12GraphicsCommandList2> D3D12TexturedCube::populateCommandList() {
 
 	// TODO: this only needs to be done once for the vertex and index buffer so we need some sort of a resource tracking mechanism
 	if (!staticResStateChange) {
-		CD3DX12_RESOURCE_BARRIER copyToBar[2];
-		copyToBar[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-			vertexBuffer.Get(),
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER
-		);
-		copyToBar[1] = CD3DX12_RESOURCE_BARRIER::Transition(
-			indexBuffer.Get(),
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_INDEX_BUFFER
-		);
-		commandList->ResourceBarrier(2, copyToBar);
+		commandList.transition(vertexBuffer, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+		commandList.transition(indexBuffer, D3D12_RESOURCE_STATE_INDEX_BUFFER);
 		staticResStateChange = true;
 	}
-
 	D3D12_RESOURCE_BARRIER copyToConst = CD3DX12_RESOURCE_BARRIER::Transition(
 		MVPcb[frameIndex].Get(),
 		D3D12_RESOURCE_STATE_COPY_DEST,
@@ -437,12 +424,7 @@ ComPtr<ID3D12GraphicsCommandList2> D3D12TexturedCube::populateCommandList() {
 
 	commandList->DrawIndexedInstanced(36, 1, 0, 0, 0);
 
-	CD3DX12_RESOURCE_BARRIER resBarrierRTtoPresent = CD3DX12_RESOURCE_BARRIER::Transition(
-		backBuffers[frameIndex].Get(),
-		D3D12_RESOURCE_STATE_RENDER_TARGET,
-		D3D12_RESOURCE_STATE_PRESENT
-	);
-	commandList->ResourceBarrier(1, &resBarrierRTtoPresent);
+	commandList.transition(backBuffers[frameIndex], D3D12_RESOURCE_STATE_PRESENT);
 
 	return commandList;
 }
@@ -457,6 +439,7 @@ bool D3D12TexturedCube::updateRenderTargetViews() {
 		);
 		device->CreateRenderTargetView(backBuffers[i].Get(), nullptr, rtvHandle);
 		rtvHandle.Offset(rtvHeapHandleIncrementSize);
+		ResourceTracker::registerResource(backBuffers[i].Get(), Vector<D3D12_RESOURCE_STATES>(D3D12_RESOURCE_STATE_RENDER_TARGET));
 	}
 
 	return true;

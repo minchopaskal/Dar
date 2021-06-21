@@ -21,7 +21,7 @@ PipelineState::PipelineState() { }
 
 struct D3D12Empty { };
 
-bool PipelineState::init(const ComPtr<ID3D12Device2> &device, PipelineStateStream &pss) {
+bool PipelineState::init(const ComPtr<ID3D12Device8> &device, PipelineStateStream &pss) {
 	if (!initPipeline(device, pss)) {
 		return false;
 	}
@@ -45,7 +45,7 @@ bool PipelineState::init(const ComPtr<ID3D12Device2> &device, PipelineStateStrea
 	return true;
 }
 
-bool PipelineState::init(const ComPtr<ID3D12Device2> &device, const PipelineStateDesc &desc) {
+bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStateDesc &desc) {
 	PipelineStateStream stream;
 
 	auto mask = desc.shadersMask;
@@ -222,7 +222,7 @@ ID3D12RootSignature* PipelineState::getRootSignature() {
 	return rootSignature.Get();
 }
 
-bool PipelineState::initPipeline(const ComPtr<ID3D12Device2> &device, PipelineStateStream &pss) {
+bool PipelineState::initPipeline(const ComPtr<ID3D12Device8> &device, PipelineStateStream &pss) {
 	D3D12_PIPELINE_STATE_STREAM_DESC pipelineDesc = {};
 	pipelineDesc.pPipelineStateSubobjectStream = pss.getData();
 	pipelineDesc.SizeInBytes = pss.getSize();

@@ -96,8 +96,9 @@ void D3D12HelloTriangle::update() {
 }
 
 void D3D12HelloTriangle::render() {
-	ComPtr<ID3D12GraphicsCommandList2> cmdList = populateCommandList();
-	fenceValues[frameIndex] = commandQueueDirect.executeCommandList(cmdList);
+	CommandList cmdList = populateCommandList();
+	commandQueueDirect.addCommandListForExecution(std::move(cmdList));
+	fenceValues[frameIndex] = commandQueueDirect.executeCommandLists();
 
 	UINT syncInterval = vSyncEnabled ? 1 : 0;
 	UINT presentFlags = allowTearing && !vSyncEnabled ? DXGI_PRESENT_ALLOW_TEARING : 0;
@@ -291,12 +292,12 @@ int D3D12HelloTriangle::loadAssets() {
 			indexBufferSize
 		};
 
-		ComPtr<ID3D12GraphicsCommandList2> commandList = commandQueueCopy.getCommandList();
+		CommandList commandList = commandQueueCopy.getCommandList();
 
 		ComPtr<ID3D12Resource> stagingVertexBuffer;
 		if (!updateBufferResource(
 			device,
-			commandList,
+			commandList.getComPtr(),
 			&vertexBuffer,
 			&stagingVertexBuffer,
 			cpuTriangleVertexBuffer,
@@ -308,7 +309,7 @@ int D3D12HelloTriangle::loadAssets() {
 		ComPtr<ID3D12Resource> stagingIndexBuffer;
 		if (!updateBufferResource(
 			device,
-			commandList,
+			commandList.getComPtr(),
 			&indexBuffer,
 			&stagingIndexBuffer,
 			cpuTriangleIndexBuffer,
@@ -317,7 +318,7 @@ int D3D12HelloTriangle::loadAssets() {
 			return false;
 		}
 
-		UINT64 fenceVal = commandQueueCopy.executeCommandList(commandList);
+		UINT64 fenceVal = commandQueueCopy.executeCommandLists();
 		commandQueueCopy.waitForFenceValue(fenceVal);
 
 		vertexBufferView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
@@ -332,8 +333,8 @@ int D3D12HelloTriangle::loadAssets() {
 	return true;
 }
 
-ComPtr<ID3D12GraphicsCommandList2> D3D12HelloTriangle::populateCommandList() {
-	ComPtr<ID3D12GraphicsCommandList2> commandList = commandQueueDirect.getCommandList();
+CommandList D3D12HelloTriangle::populateCommandList() {
+	CommandList commandList = commandQueueDirect.getCommandList();
 
 	commandList->SetPipelineState(pipelineState.Get());
 	commandList->SetGraphicsRootSignature(rootSignature.Get());
@@ -385,6 +386,7 @@ bool D3D12HelloTriangle::updateRenderTargetViews() {
 		device->CreateRenderTargetView(backBuffers[i].Get(), nullptr, rtvHandle);
 		rtvHandle.Offset(rtvHeapHandleIncrementSize);
 	}
+
 
 	return true;
 }

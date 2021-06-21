@@ -1,6 +1,7 @@
 #include "d3d12_command_queue.h"
 
 #include "d3d12_defines.h"
+#include "d3d12_res_tracker.h"
 #include "d3d12_utils.h"
 
 CommandQueue::CommandQueue(D3D12_COMMAND_LIST_TYPE type) :
@@ -9,7 +10,7 @@ CommandQueue::CommandQueue(D3D12_COMMAND_LIST_TYPE type) :
 	fenceEvent(nullptr),
 	type(type) { }
 
-void CommandQueue::init(ComPtr<ID3D12Device2> device) {
+void CommandQueue::init(ComPtr<ID3D12Device8> device) {
 	this->device = device;
 	
 	D3D12_COMMAND_QUEUE_DESC cqDesc = {};
@@ -34,61 +35,169 @@ void CommandQueue::init(ComPtr<ID3D12Device2> device) {
 	);
 }
 
-ComPtr<ID3D12GraphicsCommandList2> CommandQueue::getCommandList() {
-	ComPtr<ID3D12GraphicsCommandList2> cmdList;
+CommandList CommandQueue::getCommandList() {
+	// TODO: try lock and if cannot lock just create new allocator+cmdList
+	auto lock = commandListsPoolCS.lock();
+
+	CommandList cmdList;
 	ComPtr<ID3D12CommandAllocator> cmdAllocator;
 
-	if (!commandAllocatorQueue.empty() && fenceCompleted(commandAllocatorQueue.front().fenceValue)) {
-		cmdAllocator = commandAllocatorQueue.front().cmdAllocator;
-		commandAllocatorQueue.pop();
+	if (!commandAllocatorsPool.empty() && fenceCompleted(commandAllocatorsPool.front().fenceValue)) {
+		cmdAllocator = commandAllocatorsPool.front().cmdAllocator;
+		commandAllocatorsPool.pop();
 	} else {
 		cmdAllocator = createCommandAllocator();
 	}
 
-	RETURN_FALSE_ON_ERROR(
-		cmdAllocator->Reset(),
+	RETURN_ON_ERROR(
+		cmdAllocator->Reset(), cmdList,
 		"Failed to reset command allocator!"
 	);
 
-	if (!commandListQueue.empty()) {
-		cmdList = commandListQueue.front();
-		commandListQueue.pop();
+	if (!commandListsPool.empty()) {
+		cmdList = commandListsPool.front();
+		commandListsPool.pop();
 	} else {
 		cmdList = createCommandList(cmdAllocator);
 	}
 
-	RETURN_FALSE_ON_ERROR(
-		cmdList->Reset(cmdAllocator.Get(), nullptr),
+	RETURN_ON_ERROR(
+		cmdList->Reset(cmdAllocator.Get(), nullptr), cmdList,
 		"Failed to reset the command list!"
 	);
 
-	RETURN_FALSE_ON_ERROR(
-		cmdList->SetPrivateDataInterface(__uuidof(ID3D12CommandAllocator), cmdAllocator.Get()),
+	RETURN_ON_ERROR(
+		cmdList->SetPrivateDataInterface(__uuidof(ID3D12CommandAllocator), cmdAllocator.Get()), cmdList,
 		"Failure CommandList::SetPrivateDataInterface"
 	);
 
 	return cmdList;
 }
 
-UINT64 CommandQueue::executeCommandList(ComPtr<ID3D12GraphicsCommandList2> cmdList) {
-	cmdList->Close();
+void CommandQueue::addCommandListForExecution(CommandList &&commandList) {
+	if (!commandList.isValid()) {
+		OutputDebugString("Invalid command list submitted!\n");
+		return;
+	}
 
-	ID3D12CommandAllocator *cmdAllocator;
-	UINT dataSize = sizeof(cmdAllocator);
-	RETURN_FALSE_ON_ERROR(
-		cmdList->GetPrivateData(__uuidof(ID3D12CommandAllocator), &dataSize, &cmdAllocator),
-		"Failure CommandList::GetPrivateData"
-	);
+	auto lock = pendingCommandListsCS.lock();
+	pendingCommandListsQueue.push_back(commandList);
+}
 
-	ID3D12CommandList *const commandLists[] = { cmdList.Get() };
-	commandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
-	UINT64 fenceVal = signal();
+UINT64 CommandQueue::executeCommandLists() {
+	Vector<ID3D12CommandList*> cmdListsToExecute;
+	Vector<ID3D12CommandAllocator*> cmdAllocators;
+	
+	Vector<CommandList> auxCommandLists;
 
-	commandAllocatorQueue.emplace(CommandAllocator{ cmdAllocator, fenceVal });
-	commandListQueue.push(cmdList);
+	UINT64 fenceVal;
+	// Lock the pending command lists queue until the command lists and any needed resource barriers are exctracted
+	{
+		auto lock = pendingCommandListsCS.lock();
+		cmdListsToExecute.reserve(pendingCommandListsQueue.size() * 4); // reserve more space in case cmd lists have pending barriers
+		cmdAllocators.reserve(pendingCommandListsQueue.size() * 4);
 
-	cmdAllocator->Release();
-		
+		auxCommandLists.reserve(pendingCommandListsQueue.size() * 3);
+
+		// For each pending command list, check its pending resource barriers
+		for (int i = 0; i < pendingCommandListsQueue.size(); ++i) {
+			CommandList &cmdList = pendingCommandListsQueue[i];
+
+			Vector<PendingResourceBarrier> &pendingBarriers = cmdList.getPendingResourceBarriers();
+			CommandList cmdListPendingBarriers;
+			Vector<CD3DX12_RESOURCE_BARRIER> resBarriers;
+
+			// For each pending barrier check the (sub)resource's state and only push the barrier if it's needed
+			for (int i = 0; i < pendingBarriers.size(); ++i) {
+				PendingResourceBarrier &b = pendingBarriers.front();
+
+				if (b.subresourceIndex == D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES) { // we need to transition all of the subresources
+					Vector<D3D12_RESOURCE_STATES> states;
+					ResourceTracker::getLastGlobalState(b.res, states);
+
+					for (int i = 0; i < states.size(); ++i) {
+						if (states[i] == b.stateAfter) {
+							continue;;
+						}
+						resBarriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+							b.res,
+							states[i],
+							b.stateAfter,
+							i
+						));
+
+					}
+				} else { // Only one of the subresources needs transitioning
+					D3D12_RESOURCE_STATES state;
+					ResourceTracker::getLastGlobalStateForSubres(b.res, state, b.subresourceIndex);
+					if (state != b.stateAfter) {
+						resBarriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+							b.res,
+							state,
+							b.stateAfter,
+							b.subresourceIndex
+						));
+					}
+				}
+			}
+			pendingBarriers.clear();
+
+			// We have resource barriers we need to call before executing the command list. Initialize the auxiliary command list and call the barriers from there.
+			if (resBarriers.size() > 0) {
+				cmdListPendingBarriers = getCommandList();
+				cmdListPendingBarriers->ResourceBarrier((UINT)resBarriers.size(), resBarriers.data());
+			}
+
+			// Save command allocator of main and auxiliary cmd list to be later pushed into the allocators pool when the fence value is known
+			ID3D12CommandAllocator *cmdAllocator;
+			UINT dataSize = sizeof(cmdAllocator);
+			RETURN_FALSE_ON_ERROR(
+				cmdList->GetPrivateData(__uuidof(ID3D12CommandAllocator), &dataSize, &cmdAllocator),
+				"Failure CommandList::GetPrivateData"
+			);
+			cmdAllocators.push_back(cmdAllocator);
+
+			// If we had any resource barriers to call, we save the command list and its allocator in the respective pools
+			if (cmdListPendingBarriers.isValid()) {
+				RETURN_FALSE_ON_ERROR(
+					cmdList->GetPrivateData(__uuidof(ID3D12CommandAllocator), &dataSize, &cmdAllocator),
+					"Failure CommandList::GetPrivateData"
+				);
+				cmdAllocators.push_back(cmdAllocator);
+
+				cmdListPendingBarriers->Close();
+
+				auxCommandLists.push_back(cmdListPendingBarriers);
+				cmdListsToExecute.push_back(cmdListPendingBarriers.get());
+			}
+
+			// Set global state of resources to what the last states in the command list were
+			// so on the next command list in the pendingCommandListsQueue would know how to deal
+			// with its pending barriers.
+			cmdList.resolveLastStates();
+
+			cmdList->Close();
+			cmdListsToExecute.push_back(cmdList.get());
+		}
+
+		commandQueue->ExecuteCommandLists((UINT)cmdListsToExecute.size(), cmdListsToExecute.data());
+		fenceVal = signal();
+
+		for (int i = 0; i < pendingCommandListsQueue.size(); ++i) {
+			commandListsPool.emplace(pendingCommandListsQueue[i]);
+		}
+		pendingCommandListsQueue.clear();
+	}
+
+	for (int i = 0; i < auxCommandLists.size(); ++i) {
+		commandListsPool.emplace(auxCommandLists[i]);
+	}
+
+	for (int i = 0; i < cmdAllocators.size(); ++i) {
+		commandAllocatorsPool.emplace(CommandAllocator{ cmdAllocators[i], fenceVal });
+		cmdAllocators[i]->Release();
+	}
+
 	return fenceVal;
 }
 
@@ -134,20 +243,9 @@ ComPtr<ID3D12CommandAllocator> CommandQueue::createCommandAllocator() {
 	return cmdAllocator;
 }
 
-ComPtr<ID3D12GraphicsCommandList2> CommandQueue::createCommandList(ComPtr<ID3D12CommandAllocator> cmdAllocator) {
-	ComPtr<ID3D12GraphicsCommandList2> cmdList;
-
-	RETURN_FALSE_ON_ERROR(
-		device->CreateCommandList(0, type, cmdAllocator.Get(), nullptr, IID_PPV_ARGS(&cmdList)),
-		"Failed to create command list!"
-	);
-
-	cmdList->SetName(getCommandListNameByType(type).c_str());
-
-	RETURN_FALSE_ON_ERROR(
-		cmdList->Close(),
-		"Failed to close the command list after creation!"
-	);
+CommandList CommandQueue::createCommandList(const ComPtr<ID3D12CommandAllocator> &cmdAllocator) {
+	CommandList cmdList;
+	cmdList.init(device, cmdAllocator, type);
 
 	return cmdList;
 }

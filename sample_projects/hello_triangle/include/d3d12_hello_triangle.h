@@ -18,7 +18,7 @@ struct D3D12HelloTriangle : D3D12App {
 	virtual void onMouseScroll(double xOffset, double yOffset) override;
 
 private:
-	ComPtr<ID3D12GraphicsCommandList2> populateCommandList();
+	CommandList populateCommandList();
 	bool updateRenderTargetViews();
 	bool resizeDepthBuffer(int width, int height);
 
