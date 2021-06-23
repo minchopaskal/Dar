@@ -108,22 +108,22 @@ UINT64 CommandQueue::executeCommandLists() {
 			Vector<CD3DX12_RESOURCE_BARRIER> resBarriers;
 
 			// For each pending barrier check the (sub)resource's state and only push the barrier if it's needed
-			for (int i = 0; i < pendingBarriers.size(); ++i) {
-				PendingResourceBarrier &b = pendingBarriers.front();
+			for (int j = 0; j < pendingBarriers.size(); ++j) {
+				PendingResourceBarrier &b = pendingBarriers[j];
 
 				if (b.subresourceIndex == D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES) { // we need to transition all of the subresources
 					Vector<D3D12_RESOURCE_STATES> states;
 					ResourceTracker::getLastGlobalState(b.res, states);
 
-					for (int i = 0; i < states.size(); ++i) {
-						if (states[i] == b.stateAfter) {
+					for (int k = 0; k < states.size(); ++k) {
+						if (states[k] == b.stateAfter) {
 							continue;;
 						}
 						resBarriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
 							b.res,
-							states[i],
+							states[k],
 							b.stateAfter,
-							i
+							k
 						));
 
 					}
@@ -160,7 +160,7 @@ UINT64 CommandQueue::executeCommandLists() {
 			// If we had any resource barriers to call, we save the command list and its allocator in the respective pools
 			if (cmdListPendingBarriers.isValid()) {
 				RETURN_FALSE_ON_ERROR(
-					cmdList->GetPrivateData(__uuidof(ID3D12CommandAllocator), &dataSize, &cmdAllocator),
+					cmdListPendingBarriers->GetPrivateData(__uuidof(ID3D12CommandAllocator), &dataSize, &cmdAllocator),
 					"Failure CommandList::GetPrivateData"
 				);
 				cmdAllocators.push_back(cmdAllocator);

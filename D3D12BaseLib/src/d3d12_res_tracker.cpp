@@ -23,7 +23,7 @@ int numThreads = 0;
 bool ResourceTracker::init(const unsigned int nt) {
 	numThreads = nt;
 	if (nt > 1) {
-		return globalStatesCS.initialize();
+		return globalStatesCS.init();
 	}
 	return true;
 }
@@ -31,7 +31,7 @@ bool ResourceTracker::init(const unsigned int nt) {
 void ResourceTracker::deinit() { }
 
 bool ResourceTracker::registerResource(ID3D12Resource *resource, const unsigned int numSubresources) {
-	ResourceTracker::registerResource(resource, Vector<D3D12_RESOURCE_STATES>(numSubresources, D3D12_RESOURCE_STATE_COMMON));
+	return ResourceTracker::registerResource(resource, Vector<D3D12_RESOURCE_STATES>(numSubresources, D3D12_RESOURCE_STATE_COMMON));
 }
 
 bool ResourceTracker::registerResource(ID3D12Resource *resource, const Vector<D3D12_RESOURCE_STATES> &states) {
@@ -46,7 +46,7 @@ bool ResourceTracker::registerResource(ID3D12Resource *resource, const Vector<D3
 	ResourceData data;
 	data.states = SubresStates(states);
 	if (numThreads > 1) {
-		if (!data.cs.initialize()) {
+		if (!data.cs.init()) {
 			return false;
 		}
 	}

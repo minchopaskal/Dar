@@ -25,6 +25,8 @@ private:
 	void timeIt();
 
 private:
+	using Super = D3D12App;
+
 	ComPtr<ID3D12RootSignature> rootSignature;
 	ComPtr<ID3D12PipelineState> pipelineState;
 

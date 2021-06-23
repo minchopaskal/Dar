@@ -112,6 +112,7 @@ int D3D12TexturedCube::init() {
 }
 
 void D3D12TexturedCube::deinit() {
+	Super::deinit();
 	flush();
 }
 
@@ -381,9 +382,7 @@ CommandList D3D12TexturedCube::populateCommandList() {
 	commandList->SetPipelineState(pipelineState.getPipelineState());
 
 	static bool staticResStateChange = false;
-	if (!staticResStateChange) {
-		commandList.transition(textures[0], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	}
+	commandList.transition(textures[0], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	commandList->SetDescriptorHeaps(1, srvHeap.GetAddressOf());
 
 	commandList->SetGraphicsRootSignature(pipelineState.getRootSignature());
@@ -410,12 +409,7 @@ CommandList D3D12TexturedCube::populateCommandList() {
 		commandList.transition(indexBuffer, D3D12_RESOURCE_STATE_INDEX_BUFFER);
 		staticResStateChange = true;
 	}
-	D3D12_RESOURCE_BARRIER copyToConst = CD3DX12_RESOURCE_BARRIER::Transition(
-		MVPcb[frameIndex].Get(),
-		D3D12_RESOURCE_STATE_COPY_DEST,
-		D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER
-	);
-	commandList->ResourceBarrier(1, &copyToConst);
+	commandList.transition(MVPcb[frameIndex], D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
 	commandList->IASetIndexBuffer(&indexBufferView);
@@ -439,7 +433,11 @@ bool D3D12TexturedCube::updateRenderTargetViews() {
 		);
 		device->CreateRenderTargetView(backBuffers[i].Get(), nullptr, rtvHandle);
 		rtvHandle.Offset(rtvHeapHandleIncrementSize);
-		ResourceTracker::registerResource(backBuffers[i].Get(), Vector<D3D12_RESOURCE_STATES>(D3D12_RESOURCE_STATE_RENDER_TARGET));
+		ResourceTracker::registerResource(backBuffers[i].Get(), 1);
+
+		wchar_t backBufferName[32];
+		swprintf(backBufferName, 32, L"BackBuffer[%u]", i);
+		backBuffers[i]->SetName(backBufferName);
 	}
 
 	return true;

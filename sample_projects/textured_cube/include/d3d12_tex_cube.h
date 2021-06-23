@@ -26,6 +26,8 @@ private:
 	void timeIt();
 
 private:
+	using Super = D3D12App;
+
 	enum class ProjectionType {
 		Perspective,
 		Orthographic

@@ -1,19 +1,16 @@
 #include "d3d12_app.h"
 
+#include "d3d12_defines.h"
+#include "d3d12_res_tracker.h"
+
+#include "d3dx12.h"
+
 #include <glfw/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <glfw/glfw3native.h>
 
 #include <d3dcompiler.h>
 #include <dxgi1_6.h>
-#include "d3dx12.h"
-#include "d3d12_defines.h"
-
-#include <bitset>
-#include <cstdio>
-#include <io.h>
-#include <fcntl.h>
-#include <stdlib.h>
 
 extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 4; }
 
@@ -216,7 +213,7 @@ int D3D12App::init() {
 
 	D3D12_FEATURE_DATA_D3D12_OPTIONS7 options7 = { };
 	RETURN_FALSE_ON_ERROR(
-		device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7, &options, sizeof(options)),
+		device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7, &options7, sizeof(options7)),
 		"Failed to check features support!"
 	);
 
@@ -278,7 +275,13 @@ int D3D12App::init() {
 		rootSignatureFeatureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
 	}
 
+	ResourceTracker::init(1);
+
 	return true;
+}
+
+void D3D12App::deinit() {
+	ResourceTracker::deinit();
 }
 
 void D3D12App::toggleFullscreen() {

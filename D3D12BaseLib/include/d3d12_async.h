@@ -16,18 +16,20 @@ private:
 };
 
 struct CriticalSection {
-	CriticalSection(bool init = false) : init(init) {
-		if (init) {
-			initialize();
+	CriticalSection(bool inited = false) : cs{}, inited(inited) {
+		if (inited) {
+			init();
 		}
 	}
 
 	~CriticalSection() {
-		DeleteCriticalSection(&cs);
+		if (inited) {
+			DeleteCriticalSection(&cs);
+		}
 	}
 
-	bool initialize() {
-		if (init) {
+	bool init() {
+		if (inited) {
 			return true;
 		}
 
@@ -44,21 +46,21 @@ struct CriticalSection {
 #endif // D3D12_DEBUG
 	
 		if (res) {
-			init = true;
+			inited = true;
 		}
 
 		return res;
 	}
 
 	CriticalSectionLock lock() {
-		if (init) {
+		if (inited) {
 			EnterCriticalSection(&cs);
 		}
-		return CriticalSectionLock{ init ? &cs : nullptr };
+		return CriticalSectionLock{ inited ? &cs : nullptr };
 	}
 
 	CriticalSectionLock tryLock() {
-		if (init && TryEnterCriticalSection(&cs)) {
+		if (inited && TryEnterCriticalSection(&cs)) {
 			return CriticalSectionLock{ &cs };
 		} else {
 			return CriticalSectionLock{ nullptr };
@@ -67,5 +69,5 @@ struct CriticalSection {
 
 private:
 	CRITICAL_SECTION cs;
-	bool init;
+	bool inited;
 };

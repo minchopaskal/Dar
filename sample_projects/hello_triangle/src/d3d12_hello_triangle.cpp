@@ -73,6 +73,7 @@ int D3D12HelloTriangle::init() {
 }
 
 void D3D12HelloTriangle::deinit() {
+	Super::deinit();
 	flush();
 }
 

@@ -10,7 +10,6 @@ struct PendingResourceBarrier {
 };
 
 struct CommandList {
-
 	CommandList();
 
 	bool isValid() const;
