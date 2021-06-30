@@ -67,13 +67,13 @@ struct PipelineStateStream {
 
 	template <typename T>
 	void insert(T &token) {
-		size_t oldSize = data.size();
+		SizeType oldSize = data.size();
 		data.resize(data.size() + sizeof(T));
 		memcpy(data.data() + oldSize, token.getData(), sizeof(T));
 	}
 
 	void* getData();
-	size_t getSize() const;
+	SizeType getSize() const;
 
 private:
 	Vector<UINT8> data;

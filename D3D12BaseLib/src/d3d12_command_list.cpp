@@ -1,8 +1,9 @@
 #include "d3d12_command_list.h"
 
-#include "d3d12_defines.h"
-#include "d3d12_res_tracker.h"
+#include "d3d12_resource_manager.h"
 #include "d3d12_utils.h"
+
+#include "d3dx12.h"
 
 CommandList::CommandList() : valid(false), type(D3D12_COMMAND_LIST_TYPE_DIRECT) { }
 
@@ -25,17 +26,19 @@ bool CommandList::init(const ComPtr<ID3D12Device8> &device, const ComPtr<ID3D12C
 	return true;
 }
 
-void CommandList::transition(ComPtr<ID3D12Resource>& resource, D3D12_RESOURCE_STATES stateAfter, const UINT subresourceIndex) {
+void CommandList::transition(ResourceHandle resource, D3D12_RESOURCE_STATES stateAfter, const UINT subresourceIndex) {
 	static const D3D12_RESOURCE_STATES UNKNOWN_STATE = static_cast<D3D12_RESOURCE_STATES>(0xffffffff);
 
 	if (!valid) {
 		return;
 	}
 
-	ID3D12Resource *res = resource.Get();
+	ResourceManager &resManager = getResourceManager();
+
+	ID3D12Resource *res = resManager.getID3D12Resource(resource);
 	auto pushPendingBarrier = [&](D3D12_RESOURCE_STATES &state) {
 		PendingResourceBarrier barrier;
-		barrier.res = res;
+		barrier.resHandle = resource;
 		barrier.stateAfter = stateAfter;
 		barrier.subresourceIndex = subresourceIndex;
 		pendingBarriers.push_back(barrier);
@@ -51,8 +54,8 @@ void CommandList::transition(ComPtr<ID3D12Resource>& resource, D3D12_RESOURCE_ST
 		return false;
 	};
 	
-	if (lastStates.find(res) != lastStates.end()) { // the resource was already transitioned once
-		SubresStates &states = lastStates[res];
+	if (lastStates.find(resource) != lastStates.end()) { // the resource was already transitioned once
+		SubresStates &states = lastStates[resource];
 		for (int i = 0; i < states.size(); ++i) {		// Check whether the subresource was transitioned
 			if (subresourceIndex != D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES && subresourceIndex != i) {
 				continue;
@@ -80,8 +83,8 @@ void CommandList::transition(ComPtr<ID3D12Resource>& resource, D3D12_RESOURCE_ST
 	} else { // this is the first time we encounter the subresource.
 		// Instead of transitioning here, we will add the barrier to the list of pending
 		// barriers because we don't know the 'beforeState' of the resource, yet
-		lastStates[res].resize(ResourceTracker::getSubresourcesCount(res));
-		SubresStates &states = lastStates[res];
+		lastStates[resource].resize(resManager.getSubresourcesCount(resource));
+		SubresStates &states = lastStates[resource];
 		for (int i = 0; i < states.size(); ++i) {
 			if (subresourceIndex == D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES) {
 				states[i] = stateAfter;
@@ -97,11 +100,14 @@ void CommandList::transition(ComPtr<ID3D12Resource>& resource, D3D12_RESOURCE_ST
 }
 
 void CommandList::resolveLastStates() {
+	ResourceManager &resManager = getResourceManager();
 	for (auto it = lastStates.begin(); it != lastStates.end(); ++it) {
 		for (int i = 0; i < it->second.size(); ++i) {
-			ResourceTracker::setGlobalStateForSubres(it->first, it->second[i], i);
+			resManager.setGlobalStateForSubres(it->first, it->second[i], i);
 		}
 	}
+
+	lastStates.clear();
 }
 
 Vector<PendingResourceBarrier>& CommandList::getPendingResourceBarriers() {

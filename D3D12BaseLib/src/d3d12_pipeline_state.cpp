@@ -13,7 +13,7 @@ void* PipelineStateStream::getData() {
 	return data.data();
 }
 
-size_t PipelineStateStream::getSize() const {
+SizeType PipelineStateStream::getSize() const {
 	return data.size();
 }
 
@@ -174,9 +174,6 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStat
 	for (int i = 0; i < numConstantBufferViews; ++i) {
 		rsParams[i].InitAsConstantBufferView(i);
 	}
-
-	/*CD3DX12_DESCRIPTOR_RANGE1 texture2DRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
-	rsParams[numParams - 1].InitAsDescriptorTable(1, &texture2DRange, D3D12_SHADER_VISIBILITY_PIXEL);*/
 
 	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
 	rootSignatureDesc.Init_1_1(numParams, rsParams.data(), 1, desc.staticSamplerDesc, rsFlags);

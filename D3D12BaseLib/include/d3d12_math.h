@@ -292,7 +292,7 @@ struct Mat4t {
 	}
 
 	Mat4t(const VecType columns[4]) {
-		size_t offset = 0;
+		SizeType offset = 0;
 		for (int i = 0; i < 4; ++i) {
 			memcpy(this->data + offset, columns[i].data, sizeof(VecType));
 			offset += 4;

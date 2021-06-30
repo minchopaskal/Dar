@@ -1,7 +1,7 @@
 #pragma once
 
-#include <synchapi.h>
-#include <comdef.h>
+#include "d3d12_includes.h" // windows.h
+#include <comdef.h> // _com_error
 
 struct CriticalSectionLock {
 	CriticalSectionLock(CRITICAL_SECTION *cs) : cs(cs) { }

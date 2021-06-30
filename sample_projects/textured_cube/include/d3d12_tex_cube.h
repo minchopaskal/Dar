@@ -41,19 +41,19 @@ private:
 	ComPtr<ID3D12DescriptorHeap> dsvHeap;
 
 	// Vertex buffer
-	ComPtr<ID3D12Resource> vertexBuffer;
-	ComPtr<ID3D12Resource> indexBuffer;
+	ResourceHandle vertexBufferHandle;
+	ResourceHandle indexBufferHandle;
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
 	D3D12_INDEX_BUFFER_VIEW indexBufferView;
-	ComPtr<ID3D12Resource> depthBuffer;
+	ResourceHandle depthBufferHandle;
 
 	// MVP matrix
 	Mat4 MVP;
-	ComPtr<ID3D12Resource> MVPcb[frameCount];
+	ResourceHandle mvpBufferHandle[frameCount];
 
 	// Texture data
 	static const int numTextures = 1;
-	ComPtr<ID3D12Resource> textures[numTextures];
+	ResourceHandle texturesHandles[numTextures];
 	ComPtr<ID3D12DescriptorHeap> srvHeap;
 
 	// viewport

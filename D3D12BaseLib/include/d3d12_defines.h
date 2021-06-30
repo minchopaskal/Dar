@@ -45,13 +45,15 @@ while (false)
 #define dassert(exp) (void)0
 #endif
 
+using SizeType = size_t;
+
 template <class T>
 using Vector = std::vector<T>;
 
 template <class T>
 using Queue = std::queue<T>;
 
-template <size_t N>
+template <SizeType N>
 using Bitset = std::bitset<N>;
 
 template <class K, class V>

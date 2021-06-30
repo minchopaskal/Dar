@@ -1,8 +1,10 @@
 #include "d3d12_command_queue.h"
 
 #include "d3d12_defines.h"
-#include "d3d12_res_tracker.h"
+#include "d3d12_resource_manager.h"
 #include "d3d12_utils.h"
+
+#include "d3dx12.h"
 
 CommandQueue::CommandQueue(D3D12_COMMAND_LIST_TYPE type) :
 	device(nullptr),
@@ -85,9 +87,10 @@ void CommandQueue::addCommandListForExecution(CommandList &&commandList) {
 }
 
 UINT64 CommandQueue::executeCommandLists() {
+	ResourceManager &resManager = getResourceManager();
+
 	Vector<ID3D12CommandList*> cmdListsToExecute;
 	Vector<ID3D12CommandAllocator*> cmdAllocators;
-	
 	Vector<CommandList> auxCommandLists;
 
 	UINT64 fenceVal;
@@ -110,17 +113,18 @@ UINT64 CommandQueue::executeCommandLists() {
 			// For each pending barrier check the (sub)resource's state and only push the barrier if it's needed
 			for (int j = 0; j < pendingBarriers.size(); ++j) {
 				PendingResourceBarrier &b = pendingBarriers[j];
+				ID3D12Resource *res = resManager.getID3D12Resource(b.resHandle);
 
 				if (b.subresourceIndex == D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES) { // we need to transition all of the subresources
 					Vector<D3D12_RESOURCE_STATES> states;
-					ResourceTracker::getLastGlobalState(b.res, states);
+					resManager.getLastGlobalState(b.resHandle, states);
 
 					for (int k = 0; k < states.size(); ++k) {
 						if (states[k] == b.stateAfter) {
 							continue;;
 						}
 						resBarriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
-							b.res,
+							res,
 							states[k],
 							b.stateAfter,
 							k
@@ -129,10 +133,10 @@ UINT64 CommandQueue::executeCommandLists() {
 					}
 				} else { // Only one of the subresources needs transitioning
 					D3D12_RESOURCE_STATES state;
-					ResourceTracker::getLastGlobalStateForSubres(b.res, state, b.subresourceIndex);
+					resManager.getLastGlobalStateForSubres(b.resHandle, state, b.subresourceIndex);
 					if (state != b.stateAfter) {
 						resBarriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
-							b.res,
+							res,
 							state,
 							b.stateAfter,
 							b.subresourceIndex
