@@ -16,6 +16,10 @@ set(HEADERS
 	${INCLUDE_DIR}/d3d12_includes.h
 	${INCLUDE_DIR}/d3d12_math.h
 	${INCLUDE_DIR}/d3d12_pipeline_state.h
+	${INCLUDE_DIR}/d3d12_resource_manager.h
+	${INCLUDE_DIR}/d3d12_async.h
+	${INCLUDE_DIR}/d3d12_command_list.h
+	${INCLUDE_DIR}/d3d12_resource_handle.h
 )
 
 set(SOURCES
@@ -24,6 +28,9 @@ set(SOURCES
 	${SRC_DIR}/d3d12_asset_manager.cpp
 	${SRC_DIR}/d3d12_utils.cpp
 	${SRC_DIR}/d3d12_pipeline_state.cpp
+	${SRC_DIR}/d3d12_resource_manager.cpp
+	${SRC_DIR}/d3d12_command_list.cpp
+	${SRC_DIR}/d3d12_resource_handle.cpp
 )
 
 set(SUBMODULES

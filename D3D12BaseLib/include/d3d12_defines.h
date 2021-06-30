@@ -1,9 +1,11 @@
 #pragma once
 
+#include <bitset>
+#include <cassert>
 #include <vector>
 #include <queue>
-#include <bitset>
 #include <string>
+#include <unordered_map>
 
 #ifdef D3D12_DEBUG
 #define RETURN_ON_ERROR_FMT(cmd, retval, msg, ...) \
@@ -37,14 +39,25 @@ while (false)
 
 #define RETURN_FALSE_ON_ERROR_FMT(cmd, msg, ...) RETURN_ON_ERROR_FMT((cmd), false, (msg), __VA_ARGS__)
 
+#ifdef D3D12_DEBUG
+#define dassert(exp) assert(exp)
+#else
+#define dassert(exp) (void)0
+#endif
+
+using SizeType = size_t;
+
 template <class T>
 using Vector = std::vector<T>;
 
 template <class T>
 using Queue = std::queue<T>;
 
-template <size_t N>
+template <SizeType N>
 using Bitset = std::bitset<N>;
+
+template <class K, class V>
+using Map = std::unordered_map<K, V>;
 
 using String = std::string;
 using WString = std::wstring;

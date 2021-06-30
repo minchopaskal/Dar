@@ -13,7 +13,7 @@ void* PipelineStateStream::getData() {
 	return data.data();
 }
 
-size_t PipelineStateStream::getSize() const {
+SizeType PipelineStateStream::getSize() const {
 	return data.size();
 }
 
@@ -21,7 +21,7 @@ PipelineState::PipelineState() { }
 
 struct D3D12Empty { };
 
-bool PipelineState::init(const ComPtr<ID3D12Device2> &device, PipelineStateStream &pss) {
+bool PipelineState::init(const ComPtr<ID3D12Device8> &device, PipelineStateStream &pss) {
 	if (!initPipeline(device, pss)) {
 		return false;
 	}
@@ -45,7 +45,7 @@ bool PipelineState::init(const ComPtr<ID3D12Device2> &device, PipelineStateStrea
 	return true;
 }
 
-bool PipelineState::init(const ComPtr<ID3D12Device2> &device, const PipelineStateDesc &desc) {
+bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStateDesc &desc) {
 	PipelineStateStream stream;
 
 	auto mask = desc.shadersMask;
@@ -175,9 +175,6 @@ bool PipelineState::init(const ComPtr<ID3D12Device2> &device, const PipelineStat
 		rsParams[i].InitAsConstantBufferView(i);
 	}
 
-	/*CD3DX12_DESCRIPTOR_RANGE1 texture2DRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
-	rsParams[numParams - 1].InitAsDescriptorTable(1, &texture2DRange, D3D12_SHADER_VISIBILITY_PIXEL);*/
-
 	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
 	rootSignatureDesc.Init_1_1(numParams, rsParams.data(), 1, desc.staticSamplerDesc, rsFlags);
 
@@ -222,7 +219,7 @@ ID3D12RootSignature* PipelineState::getRootSignature() {
 	return rootSignature.Get();
 }
 
-bool PipelineState::initPipeline(const ComPtr<ID3D12Device2> &device, PipelineStateStream &pss) {
+bool PipelineState::initPipeline(const ComPtr<ID3D12Device8> &device, PipelineStateStream &pss) {
 	D3D12_PIPELINE_STATE_STREAM_DESC pipelineDesc = {};
 	pipelineDesc.pPipelineStateSubobjectStream = pss.getData();
 	pipelineDesc.SizeInBytes = pss.getSize();

@@ -7,11 +7,12 @@
 #include <d3dcompiler.h>
 #include <dxgi1_6.h>
 
-#include "d3d12_asset_manager.h"
-#include "geometry.h"
 #include "d3d12_app.h"
-#include "d3d12_utils.h"
+#include "d3d12_resource_manager.h"
+#include "d3d12_asset_manager.h"
 #include "d3d12_pipeline_state.h"
+#include "d3d12_utils.h"
+#include "geometry.h"
 
 // TODO: To make things simple, child projects should not rely on third party software
 // Expose some input controller interface or something like that.
@@ -73,6 +74,7 @@ int D3D12HelloTriangle::init() {
 }
 
 void D3D12HelloTriangle::deinit() {
+	Super::deinit();
 	flush();
 }
 
@@ -96,8 +98,9 @@ void D3D12HelloTriangle::update() {
 }
 
 void D3D12HelloTriangle::render() {
-	ComPtr<ID3D12GraphicsCommandList2> cmdList = populateCommandList();
-	fenceValues[frameIndex] = commandQueueDirect.executeCommandList(cmdList);
+	CommandList cmdList = populateCommandList();
+	commandQueueDirect.addCommandListForExecution(std::move(cmdList));
+	fenceValues[frameIndex] = commandQueueDirect.executeCommandLists();
 
 	UINT syncInterval = vSyncEnabled ? 1 : 0;
 	UINT presentFlags = allowTearing && !vSyncEnabled ? DXGI_PRESENT_ALLOW_TEARING : 0;
@@ -123,7 +126,10 @@ void D3D12HelloTriangle::onResize(int w, int h) {
 
 	for (int i = 0; i < frameCount; ++i) {
 		backBuffers[i].Reset();
+		resManager->deregisterResource(backBuffersHandles[i]);
 	}
+
+	resManager->deregisterResource(depthBufferHandle);
 
 	DXGI_SWAP_CHAIN_DESC scDesc = { };
 	RETURN_ON_ERROR(
@@ -253,6 +259,11 @@ int D3D12HelloTriangle::loadAssets() {
 		
 		DepthStencilFormatToken dsFormatToken = DXGI_FORMAT_D32_FLOAT;
 
+		D3D12_RASTERIZER_DESC rasterizerDesc = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+		rasterizerDesc.CullMode = D3D12_CULL_MODE_NONE;
+
+		RasterizerDescToken rasterizerToken = rasterizerDesc;
+
 		pipelineStateStream.insert(rootSignatureToken);
 		pipelineStateStream.insert(inputLayoutToken);
 		pipelineStateStream.insert(vsToken);
@@ -260,6 +271,7 @@ int D3D12HelloTriangle::loadAssets() {
 		pipelineStateStream.insert(topologyToken);
 		pipelineStateStream.insert(rtFormatToken);
 		pipelineStateStream.insert(dsFormatToken);
+		pipelineStateStream.insert(rasterizerToken);
 
 		D3D12_PIPELINE_STATE_STREAM_DESC pipelineDesc = {};
 		pipelineDesc.pPipelineStateSubobjectStream = pipelineStateStream.getData();
@@ -279,52 +291,36 @@ int D3D12HelloTriangle::loadAssets() {
 			{ { -0.5f, -0.5f * aspectRatio, 0.0f, 1.f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
 		};
 		const UINT vertexBufferSize = sizeof(triangleVertices);
-		CPUBuffer cpuTriangleVertexBuffer = {
-			triangleVertices,
-			vertexBufferSize
-		};
 
 		static WORD triangleIndices[] = { 0, 1, 2 };
 		const UINT indexBufferSize = sizeof(triangleIndices);
-		CPUBuffer cpuTriangleIndexBuffer = {
-			triangleIndices,
-			indexBufferSize
-		};
 
-		ComPtr<ID3D12GraphicsCommandList2> commandList = commandQueueCopy.getCommandList();
+		CommandList commandList = commandQueueCopy.getCommandList();
 
-		ComPtr<ID3D12Resource> stagingVertexBuffer;
-		if (!updateBufferResource(
-			device,
-			commandList,
-			&vertexBuffer,
-			&stagingVertexBuffer,
-			cpuTriangleVertexBuffer,
-			D3D12_RESOURCE_FLAG_NONE
-		)) {
+		ResourceInitData vertData(ResourceType::DataBuffer);
+		vertData.size = vertexBufferSize;
+		vertData.name = L"VertexBuffer";
+		if (!(vertexBufferHandle = resManager->createBuffer(vertData))) {
 			return false;
 		}
 
-		ComPtr<ID3D12Resource> stagingIndexBuffer;
-		if (!updateBufferResource(
-			device,
-			commandList,
-			&indexBuffer,
-			&stagingIndexBuffer,
-			cpuTriangleIndexBuffer,
-			D3D12_RESOURCE_FLAG_NONE
-			)) {
+		ResourceInitData indexBufferData(ResourceType::DataBuffer);
+		indexBufferData.size = indexBufferSize;
+		indexBufferData.name = L"IndexBuffer";
+		if (!(indexBufferHandle = resManager->createBuffer(indexBufferData))) {
 			return false;
 		}
 
-		UINT64 fenceVal = commandQueueCopy.executeCommandList(commandList);
-		commandQueueCopy.waitForFenceValue(fenceVal);
+		UploadHandle uploadHandle = resManager->beginNewUpload();
+		resManager->uploadBufferData(uploadHandle, vertexBufferHandle, reinterpret_cast<void*>(triangleVertices), vertexBufferSize);
+		resManager->uploadBufferData(uploadHandle, indexBufferHandle, reinterpret_cast<void*>(triangleIndices), indexBufferSize);
+		resManager->uploadBuffers();
 
-		vertexBufferView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
+		vertexBufferView.BufferLocation = vertexBufferHandle->GetGPUVirtualAddress();
 		vertexBufferView.SizeInBytes = vertexBufferSize;
 		vertexBufferView.StrideInBytes = sizeof(Vertex);
 
-		indexBufferView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
+		indexBufferView.BufferLocation = indexBufferHandle->GetGPUVirtualAddress();
 		indexBufferView.SizeInBytes = indexBufferSize;
 		indexBufferView.Format = DXGI_FORMAT_R16_UINT;
 	}
@@ -332,8 +328,8 @@ int D3D12HelloTriangle::loadAssets() {
 	return true;
 }
 
-ComPtr<ID3D12GraphicsCommandList2> D3D12HelloTriangle::populateCommandList() {
-	ComPtr<ID3D12GraphicsCommandList2> commandList = commandQueueDirect.getCommandList();
+CommandList D3D12HelloTriangle::populateCommandList() {
+	CommandList commandList = commandQueueDirect.getCommandList();
 
 	commandList->SetPipelineState(pipelineState.Get());
 	commandList->SetGraphicsRootSignature(rootSignature.Get());
@@ -383,6 +379,10 @@ bool D3D12HelloTriangle::updateRenderTargetViews() {
 			"Failed to create Render-Target-View for buffer %u!", i
 		);
 		device->CreateRenderTargetView(backBuffers[i].Get(), nullptr, rtvHandle);
+
+		// Register the back buffer's resources manually since the resource manager doesn't own them, the swap chain does.
+		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, D3D12_RESOURCE_STATE_PRESENT);
+
 		rtvHandle.Offset(rtvHeapHandleIncrementSize);
 	}
 
@@ -393,24 +393,12 @@ bool D3D12HelloTriangle::resizeDepthBuffer(int width, int height) {
 	width = std::max(1, width);
 	height = std::max(1, height);
 
-	D3D12_CLEAR_VALUE clearValue = {};
-	clearValue.Format = DXGI_FORMAT_D32_FLOAT;
-	clearValue.DepthStencil = { 1.f, 0 };
+	ResourceInitData resData(ResourceType::DepthStencilBuffer);
+	resData.textureData.width = width;
+	resData.textureData.height = height;
+	resData.textureData.format = DXGI_FORMAT_D32_FLOAT;
 
-	RETURN_FALSE_ON_ERROR(
-		device->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Tex2D(
-				DXGI_FORMAT_D32_FLOAT, width, height,
-				1, 0, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL
-			),
-			D3D12_RESOURCE_STATE_DEPTH_WRITE,
-			&clearValue,
-			IID_PPV_ARGS(&depthBuffer)
-		),
-		"Failed to create/resize depth buffer!"
-	);
+	depthBufferHandle = resManager->createBuffer(resData);
 
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsDesc = {};
 	dsDesc.Format = DXGI_FORMAT_D32_FLOAT;
@@ -418,7 +406,7 @@ bool D3D12HelloTriangle::resizeDepthBuffer(int width, int height) {
 	dsDesc.Flags = D3D12_DSV_FLAG_NONE;
 	dsDesc.Texture2D.MipSlice = 0;
 
-	device->CreateDepthStencilView(depthBuffer.Get(), &dsDesc, dsvHeap->GetCPUDescriptorHandleForHeapStart());
+	device->CreateDepthStencilView(depthBufferHandle.get(), &dsDesc, dsvHeap->GetCPUDescriptorHandleForHeapStart());
 
 	return true;
 }

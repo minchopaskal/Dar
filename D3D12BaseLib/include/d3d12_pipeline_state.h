@@ -67,13 +67,13 @@ struct PipelineStateStream {
 
 	template <typename T>
 	void insert(T &token) {
-		size_t oldSize = data.size();
+		SizeType oldSize = data.size();
 		data.resize(data.size() + sizeof(T));
 		memcpy(data.data() + oldSize, token.getData(), sizeof(T));
 	}
 
 	void* getData();
-	size_t getSize() const;
+	SizeType getSize() const;
 
 private:
 	Vector<UINT8> data;
@@ -104,14 +104,14 @@ struct PipelineStateDesc {
 struct PipelineState {
 	PipelineState();
 
-	bool init(const ComPtr<ID3D12Device2> &device, PipelineStateStream &pss);
-	bool init(const ComPtr<ID3D12Device2> &device, const PipelineStateDesc &desc);
+	bool init(const ComPtr<ID3D12Device8> &device, PipelineStateStream &pss);
+	bool init(const ComPtr<ID3D12Device8> &device, const PipelineStateDesc &desc);
 
 	ID3D12PipelineState* getPipelineState();
 	ID3D12RootSignature* getRootSignature();
 
 private:
-	bool initPipeline(const ComPtr<ID3D12Device2> &device, PipelineStateStream &pss);
+	bool initPipeline(const ComPtr<ID3D12Device8> &device, PipelineStateStream &pss);
 
 private:
 	ComPtr<ID3D12PipelineState> pipelineState;

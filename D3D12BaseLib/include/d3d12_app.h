@@ -7,6 +7,7 @@
 #include <bitset>
 
 struct GLFWwindow;
+struct ResourceManager;
 
 struct D3D12App {
 	D3D12App(UINT width, UINT height, const char *windowTitle);
@@ -41,13 +42,16 @@ protected:
 	Bitset<keysCount> keyPressed;
 	Bitset<keysCount> keyRepeated;
 
-	ComPtr<ID3D12Device2> device;
+	ComPtr<ID3D12Device8> device;
 
 	CommandQueue commandQueueDirect;
 	CommandQueue commandQueueCopy;
 
 	ComPtr<IDXGISwapChain4> swapChain;
 	ComPtr<ID3D12Resource> backBuffers[frameCount];
+	ResourceHandle backBuffersHandles[frameCount];
+
+	ResourceManager *resManager;
 
 	D3D12_FEATURE_DATA_ROOT_SIGNATURE rootSignatureFeatureData;
 

@@ -1,19 +1,16 @@
 #include "d3d12_app.h"
 
+#include "d3d12_defines.h"
+#include "d3d12_resource_manager.h"
+
+#include "d3dx12.h"
+
 #include <glfw/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <glfw/glfw3native.h>
 
 #include <d3dcompiler.h>
 #include <dxgi1_6.h>
-#include "d3dx12.h"
-#include "d3d12_defines.h"
-
-#include <bitset>
-#include <cstdio>
-#include <io.h>
-#include <fcntl.h>
-#include <stdlib.h>
 
 extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 4; }
 
@@ -216,7 +213,7 @@ int D3D12App::init() {
 
 	D3D12_FEATURE_DATA_D3D12_OPTIONS7 options7 = { };
 	RETURN_FALSE_ON_ERROR(
-		device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7, &options, sizeof(options)),
+		device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7, &options7, sizeof(options7)),
 		"Failed to check features support!"
 	);
 
@@ -278,11 +275,22 @@ int D3D12App::init() {
 		rootSignatureFeatureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
 	}
 
+	// TODO: threads
+	initResourceManager(device, 1);
+	resManager = &getResourceManager();
+
 	return true;
+}
+
+void D3D12App::deinit() {
+	deinitResourceManager();
 }
 
 void D3D12App::toggleFullscreen() {
 	fullscreen = !fullscreen;
+
+	UINT width;
+	UINT height;
 
 	// TODO: do this in GLFW to get rid of this ugliness
 	HWND hWnd = window;
@@ -295,26 +303,33 @@ void D3D12App::toggleFullscreen() {
 		MONITORINFOEX monitorInfo = {};
 		monitorInfo.cbSize = sizeof(MONITORINFOEX);
 		GetMonitorInfo(hMonitor, &monitorInfo);
+		width = monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left;
+		height = monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left;
 		SetWindowPos(hWnd, HWND_TOP,
 				monitorInfo.rcMonitor.left,
 				monitorInfo.rcMonitor.top,
-				monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left,
-				monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top,
+				width,
+				height,
 				SWP_FRAMECHANGED | SWP_NOACTIVATE);
 
+		app->onResize(width, height);
 		::ShowWindow(hWnd, SW_MAXIMIZE);
 	} else { // restore previous dimensions
 		::SetWindowLong(hWnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
 
+		width = windowRect.right - windowRect.left;
+		height = windowRect.bottom - windowRect.top;
 		::SetWindowPos(hWnd, HWND_NOTOPMOST,
 				windowRect.left,
 				windowRect.top,
-				windowRect.right - windowRect.left,
-				windowRect.bottom - windowRect.top,
+				width,
+				height,
 				SWP_FRAMECHANGED | SWP_NOACTIVATE);
 
+		app->onResize(width, height);
 		::ShowWindow(hWnd, SW_NORMAL);
 	}
+
 }
 
 HWND D3D12App::getWindow() const {

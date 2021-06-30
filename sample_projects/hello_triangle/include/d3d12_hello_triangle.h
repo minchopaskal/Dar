@@ -3,6 +3,7 @@
 #include "d3d12_app.h"
 #include "d3d12_defines.h"
 #include "d3d12_math.h"
+#include "d3d12_resource_handle.h"
 
 struct D3D12HelloTriangle : D3D12App {
 	D3D12HelloTriangle(UINT width, UINT height, const String &windowTitle);
@@ -18,13 +19,15 @@ struct D3D12HelloTriangle : D3D12App {
 	virtual void onMouseScroll(double xOffset, double yOffset) override;
 
 private:
-	ComPtr<ID3D12GraphicsCommandList2> populateCommandList();
+	CommandList populateCommandList();
 	bool updateRenderTargetViews();
 	bool resizeDepthBuffer(int width, int height);
 
 	void timeIt();
 
 private:
+	using Super = D3D12App;
+
 	ComPtr<ID3D12RootSignature> rootSignature;
 	ComPtr<ID3D12PipelineState> pipelineState;
 
@@ -34,11 +37,11 @@ private:
 	ComPtr<ID3D12DescriptorHeap> dsvHeap;
 
 	// Vertex buffer
-	ComPtr<ID3D12Resource> vertexBuffer;
-	ComPtr<ID3D12Resource> indexBuffer;
+	ResourceHandle vertexBufferHandle;
+	ResourceHandle indexBufferHandle;
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
 	D3D12_INDEX_BUFFER_VIEW indexBufferView;
-	ComPtr<ID3D12Resource> depthBuffer;
+	ResourceHandle depthBufferHandle;
 
 	// MVP matrix
 	Mat4 MVP;
