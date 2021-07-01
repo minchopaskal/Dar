@@ -207,6 +207,10 @@ bool ResourceManager::uploadBuffers() {
 	return true;
 }
 
+bool ResourceManager::flush() {
+	return uploadBuffers();
+}
+
 unsigned int ResourceManager::getSubresourcesCount(ResourceHandle handle) {
 	CHECK_RESOURCE_HANDLE(handle);
 

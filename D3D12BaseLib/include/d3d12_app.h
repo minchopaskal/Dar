@@ -8,21 +8,48 @@
 
 struct GLFWwindow;
 struct ResourceManager;
+struct CommandList;
 
 struct D3D12App {
 	D3D12App(UINT width, UINT height, const char *windowTitle);
 	virtual ~D3D12App();
 
+	/// The main loop.
 	int run();
+
+	/// Toggle between windowed/fullscreen
 	void toggleFullscreen();
+
+	/// Get pointer to the window.
 	HWND getWindow() const;
+
+	/// Flush any command queues' work.
+	/// NB doesn't flush the resource manager's copy Queue.
 	void flush();
 
-	virtual int init();
+	/// Initialization work. Overrieds should at leat call D3D12App::init() in order to
+	/// initialize DirectX12 and other systems.
+	virtual int init() = 0;
+
+	// TODO: delete
 	virtual int loadAssets() = 0;
+
+	/// Deinitialize the app.
 	virtual void deinit() = 0;
+
+	/// Any update work should go here. Update is called before render() in the main loop.
 	virtual void update() = 0;
+
+	/// Any render work should go here.
 	virtual void render() = 0;
+
+	/// Optional. Should call D3D12App::drawUI() at the beginning. All ImGui draw calls go here.
+	/// Called after update() and before render().
+	virtual void drawUI();
+
+	/// Optional. Should be called before the last transition of the RTV to PRESENT state
+	/// if the app wants its ImGui draw calls rendered.
+	void renderUI(CommandList &cmdList, D3D12_CPU_DESCRIPTOR_HANDLE &rtvHandle);
 
 	// TODO: mouse callback, etc.
 	virtual void onResize(int width, int height) = 0;
@@ -37,33 +64,38 @@ public:
 protected:
 	static const UINT frameCount = 2;
 	
+	// TODO: get this out of here
 	// Input
 	static const int keysCount = 90; // see GLFW_KEY_Z
 	Bitset<keysCount> keyPressed;
 	Bitset<keysCount> keyRepeated;
 
-	ComPtr<ID3D12Device8> device;
+	// TODO: maybe abstract it or somehow make it global.
+	ComPtr<ID3D12Device8> device; ///< DX12 device used across all the classes
 
+	/// General command queue. Primarily used for draw calls.
+	/// Copy calls are handled by the resource manager
 	CommandQueue commandQueueDirect;
-	CommandQueue commandQueueCopy;
 
-	ComPtr<IDXGISwapChain4> swapChain;
-	ComPtr<ID3D12Resource> backBuffers[frameCount];
-	ResourceHandle backBuffersHandles[frameCount];
+	ComPtr<IDXGISwapChain4> swapChain; ///< Pointer to the swap chain
+	ComPtr<ID3D12Resource> backBuffers[frameCount]; ///< The RT resources
+	ResourceHandle backBuffersHandles[frameCount]; ///< Handles to the RT resources in the resource manager
 
-	ResourceManager *resManager;
+	ResourceManager *resManager; ///< Pointer to the resource manager singleton
 
-	D3D12_FEATURE_DATA_ROOT_SIGNATURE rootSignatureFeatureData;
+	D3D12_FEATURE_DATA_ROOT_SIGNATURE rootSignatureFeatureData; ///< Cache to the feature level for the root signature. Used when creating pipelines.
 
-	UINT frameIndex;
+	ComPtr<ID3D12DescriptorHeap> imguiSRVHeap; ///< SRVHeap used by Dear ImGui for font drawing
 
-	char title[256];
-	UINT width, height;
+	UINT frameIndex; ///< Current backbuffer index
+
+	char title[256]; ///< Title of the window
+	UINT width, height; ///< Dimensions of the window
 
 private:
-	HWND window;
-	RECT windowRect;
-	bool fullscreen;
+	HWND window; ///< Pointer to the win32 window abstraction
+	RECT windowRect; ///< Window rectangle. Not to be confused with scissor rect
+	bool fullscreen; ///< Flag indicating whether or not the applicaion is in fullscreen.
 
 	// GLFW callbacks
 	friend void framebufferSizeCallback(GLFWwindow *window, int width, int height);

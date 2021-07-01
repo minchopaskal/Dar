@@ -20,6 +20,8 @@
 #define STBI_WINDOWS_UTF8
 #include "stb_image.h"
 
+#include "imgui.h"
+
 struct ImageData {
 	void *data = nullptr;
 	int width = 0;
@@ -58,7 +60,7 @@ D3D12TexturedCube::D3D12TexturedCube(UINT width, UINT height, const String &wind
 { }
 
 int D3D12TexturedCube::init() {
-	if (!D3D12App::init()) {
+	if (!Super::init()) {
 		return false;
 	}
 
@@ -110,7 +112,6 @@ int D3D12TexturedCube::init() {
 
 void D3D12TexturedCube::deinit() {
 	Super::deinit();
-	flush();
 }
 
 void D3D12TexturedCube::update() {
@@ -160,6 +161,14 @@ void D3D12TexturedCube::render() {
 
 	// wait for the next frame's buffer
 	commandQueueDirect.waitForFenceValue(fenceValues[frameIndex]);
+}
+
+void D3D12TexturedCube::drawUI() {
+	Super::drawUI();
+
+	ImGui::Begin("Stats");
+	ImGui::Text("FPS: %.f", fps);
+	ImGui::End();
 }
 
 void D3D12TexturedCube::onResize(int w, int h) {
@@ -395,6 +404,8 @@ CommandList D3D12TexturedCube::populateCommandList() {
 
 	commandList->DrawIndexedInstanced(36, 1, 0, 0, 0);
 
+	renderUI(commandList, rtvHandle);
+
 	commandList.transition(backBuffersHandles[frameIndex], D3D12_RESOURCE_STATE_PRESENT);
 
 	return commandList;
@@ -464,8 +475,6 @@ void D3D12TexturedCube::timeIt() {
 
 	if (elapsedTime > 1.0) {
 		fps = frameCount / elapsedTime;
-
-		printf("FPS: %.2f\n", fps);
 
 #if defined(D3D12_DEBUG)
 		char buffer[512];

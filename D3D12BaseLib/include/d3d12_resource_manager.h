@@ -90,10 +90,13 @@ struct ResourceManager {
 	/// @param startSubresourceIndex Index of the first subresource we wish to upload.
 	bool uploadTextureData(UploadHandle uploadHandle, ResourceHandle destResource, D3D12_SUBRESOURCE_DATA *subresData, UINT numSubresources, UINT startSubresourceIndex);
 	
-	/// Should be called after all calls to upload*Dat to actually submit the data to the GPU.
+	/// Should be called after all calls to upload*Data to actually submit the data to the GPU.
 	/// Submits all command lists created for each upload handle
 	/// Currently waits for the copying to finish.
 	bool uploadBuffers();
+
+	/// Flushes any command lists's work. Same as uploadBuffers()
+	bool flush();
 
 	/// Get the number of subresources for a resource or 0 if it's not tracked.
 	unsigned int getSubresourcesCount(ResourceHandle handle);

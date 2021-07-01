@@ -14,6 +14,7 @@ struct D3D12TexturedCube : D3D12App {
 	virtual void deinit() override;
 	virtual void update() override;
 	virtual void render() override;
+	virtual void drawUI() override;
 	virtual void onResize(int width, int height) override;
 	virtual void onKeyboardInput(int key, int action) override;
 	virtual void onMouseScroll(double xOffset, double yOffset) override;

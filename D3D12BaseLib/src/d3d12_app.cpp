@@ -1,5 +1,6 @@
 #include "d3d12_app.h"
 
+#include "d3d12_command_list.h"
 #include "d3d12_defines.h"
 #include "d3d12_resource_manager.h"
 
@@ -8,6 +9,10 @@
 #include <glfw/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <glfw/glfw3native.h>
+
+#include "imgui.h"
+#include "imgui/backends/imgui_impl_dx12.h"
+#include "imgui/backends/imgui_impl_glfw.h"
 
 #include <d3dcompiler.h>
 #include <dxgi1_6.h>
@@ -60,7 +65,6 @@ void processKeyboardInput(GLFWwindow *window) {
 ////////////
 D3D12App::D3D12App(UINT width, UINT height, const char *windowTitle) :
 	commandQueueDirect(D3D12_COMMAND_LIST_TYPE_DIRECT),
-	commandQueueCopy(D3D12_COMMAND_LIST_TYPE_COPY),
 	frameIndex(0),
 	width(width),
 	height(height),
@@ -225,7 +229,6 @@ int D3D12App::init() {
 
 	/* Create command queue */
 	commandQueueDirect.init(device);
-	commandQueueCopy.init(device);
 
 	/* Create a swap chain */
 	allowTearing = checkTearingSupport();
@@ -279,11 +282,56 @@ int D3D12App::init() {
 	initResourceManager(device, 1);
 	resManager = &getResourceManager();
 
+	// Initialize ImGui
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGui::StyleColorsDark();
+
+	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
+	srvHeapDesc.NumDescriptors = 1;
+	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	RETURN_FALSE_ON_ERROR(
+		device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&imguiSRVHeap)),
+		"Failed to create ImGui's SRV descriptor heap!"
+	);
+
+	ImGuiIO &io = ImGui::GetIO();
+	io.DisplaySize.x = float(width);
+	io.DisplaySize.y = float(height);
+
+	ImGui_ImplGlfw_InitForOther(glfwWindow, true);
+	ImGui_ImplDX12_Init(
+		device.Get(),
+		frameCount,
+		DXGI_FORMAT_R8G8B8A8_UNORM, 
+		imguiSRVHeap.Get(),
+		imguiSRVHeap->GetCPUDescriptorHandleForHeapStart(),
+		imguiSRVHeap->GetGPUDescriptorHandleForHeapStart()
+	);
+
+	ImGui_ImplDX12_CreateDeviceObjects();
+
 	return true;
 }
 
 void D3D12App::deinit() {
 	deinitResourceManager();
+	ImGui_ImplDX12_InvalidateDeviceObjects();
+	ImGui_ImplDX12_Shutdown();
+}
+
+void D3D12App::drawUI() {
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+}
+
+void D3D12App::renderUI(CommandList &cmdList, D3D12_CPU_DESCRIPTOR_HANDLE &rtvHandle) {
+	ImGui::Render();
+
+	cmdList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+	cmdList->SetDescriptorHeaps(1, imguiSRVHeap.GetAddressOf());
+	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList.get());
 }
 
 void D3D12App::toggleFullscreen() {
@@ -337,8 +385,8 @@ HWND D3D12App::getWindow() const {
 }
 
 void D3D12App::flush() {
-	commandQueueCopy.flush();
 	commandQueueDirect.flush();
+	resManager->flush();
 }
 
 int D3D12App::run() {
@@ -348,6 +396,9 @@ int D3D12App::run() {
 		processKeyboardInput(glfwWindow);
 
 		update();
+
+		drawUI();
+
 		render();
 
 		glfwPollEvents();

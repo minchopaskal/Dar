@@ -59,6 +59,7 @@ target_include_directories(
 	${SUBMODULE_DIR}
 	${GLM_DIR}
 	${PROJECT_SOURCE_DIR}/D3D12BaseLib/include
+	${SUBMODULE_DIR}/imgui
 )
 
 copyD3D12Core(TexturedCube)

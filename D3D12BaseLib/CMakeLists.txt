@@ -37,11 +37,22 @@ set(SUBMODULES
 	${SUBMODULE_DIR}/d3dx12.h
 )
 
+set(IMGUI_DIR ${SUBMODULE_DIR}/imgui)
+
+set(IMGUI_SRC
+	${IMGUI_DIR}/imgui.cpp
+	${IMGUI_DIR}/imgui_draw.cpp
+	${IMGUI_DIR}/imgui_tables.cpp
+	${IMGUI_DIR}/imgui_widgets.cpp
+	${IMGUI_DIR}/backends/imgui_impl_dx12.cpp
+	${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+)
+
 source_group("src"           FILES ${SOURCES})
 source_group("include"       FILES ${HEADERS})
 source_group("third_party"   FILES ${SUBMODULES})
 
-add_library(D3D12BaseLib ${HEADERS} ${SOURCES} ${SUBMODULES})
+add_library(D3D12BaseLib ${HEADERS} ${SOURCES} ${SUBMODULES} ${IMGUI_SRC})
 
 set_property(TARGET D3D12BaseLib PROPERTY VS_DEBUGGER_WORKING_DIRECTORY $<TARGET_FILE_DIR:D3D12BaseLib>)
 
@@ -67,4 +78,5 @@ target_include_directories(
 	PRIVATE
 	${INCLUDE_DIR}
 	${SUBMODULE_DIR}
+	${SUBMODULE_DIR}/imgui
 )
