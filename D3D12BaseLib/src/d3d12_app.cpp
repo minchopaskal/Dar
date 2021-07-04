@@ -72,7 +72,8 @@ D3D12App::D3D12App(UINT width, UINT height, const char *windowTitle) :
 	windowRect{},
 	vSyncEnabled(false),
 	allowTearing(false),
-	fullscreen(false) {
+	fullscreen(false),
+	useImGui(false) {
 	strncpy(title, windowTitle, strlen(windowTitle) + 1);
 	title[strlen(windowTitle)] = '\0';
 }
@@ -110,7 +111,7 @@ void GetHardwareAdapter(
 
 			// Check to see whether the adapter supports Direct3D 12, but don't create the
 			// actual device yet.
-			if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_0, _uuidof(ID3D12Device), nullptr))) {
+			if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_1, _uuidof(ID3D12Device), nullptr))) {
 				break;
 			}
 		}
@@ -125,7 +126,7 @@ void GetHardwareAdapter(
 
 			// Check to see whether the adapter supports Direct3D 12, but don't create the
 			// actual device yet.
-			if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_0, _uuidof(ID3D12Device), nullptr))) {
+			if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_1, _uuidof(ID3D12Device), nullptr))) {
 				break;
 			}
 		}
@@ -189,18 +190,18 @@ int D3D12App::init() {
 	GetHardwareAdapter(dxgiFactory.Get(), &hardwareAdapter, false);
 
 	RETURN_FALSE_ON_ERROR(D3D12CreateDevice(
-		hardwareAdapter.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&device)),
+		hardwareAdapter.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&device)),
 		"Failed to create device!"
 	);
 
-	D3D12_FEATURE_DATA_SHADER_MODEL shaderModel{ D3D_SHADER_MODEL_6_6 };
+	D3D12_FEATURE_DATA_SHADER_MODEL shaderModel{ D3D_SHADER_MODEL_6_5 };
 	RETURN_FALSE_ON_ERROR(
 		device->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &shaderModel, sizeof(shaderModel)),
-		"Device does not support shader model 6.6!"
+		"Device does not support shader model 6.5!"
 	);
 
-	if (shaderModel.HighestShaderModel != D3D_SHADER_MODEL_6_6) {
-		fprintf(stderr, "Shader model 6.6 not supported!");
+	if (shaderModel.HighestShaderModel != D3D_SHADER_MODEL_6_5) {
+		fprintf(stderr, "Shader model 6.5 not supported!");
 		return false;
 	}
 
@@ -222,10 +223,10 @@ int D3D12App::init() {
 	);
 
 	// Note: we don't do mesh shading currently, yet we will, so we want to support it.
-	if (options7.MeshShaderTier == D3D12_MESH_SHADER_TIER_NOT_SUPPORTED) {
+	/*if (options7.MeshShaderTier == D3D12_MESH_SHADER_TIER_NOT_SUPPORTED) {
 		fprintf(stderr, "Mesh shading is not supported!");
 		return false;
-	}
+	}*/
 
 	/* Create command queue */
 	commandQueueDirect.init(device);
@@ -321,17 +322,25 @@ void D3D12App::deinit() {
 	ImGui_ImplDX12_Shutdown();
 }
 
+void D3D12App::setUseImGui() {
+	useImGui = true;
+}
+
 void D3D12App::drawUI() {
-	ImGui_ImplGlfw_NewFrame();
-	ImGui::NewFrame();
+	if (useImGui) {
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+	}
 }
 
 void D3D12App::renderUI(CommandList &cmdList, D3D12_CPU_DESCRIPTOR_HANDLE &rtvHandle) {
-	ImGui::Render();
+	if (useImGui) {
+		ImGui::Render();
 
-	cmdList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
-	cmdList->SetDescriptorHeaps(1, imguiSRVHeap.GetAddressOf());
-	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList.get());
+		cmdList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+		cmdList->SetDescriptorHeaps(1, imguiSRVHeap.GetAddressOf());
+		ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList.get());
+	}
 }
 
 void D3D12App::toggleFullscreen() {

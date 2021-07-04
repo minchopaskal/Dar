@@ -43,11 +43,16 @@ struct D3D12App {
 	/// Any render work should go here.
 	virtual void render() = 0;
 
-	/// Optional. Should call D3D12App::drawUI() at the beginning. All ImGui draw calls go here.
+	/// Optional. Should be called during init of the derived class if one intends to draw UI via ImGui.
+	/// Note: call before D3D12::init() in order to skip ImGui initialization.
+	virtual void setUseImGui();
+
+	/// Optional, unless setUseImGui was called. Should call D3D12App::drawUI() at the beginning.
+	/// It is advised that all ImGui draw calls go here, unless it's inconvinient.
 	/// Called after update() and before render().
 	virtual void drawUI();
 
-	/// Optional. Should be called before the last transition of the RTV to PRESENT state
+	/// Optional, unless setUseImGui was called. Should be called before the last transition of the RTV to PRESENT state
 	/// if the app wants its ImGui draw calls rendered.
 	void renderUI(CommandList &cmdList, D3D12_CPU_DESCRIPTOR_HANDLE &rtvHandle);
 
@@ -96,6 +101,7 @@ private:
 	HWND window; ///< Pointer to the win32 window abstraction
 	RECT windowRect; ///< Window rectangle. Not to be confused with scissor rect
 	bool fullscreen; ///< Flag indicating whether or not the applicaion is in fullscreen.
+	bool useImGui; ///< Flag indicating whether ImGui will be used for drawing UI.
 
 	// GLFW callbacks
 	friend void framebufferSizeCallback(GLFWwindow *window, int width, int height);

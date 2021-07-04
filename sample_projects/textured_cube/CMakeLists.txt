@@ -31,7 +31,11 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:CONSOLE")
 
 add_executable(TexturedCube ${HEADERS} ${SOURCES} ${SUBMODULES} ${SHADERS})
 
-compile_shaders(TexturedCube ${SHADERS})
+compile_shaders(
+	TexturedCube
+	${SHADERS_DIR}
+	"6_6"
+)
 
 set_property(TARGET TexturedCube PROPERTY VS_DEBUGGER_WORKING_DIRECTORY $<TARGET_FILE_DIR:TexturedCube>)
 
@@ -68,4 +72,3 @@ add_custom_command(
 	TARGET TexturedCube
 	COMMAND ${CMAKE_COMMAND} -E copy_directory ${RESOURCES_DIR}/textures/ $<TARGET_FILE_DIR:TexturedCube>/res/textures/
 )
-
