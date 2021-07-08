@@ -43,7 +43,7 @@ ResourceHandle ResourceManager::createBuffer(const ResourceInitData &initData) {
 		RETURN_ON_ERROR(
 			device->CreateCommittedResource(
 				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-				D3D12_HEAP_FLAG_NONE,
+				initData.heapFlags,
 				&CD3DX12_RESOURCE_DESC::Buffer(initData.size),
 				initialState,
 				nullptr,
@@ -57,7 +57,7 @@ ResourceHandle ResourceManager::createBuffer(const ResourceInitData &initData) {
 		RETURN_ON_ERROR(
 			device->CreateCommittedResource(
 				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-				D3D12_HEAP_FLAG_NONE,
+				initData.heapFlags,
 				&CD3DX12_RESOURCE_DESC::Tex2D(
 					initData.textureData.format,
 					initData.textureData.width, 
@@ -82,7 +82,7 @@ ResourceHandle ResourceManager::createBuffer(const ResourceInitData &initData) {
 		RETURN_ON_ERROR(
 			device->CreateCommittedResource(
 				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-				D3D12_HEAP_FLAG_NONE,
+				initData.heapFlags,
 				&CD3DX12_RESOURCE_DESC::Tex2D(
 					DXGI_FORMAT_D32_FLOAT,
 					initData.textureData.width,
@@ -107,7 +107,7 @@ ResourceHandle ResourceManager::createBuffer(const ResourceInitData &initData) {
 		RETURN_ON_ERROR(
 			device->CreateCommittedResource(
 				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-				D3D12_HEAP_FLAG_NONE,
+				initData.heapFlags,
 				&CD3DX12_RESOURCE_DESC::Buffer(resourceSize),
 				D3D12_RESOURCE_STATE_GENERIC_READ,
 				nullptr,
@@ -125,11 +125,20 @@ ResourceHandle ResourceManager::createBuffer(const ResourceInitData &initData) {
 	resource->SetName(name.c_str());
 
 	const UINT numSubresources = type == ResourceType::TextureBuffer && initData.textureData.mipLevels > 0 ? initData.textureData.mipLevels : 1;
+#ifdef D3D12_NDEBUG
 	return registerResource(
 		resource,
 		numSubresources,
 		initialState
 	);
+#else
+	return registerResource(
+		resource,
+		numSubresources,
+		initialState,
+		type
+	);
+#endif // D3D12_NDEBUG
 }
 
 UploadHandle ResourceManager::beginNewUpload() {
@@ -196,13 +205,6 @@ bool ResourceManager::uploadBuffers() {
 
 	UINT64 fence = copyQueue.executeCommandLists();
 	copyQueue.waitForFenceValue(fence);
-
-	// Destroy any staging resources
-	for (int i = 0; i < stagingBuffers.size(); ++i) {
-		if (!deregisterResource(stagingBuffers[i])) {
-			return false;
-		}
-	}
 
 	return true;
 }
@@ -295,6 +297,13 @@ bool ResourceManager::deregisterResource(ResourceHandle &handle) {
 
 	unsigned long refCount = resources[handle].res.Reset();
 
+#ifdef D3D12_DEBUG
+	ResourceType type = getResourceType(handle);
+	if (type == ResourceType::StagingBuffer) {
+		dassert(refCount == 0);
+	}
+#endif // D3D12_DEBUG
+
 	{
 		auto lock = resourcesCS.lock();
 		resourcePool.push(handle);
@@ -310,6 +319,14 @@ ID3D12Resource* ResourceManager::getID3D12Resource(ResourceHandle handle) {
 	return resources[handle].res.Get();
 }
 
+void ResourceManager::endFrame() {
+	// Destroy any staging resources
+	for (int i = 0; i < stagingBuffers.size(); ++i) {
+		deregisterResource(stagingBuffers[i]);
+		
+	}
+}
+
 void ResourceManager::resetCommandLists() {
 	if (cmdLists.empty()) {
 		cmdLists.emplace_back();
@@ -319,6 +336,18 @@ void ResourceManager::resetCommandLists() {
 	// Leave the first element to be our invalid upload handle.
 	cmdLists.erase(cmdLists.begin() + 1, cmdLists.end());
 }
+
+#ifdef D3D12_DEBUG
+ResourceHandle ResourceManager::registerResource(ComPtr<ID3D12Resource> resource, UINT subresourcesCount, D3D12_RESOURCE_STATES state, ResourceType type) {
+	ResourceHandle handle = registerResource(resource, subresourcesCount, state);
+	resources[handle].type = type;
+	return handle;
+}
+
+ResourceType ResourceManager::getResourceType(ResourceHandle handle) {
+	return ResourceType();
+}
+#endif // D3D12_DEBUG
 
 ResourceManager *g_ResourceManager = nullptr;
 
@@ -345,6 +374,7 @@ bool initResourceManager(ComPtr<ID3D12Device8> device, const unsigned int nt) {
 void deinitResourceManager() {
 	if (g_ResourceManager) {
 		delete g_ResourceManager;
+		g_ResourceManager = nullptr;
 	}
 }
 

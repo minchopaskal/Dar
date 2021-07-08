@@ -35,6 +35,8 @@ compile_shaders(HelloTriangle ${SHADERS_DIR} "6_5")
 
 set_property(TARGET HelloTriangle PROPERTY VS_DEBUGGER_WORKING_DIRECTORY $<TARGET_FILE_DIR:HelloTriangle>)
 
+set_target_properties(HelloTriangle PROPERTIES FOLDER SampleProjects)
+
 target_compile_definitions(
 	HelloTriangle
 	PRIVATE
@@ -57,7 +59,6 @@ target_include_directories(
 	PRIVATE
 	${INCLUDE_DIR}
 	${SUBMODULE_DIR}
-	${GLM_DIR}
 	${PROJECT_SOURCE_DIR}/D3D12BaseLib/include
 )
 

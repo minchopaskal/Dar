@@ -209,6 +209,10 @@ ComPtr<ID3D12CommandQueue> CommandQueue::getCommandQueue() const {
 	return commandQueue;
 }
 
+ComPtr<ID3D12Fence> CommandQueue::getFence() const {
+	return fence;
+}
+
 UINT64 CommandQueue::signal() {
 	UINT64 fenceVal = ++fenceValue;
 	RETURN_ON_ERROR(commandQueue->Signal(fence.Get(), fenceVal), 0, "Failed to signal command queue!");

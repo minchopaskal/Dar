@@ -37,6 +37,12 @@ struct D3D12App {
 	/// Deinitialize the app.
 	virtual void deinit() = 0;
 
+	/// Called before update()
+	virtual void beginFrame() {}
+	
+	/// Called after render()
+	virtual void endFrame() {}
+	
 	/// Any update work should go here. Update is called before render() in the main loop.
 	virtual void update() = 0;
 
@@ -45,7 +51,7 @@ struct D3D12App {
 
 	/// Optional. Should be called during init of the derived class if one intends to draw UI via ImGui.
 	/// Note: call before D3D12::init() in order to skip ImGui initialization.
-	virtual void setUseImGui();
+	void setUseImGui();
 
 	/// Optional, unless setUseImGui was called. Should call D3D12App::drawUI() at the beginning.
 	/// It is advised that all ImGui draw calls go here, unless it's inconvinient.
@@ -97,11 +103,16 @@ protected:
 	char title[256]; ///< Title of the window
 	UINT width, height; ///< Dimensions of the window
 
+	int abort; ///< Abort the main loop if true.
+
 private:
 	HWND window; ///< Pointer to the win32 window abstraction
 	RECT windowRect; ///< Window rectangle. Not to be confused with scissor rect
 	bool fullscreen; ///< Flag indicating whether or not the applicaion is in fullscreen.
 	bool useImGui; ///< Flag indicating whether ImGui will be used for drawing UI.
+	/// Flag that indicates ImGui was already shutdown. Since ImGui doesn't do check for double delete
+	/// in its DX12 implementation of Shutdown, we have to do it manually.
+	bool imGuiShutdown;
 
 	// GLFW callbacks
 	friend void framebufferSizeCallback(GLFWwindow *window, int width, int height);

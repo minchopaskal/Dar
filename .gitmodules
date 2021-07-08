@@ -1,3 +1,6 @@
 [submodule "third_party/imgui"]
 	path = third_party/imgui
 	url = https://github.com/ocornut/imgui
+[submodule "sample_projects/cuda_rasterizer/third_party/CUDAPlayground"]
+	path = sample_projects/cuda_rasterizer/third_party/CUDAPlayground
+	url = https://github.com/minchopaskal/CUDAPlayground

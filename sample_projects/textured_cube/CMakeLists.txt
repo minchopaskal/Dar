@@ -39,6 +39,8 @@ compile_shaders(
 
 set_property(TARGET TexturedCube PROPERTY VS_DEBUGGER_WORKING_DIRECTORY $<TARGET_FILE_DIR:TexturedCube>)
 
+set_target_properties(TexturedCube PROPERTIES FOLDER SampleProjects)
+
 target_compile_definitions(
 	TexturedCube
 	PRIVATE
@@ -61,7 +63,6 @@ target_include_directories(
 	PRIVATE
 	${INCLUDE_DIR}
 	${SUBMODULE_DIR}
-	${GLM_DIR}
 	${PROJECT_SOURCE_DIR}/D3D12BaseLib/include
 	${SUBMODULE_DIR}/imgui
 )

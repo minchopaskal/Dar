@@ -7,13 +7,15 @@
 #include <string>
 #include <unordered_map>
 
+#include <comdef.h>
+
 #ifdef D3D12_DEBUG
 #define RETURN_ON_ERROR_FMT(cmd, retval, msg, ...) \
 do { \
   if (!SUCCEEDED((cmd))) { \
       auto err = GetLastError(); \
       fprintf(stderr, "D3D12 Error: %s\n", (msg)); \
-      char error[512]; sprintf(error, "D3D12 Error: %lu\n", err); \
+      char error[512]; sprintf(error, "D3D12 Error: %s\n", _com_error(err).ErrorMessage()); \
       OutputDebugString(error); \
       DebugBreak(); \
       return retval; \

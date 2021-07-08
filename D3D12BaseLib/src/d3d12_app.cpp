@@ -68,17 +68,19 @@ D3D12App::D3D12App(UINT width, UINT height, const char *windowTitle) :
 	frameIndex(0),
 	width(width),
 	height(height),
+	abort(false),
 	window(nullptr),
 	windowRect{},
 	vSyncEnabled(false),
 	allowTearing(false),
 	fullscreen(false),
-	useImGui(false) {
+	useImGui(false),
+	imGuiShutdown(false) {
 	strncpy(title, windowTitle, strlen(windowTitle) + 1);
 	title[strlen(windowTitle)] = '\0';
 }
 
-D3D12App::~D3D12App() { }
+D3D12App::~D3D12App() {}
 
 void GetHardwareAdapter(
 		IDXGIFactory1 *pFactory,
@@ -313,13 +315,18 @@ int D3D12App::init() {
 
 	ImGui_ImplDX12_CreateDeviceObjects();
 
+	imGuiShutdown = false;
+
 	return true;
 }
 
 void D3D12App::deinit() {
 	deinitResourceManager();
 	ImGui_ImplDX12_InvalidateDeviceObjects();
-	ImGui_ImplDX12_Shutdown();
+	if (!imGuiShutdown) {
+		ImGui_ImplDX12_Shutdown();
+		imGuiShutdown = true;
+	}
 }
 
 void D3D12App::setUseImGui() {
@@ -401,14 +408,19 @@ void D3D12App::flush() {
 int D3D12App::run() {
 	app = this; // save global state for glfw callbacks
 
-	while (!glfwWindowShouldClose(glfwWindow)) {
+	while (!abort && !glfwWindowShouldClose(glfwWindow)) {
 		processKeyboardInput(glfwWindow);
+
+		beginFrame();
 
 		update();
 
 		drawUI();
 
 		render();
+
+		endFrame();
+		resManager->endFrame();
 
 		glfwPollEvents();
 	}

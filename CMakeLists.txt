@@ -12,6 +12,8 @@ add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
 
 set(D3D12_COMPILE_SAMPLE_PROJECTS CACHE BOOL "Compile sample projects")
 
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
 macro(copyD3D12Core TRG)
 	set(DLLS_TO_COPY
 		${LIB_DIR}/D3D12AgilitySDK/D3D12Core.dll

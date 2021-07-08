@@ -50,7 +50,7 @@ set(IMGUI_SRC
 
 source_group("src"           FILES ${SOURCES})
 source_group("include"       FILES ${HEADERS})
-source_group("third_party"   FILES ${SUBMODULES})
+source_group("third_party"   FILES ${SUBMODULES} ${IMGUI_SRC})
 
 add_library(D3D12BaseLib ${HEADERS} ${SOURCES} ${SUBMODULES} ${IMGUI_SRC})
 

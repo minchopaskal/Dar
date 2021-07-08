@@ -41,6 +41,7 @@ struct ResourceInitData {
 	};
 	D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COPY_DEST; ///< Used only when creating Data/Texture Buffer resource
 	WString name = L""; ///< Empty name will result in setting default name corresponding to the type of the resource
+	D3D12_HEAP_FLAGS heapFlags = D3D12_HEAP_FLAG_NONE;
 
 	ResourceInitData(ResourceType type) : type(type) {
 		switch (type) {
@@ -120,15 +121,25 @@ struct ResourceManager {
 
 	ID3D12Resource* getID3D12Resource(ResourceHandle handle);
 
+	void endFrame();
+
 private:
 	ResourceManager() : copyQueue(D3D12_COMMAND_LIST_TYPE_COPY), numThreads(1) { }
 
 	void resetCommandLists();
 
+#ifdef D3D12_DEBUG
+	ResourceHandle registerResource(ComPtr<ID3D12Resource> resource, UINT subresourcesCount, D3D12_RESOURCE_STATES state, ResourceType type);
+	ResourceType getResourceType(ResourceHandle handle);
+#endif // D3D12_DEBUG
+
 	struct Resource {
 		ComPtr<ID3D12Resource> res;
 		SubresStates subresStates;
 		CriticalSection cs;
+#ifdef D3D12_DEBUG
+		ResourceType type;
+#endif // D3D12_DEBUG
 	};
 
 	ComPtr<ID3D12Device8> device;
