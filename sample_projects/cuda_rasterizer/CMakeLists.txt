@@ -11,6 +11,7 @@ set(LIB_DIR ${PROJECT_SOURCE_DIR}/lib)
 
 set(HEADERS
 	${INCLUDE_DIR}/d3d12_cuda_rasterizer.h
+	${INCLUDE_DIR}/cuda_cpu_common.h
 )
 
 set(SOURCES
@@ -78,4 +79,12 @@ target_include_directories(
 
 copyD3D12Core(CudaRasterizer)
 find_package(CUDAToolkit)
-compilePtx(CudaRasterizer ${CUDA_FILES})
+# Include dir added to NVCC include path in order for it to see cuda_cpu_common.h
+set(NVCC_ADDITIONAL_ARGS 
+	--include-path ${INCLUDE_DIR}
+)
+compilePtx(CudaRasterizer 
+	${CUDA_FILES}
+	"${NVCC_ADDITIONAL_ARGS}"
+	TRUE
+)

@@ -8,16 +8,17 @@
 struct D3D12TexturedCube : D3D12App {
 	D3D12TexturedCube(UINT width, UINT height, const String &windowTitle);
 
+	int loadAssets();
+
 	// Inherited via D3D12App
-	virtual int init() override;
-	virtual int loadAssets() override;
-	virtual void deinit() override;
-	virtual void update() override;
-	virtual void render() override;
-	virtual void drawUI() override;
-	virtual void onResize(int width, int height) override;
-	virtual void onKeyboardInput(int key, int action) override;
-	virtual void onMouseScroll(double xOffset, double yOffset) override;
+	int init() override;
+	void deinit() override;
+	void update() override;
+	void render() override;
+	void drawUI() override;
+	void onResize(int width, int height) override;
+	void onKeyboardInput(int key, int action) override;
+	void onMouseScroll(double xOffset, double yOffset) override;
 
 private:
 	CommandList populateCommandList();

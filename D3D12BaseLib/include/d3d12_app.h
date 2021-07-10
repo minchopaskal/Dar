@@ -31,9 +31,6 @@ struct D3D12App {
 	/// initialize DirectX12 and other systems.
 	virtual int init() = 0;
 
-	// TODO: delete
-	virtual int loadAssets() = 0;
-
 	/// Deinitialize the app.
 	virtual void deinit() = 0;
 

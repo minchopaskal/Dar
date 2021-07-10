@@ -26,6 +26,7 @@ CudaRasterizer::CudaRasterizer(UINT width, UINT height, const String &windowTitl
 	viewport{ 0.f, 0.f, static_cast<float>(width), static_cast<float>(height) },
 	scissorRect{ 0, 0, LONG_MAX, LONG_MAX }, // always render on the entire screen
 	aspectRatio(width / float(height)),
+	cudaRT{ nullptr },
 	fenceValues{ 0 },
 	previousFrameIndex(0),
 	cudaManager(&getCUDAManager()),
@@ -70,28 +71,26 @@ int CudaRasterizer::init() {
 		return false;
 	}
 
-	return true;
+	return loadAssets();
+}
+
+int CudaRasterizer::loadScene(const String & name) {
+	return 0;
 }
 
 void CudaRasterizer::deinit() {
 	flush();
-	for (int i = 0; i < frameCount; ++i) {
-		renderTarget[i].deinitialize();
-		delete[] cudaRT[i];
-	}
-	color.deinitialize();
+	deinitCUDAData();
 	Super::deinit();
 }
 
 void CudaRasterizer::update() {
 	timeIt();
-}
 
-void CudaRasterizer::render() {
-	// Render the image with CUDA
 	const CUDADevice &device = cudaManager->getDevices()[0];
 	device.use();
 
+	// Render the image with CUDA
 	CUDAFunction blankRender(device.getModule(), "blank");
 	blankRender.addParams(
 		renderTarget[frameIndex].handle(),
@@ -102,15 +101,17 @@ void CudaRasterizer::render() {
 
 	CUstream stream = device.getDefaultStream(CUDADefaultStreamsEnumeration::Execution);
 	blankRender.launch(SizeType(width) * height, stream);
-	cuStreamSynchronize(device.getDefaultStream(CUDADefaultStreamsEnumeration::Execution));
+	cuStreamSynchronize(stream);
 
 	renderTarget[frameIndex].download(cudaRT[frameIndex]);
+}
 
+void CudaRasterizer::render() {
 	// Upload the rendered image as a D3D12 texture
 	UploadHandle handle = resManager->beginNewUpload();
 	D3D12_SUBRESOURCE_DATA subresData;
 	subresData.pData = cudaRT[frameIndex];
-	subresData.RowPitch = width * 4;
+	subresData.RowPitch = SizeType(width) * numComps * sizeof(float);
 	subresData.SlicePitch = subresData.RowPitch * height;
 	resManager->uploadTextureData(handle, rtHandle[frameIndex], &subresData, 1, 0);
 	resManager->uploadBuffers();
@@ -168,6 +169,8 @@ void CudaRasterizer::onResize(int w, int h) {
 	frameIndex = swapChain->GetCurrentBackBufferIndex();
 
 	updateRenderTargetViews();
+
+	initCUDAData();
 }
 
 void CudaRasterizer::onKeyboardInput(int key, int action) {
@@ -194,6 +197,24 @@ void CudaRasterizer::drawUI() {
 	ImGui::End();
 }
 
+void CudaRasterizer::setUseDepthBuffer(bool useDepthBuffer) {
+}
+
+void CudaRasterizer::setVertexBuffer(void * buffer) {
+}
+
+void CudaRasterizer::setIndexBuffer(void * buffer) {
+}
+
+void CudaRasterizer::setUAVBuffer(void * buffer, int index) {
+}
+
+void CudaRasterizer::setVertexShader(const String & name) {
+}
+
+void CudaRasterizer::setPixelShader(const String & name) {
+}
+
 int CudaRasterizer::loadAssets() {
 	// Create the pipeline state
 	PipelineStateDesc desc;
@@ -207,22 +228,7 @@ int CudaRasterizer::loadAssets() {
 	device.use();
 
 	// Create the texture resources that CUDA will use as render targets
-	ResourceInitData resData(ResourceType::TextureBuffer);
-	resData.textureData.format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	resData.textureData.width = width;
-	resData.textureData.height = height;
-	resData.textureData.mipLevels = 1;
-	resData.heapFlags = D3D12_HEAP_FLAG_NONE;
-	for (int i = 0; i < frameCount; ++i) {
-		ResourceManager& resManager = getResourceManager();
-		rtHandle[i] = resManager.createBuffer(resData);
-		cudaRT[i] = new UINT8[width * height * 4];
-		renderTarget[i].initialize(SizeType(width) * height * 4);
-	}
-
-	UINT8 colorHost[4] = { 255, 0, 0, 255 };
-	color.initialize(4);
-	color.upload(colorHost);
+	initCUDAData();
 
 	return true;
 }
@@ -233,7 +239,7 @@ CommandList CudaRasterizer::populateCommandList() {
 	// "Swap" the render targets
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = srvHeap->GetCPUDescriptorHandleForHeapStart();
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	srvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srvDesc.Texture2D.MipLevels = 1;
@@ -324,4 +330,36 @@ void CudaRasterizer::timeIt() {
 		frameCount = 0;
 		elapsedTime = 0.0;
 	}
+}
+
+void CudaRasterizer::deinitCUDAData() {
+	for (int i = 0; i < frameCount; ++i) {
+		resManager->deregisterResource(rtHandle[i]);
+		renderTarget[i].deinitialize();
+		if (cudaRT[i] != nullptr) {
+			delete[] cudaRT[i];
+			cudaRT[i] = nullptr;
+		}
+	}
+	color.deinitialize();
+}
+
+void CudaRasterizer::initCUDAData() {
+	deinitCUDAData();
+
+	ResourceInitData resData(ResourceType::TextureBuffer);
+	resData.textureData.format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	resData.textureData.width = width;
+	resData.textureData.height = height;
+	resData.textureData.mipLevels = 1;
+	resData.heapFlags = D3D12_HEAP_FLAG_NONE;
+	for (int i = 0; i < frameCount; ++i) {
+		rtHandle[i] = resManager->createBuffer(resData);
+		cudaRT[i] = new UINT8[SizeType(width) * height * numComps * sizeof(float)];
+		renderTarget[i].initialize(SizeType(width) * height * numComps * sizeof(float));
+	}
+
+	float colorHost[numComps] = { 1.f, 0.f, 0.f, 1.f };
+	color.initialize(numComps * sizeof(float));
+	color.upload(colorHost);
 }

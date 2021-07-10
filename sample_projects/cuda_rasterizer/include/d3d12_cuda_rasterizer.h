@@ -11,27 +11,61 @@
 
 struct CUDAManager;
 
+#include "d3d12_math.h"
+
+struct CudaRasterizer;
+struct Drawable {
+	virtual void draw(CudaRasterizer &renderer) = 0;
+};
+
+struct Vertex {
+	Vec3 position;
+	Vec3 normal;
+	Vec2 uv;
+};
+
+struct Triangle {
+	Vertex vertices[3];
+};
+
+struct TriangleDOD {
+	Vec3 positions[3];
+	/*Vec3 normals[3];
+	Vec2 uvs[3];*/
+};
+
+struct Mesh : Drawable {
+	void draw(CudaRasterizer &renderer) override;
+
+	Vector<Triangle> geometry;
+	Mat4 transform;
+};
+
 struct CudaRasterizer : D3D12App {
 	CudaRasterizer(UINT width, UINT height, const String &windowTitle);
-
-	// Inherited via D3D12App
-	/// Derived classes should call CudaRasterizer::init()
-	virtual int init() override;
-
-	/// Optional. \see D3D12App::loadAssets()
-	virtual int loadAssets() override;
-
-	/// Derived classes should call CudaRasterizer::update()
-	virtual void update() override;
-
-	/// Derived classes have to call CudaRasterizer::render() at the end of their render() implementation
-	virtual void render() override;
 	
+	int init() override;
+	void deinit() override;
+
+	int loadScene(const String &name);
+
 	/// Optional. \see D3D12App::drawUI()
-	virtual void drawUI() override;
+	void drawUI() override;
+
+	// API calls
+	void setUseDepthBuffer(bool useDepthBuffer);
+	void setVertexBuffer(void *buffer);
+	void setIndexBuffer(void *buffer);
+	void setUAVBuffer(void *buffer, int index);
+	void setVertexShader(const String &name);
+	void setPixelShader(const String &name);
 
 private:
-	virtual void deinit() override;
+	int loadAssets();
+
+	// Inherited via D3D12App
+	void update() override;
+	void render() override;
 	virtual void onResize(int width, int height) override;
 	virtual void onKeyboardInput(int key, int action) override;
 	virtual void onMouseScroll(double xOffset, double yOffset) override;
@@ -42,8 +76,13 @@ private:
 
 	void timeIt();
 
+	void deinitCUDAData();
+	void initCUDAData();
+
 private:
 	using Super = D3D12App;
+
+	static constexpr unsigned int numComps = 4;
 
 	ComPtr<ID3D12RootSignature> rootSignature;
 	//ComPtr<ID3D12PipelineState> pipelineState;
@@ -70,6 +109,8 @@ private:
 
 	// Cache cuda manager
 	CUDAManager *cudaManager;
+
+	Drawable *scene;
 
 	float FOV;
 
