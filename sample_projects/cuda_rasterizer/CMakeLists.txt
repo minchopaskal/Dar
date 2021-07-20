@@ -36,6 +36,8 @@ source_group("gpu"     FILES ${CUDA_FILES})
 # Create stub library, so the .cu files show in the VS filters
 add_library(CudaRasterizerGPU ${CUDA_FILES})
 set_target_properties(CudaRasterizerGPU PROPERTIES FOLDER SampleProjects/CudaRasterizer)
+# this prevents VS from building the cuda files when the ALL_BUILD is being built.
+set_source_files_properties(${GPU_DIR}/rasterizer.cu PROPERTIES HEADER_FILE_ONLY ON)
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:CONSOLE")
 

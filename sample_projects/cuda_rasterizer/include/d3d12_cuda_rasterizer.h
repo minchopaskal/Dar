@@ -13,31 +13,18 @@ struct CUDAManager;
 
 #include "d3d12_math.h"
 
+#include "cuda_cpu_common.h"
+
 struct CudaRasterizer;
 struct Drawable {
-	virtual void draw(CudaRasterizer &renderer) = 0;
-};
-
-struct Vertex {
-	Vec3 position;
-	Vec3 normal;
-	Vec2 uv;
-};
-
-struct Triangle {
-	Vertex vertices[3];
-};
-
-struct TriangleDOD {
-	Vec3 positions[3];
-	/*Vec3 normals[3];
-	Vec2 uvs[3];*/
+	virtual void draw(CudaRasterizer &renderer) const = 0;
 };
 
 struct Mesh : Drawable {
-	void draw(CudaRasterizer &renderer) override;
+	void draw(CudaRasterizer &renderer) const override;
 
 	Vector<Triangle> geometry;
+	mutable Vector<unsigned int> indices;
 	Mat4 transform;
 };
 
@@ -54,11 +41,12 @@ struct CudaRasterizer : D3D12App {
 
 	// API calls
 	void setUseDepthBuffer(bool useDepthBuffer);
-	void setVertexBuffer(void *buffer);
-	void setIndexBuffer(void *buffer);
-	void setUAVBuffer(void *buffer, int index);
+	void setVertexBuffer(const Vertex *buffer, SizeType verticesCount);
+	void setIndexBuffer(const unsigned int *buffer, SizeType indicesCount);
+	void setUAVBuffer(const void *buffer, SizeType size, int index);
 	void setVertexShader(const String &name);
 	void setPixelShader(const String &name);
+	bool drawIndexed(const unsigned int numPrimitives);
 
 private:
 	int loadAssets();
@@ -99,10 +87,13 @@ private:
 	float aspectRatio;
 
 	// Resources
-	UINT8 *cudaRT[frameCount];
-	ResourceHandle rtHandle[frameCount];
-	CUDADefaultBuffer renderTarget[frameCount];
+	float *cudaRT;
+	ResourceHandle rtHandle;
+	CUDADefaultBuffer renderTarget;
 	CUDADefaultBuffer color;
+	CUDADefaultBuffer vertexBuffer;
+	CUDADefaultBuffer indexBuffer;
+	CUDADefaultBuffer uavBuffers[MAX_RESOURCES_COUNT];
 
 	UINT64 fenceValues[frameCount];
 	UINT64 previousFrameIndex;

@@ -81,39 +81,39 @@ int CudaRasterizer::loadScene(const String & name) {
 void CudaRasterizer::deinit() {
 	flush();
 	deinitCUDAData();
+	delete scene;
 	Super::deinit();
 }
 
 void CudaRasterizer::update() {
 	timeIt();
 
+	static bool rendered = false;
+	if (rendered) {
+		//return;
+	}
+	rendered = true;
+
 	const CUDADevice &device = cudaManager->getDevices()[0];
 	device.use();
 
 	// Render the image with CUDA
-	CUDAFunction blankRender(device.getModule(), "blank");
-	blankRender.addParams(
-		renderTarget[frameIndex].handle(),
-		color.handle(),
-		width,
-		height
-	);
+	scene->draw(*this);
 
 	CUstream stream = device.getDefaultStream(CUDADefaultStreamsEnumeration::Execution);
-	blankRender.launch(SizeType(width) * height, stream);
 	cuStreamSynchronize(stream);
 
-	renderTarget[frameIndex].download(cudaRT[frameIndex]);
+	renderTarget.download(cudaRT);
 }
 
 void CudaRasterizer::render() {
 	// Upload the rendered image as a D3D12 texture
 	UploadHandle handle = resManager->beginNewUpload();
 	D3D12_SUBRESOURCE_DATA subresData;
-	subresData.pData = cudaRT[frameIndex];
+	subresData.pData = cudaRT;
 	subresData.RowPitch = SizeType(width) * numComps * sizeof(float);
 	subresData.SlicePitch = subresData.RowPitch * height;
-	resManager->uploadTextureData(handle, rtHandle[frameIndex], &subresData, 1, 0);
+	resManager->uploadTextureData(handle, rtHandle, &subresData, 1, 0);
 	resManager->uploadBuffers();
 
 	// Render a screen-quad with the texture
@@ -198,21 +198,83 @@ void CudaRasterizer::drawUI() {
 }
 
 void CudaRasterizer::setUseDepthBuffer(bool useDepthBuffer) {
+	const CUDADevice &device = cudaManager->getDevices()[0];
+
+	device.uploadConstantParam<bool>(&useDepthBuffer, "useDepthBuffer");
 }
 
-void CudaRasterizer::setVertexBuffer(void * buffer) {
+void CudaRasterizer::setVertexBuffer(const Vertex *buffer, SizeType verticesCount) {
+	const CUDADevice &device = cudaManager->getDevices()[0];
+
+	vertexBuffer.initialize(verticesCount * sizeof(Vertex));
+	vertexBuffer.upload(buffer);
+
+	CUDAMemHandle vertexBufferHandle = vertexBuffer.handle();
+
+	device.uploadConstantParam(&vertexBufferHandle, "vertexBuffer");
 }
 
-void CudaRasterizer::setIndexBuffer(void * buffer) {
+void CudaRasterizer::setIndexBuffer(const unsigned int *buffer, SizeType indicesCount) {
+	const CUDADevice &device = cudaManager->getDevices()[0];
+
+	indexBuffer.initialize(indicesCount * sizeof(unsigned int));
+	indexBuffer.upload(reinterpret_cast<const void*>(buffer));
+
+	CUDAMemHandle indexBufferHandle = indexBuffer.handle();
+
+	device.uploadConstantParam(&indexBufferHandle, "indexBuffer");
 }
 
-void CudaRasterizer::setUAVBuffer(void * buffer, int index) {
+void CudaRasterizer::setUAVBuffer(const void *buffer, SizeType size, int index) {
+	const CUDADevice &device = cudaManager->getDevices()[0];
+
+	uavBuffers[index].initialize(size);
+	uavBuffers[index].upload(reinterpret_cast<const void*>(buffer));
+
+	CUDAMemHandle uavBufferHandle = uavBuffers[index].handle();
+
+	device.uploadConstantParam(&uavBufferHandle, "resources", SizeType(index));
 }
 
 void CudaRasterizer::setVertexShader(const String & name) {
+	// todo
 }
 
 void CudaRasterizer::setPixelShader(const String & name) {
+	// todo
+}
+
+bool CudaRasterizer::drawIndexed(const unsigned int numPrimitives) {
+	const CUDADevice &device = cudaManager->getDevices()[0];
+	
+	renderTarget.initialize(SizeType(width) * height * sizeof(float4));
+	CUDAMemHandle rt = renderTarget.handle();
+	CUDAError err = handleCUDAError(cuMemsetD8(rt, 0, renderTarget.getSize()));
+	if (err.hasError()) {
+		// TODO: handle error
+		return false;
+	}
+
+	device.uploadConstantParam(&rt, "renderTarget");
+
+	// TODO: upload pixel barriers buffer
+
+	// Vertex shading
+	// primitive assembly
+	// eventually culling
+	// vertex attributes interpolation
+	// pixel shading
+
+	CUDAFunction drawIndexedFunc(device.getModule(), "drawIndexed");
+	drawIndexedFunc.addParams(
+		numPrimitives,
+		width,
+		height
+	);
+	
+	err = drawIndexedFunc.launchSync(numPrimitives, device.getDefaultStream(CUDADefaultStreamsEnumeration::Execution));
+
+	return !err.hasError();
 }
 
 int CudaRasterizer::loadAssets() {
@@ -230,6 +292,17 @@ int CudaRasterizer::loadAssets() {
 	// Create the texture resources that CUDA will use as render targets
 	initCUDAData();
 
+	Mesh *mesh = new Mesh;
+	mesh->geometry.resize(1);
+	mesh->geometry[0] = {
+		Vertex { float4{  0.0f,  0.5f, 0.0f, 1.0f } },
+		Vertex { float4{  0.5f, -0.5f, 0.0f, 1.0f } },
+		Vertex { float4{ -0.5f, -0.5f, 0.0f, 1.0f } }
+	};
+	mesh->indices = { 0, 1, 2 };
+
+	scene = mesh;
+
 	return true;
 }
 
@@ -243,7 +316,7 @@ CommandList CudaRasterizer::populateCommandList() {
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srvDesc.Texture2D.MipLevels = 1;
-	device->CreateShaderResourceView(rtHandle[frameIndex].get(), &srvDesc, srvHandle);
+	device->CreateShaderResourceView(rtHandle.get(), &srvDesc, srvHandle);
 
 	commandList->SetPipelineState(pipelineState.getPipelineState());
 	commandList->SetGraphicsRootSignature(pipelineState.getRootSignature());
@@ -333,13 +406,19 @@ void CudaRasterizer::timeIt() {
 }
 
 void CudaRasterizer::deinitCUDAData() {
-	for (int i = 0; i < frameCount; ++i) {
-		resManager->deregisterResource(rtHandle[i]);
-		renderTarget[i].deinitialize();
-		if (cudaRT[i] != nullptr) {
-			delete[] cudaRT[i];
-			cudaRT[i] = nullptr;
-		}
+	resManager->deregisterResource(rtHandle);
+	renderTarget.deinitialize();
+
+	vertexBuffer.deinitialize();
+	indexBuffer.deinitialize();
+
+	for (int j = 0; j < MAX_RESOURCES_COUNT; ++j) {
+		uavBuffers[j].deinitialize();
+	}
+
+	if (cudaRT != nullptr) {
+		delete[] cudaRT;
+		cudaRT = nullptr;
 	}
 	color.deinitialize();
 }
@@ -353,13 +432,28 @@ void CudaRasterizer::initCUDAData() {
 	resData.textureData.height = height;
 	resData.textureData.mipLevels = 1;
 	resData.heapFlags = D3D12_HEAP_FLAG_NONE;
-	for (int i = 0; i < frameCount; ++i) {
-		rtHandle[i] = resManager->createBuffer(resData);
-		cudaRT[i] = new UINT8[SizeType(width) * height * numComps * sizeof(float)];
-		renderTarget[i].initialize(SizeType(width) * height * numComps * sizeof(float));
-	}
+	rtHandle = resManager->createBuffer(resData);
+	cudaRT = new float[SizeType(width) * height * numComps];
+	renderTarget.initialize(SizeType(width) * height * numComps * sizeof(float));
 
 	float colorHost[numComps] = { 1.f, 0.f, 0.f, 1.f };
 	color.initialize(numComps * sizeof(float));
 	color.upload(colorHost);
+}
+
+void Mesh::draw(CudaRasterizer &renderer) const {
+	//renderer.setUseDepthBuffer(true);
+	const unsigned int verticesInTriangle = 3;
+
+	renderer.setVertexBuffer(reinterpret_cast<const Vertex*>(geometry.data()), geometry.size() * verticesInTriangle);
+
+	if (indices.empty()) {
+		indices.resize(geometry.size() * verticesInTriangle);
+		for (int i = 0; i < indices.size(); ++i) {
+			indices[i] = i;
+		}
+	}
+	renderer.setIndexBuffer(indices.data(), indices.size());
+
+	renderer.drawIndexed(geometry.size());
 }

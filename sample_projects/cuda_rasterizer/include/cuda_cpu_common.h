@@ -4,10 +4,17 @@
 #ifndef __CUDACC__
 #include "d3d12_math.h"
 
-using float4 = Vec4;
-using float3 = Vec3;
 using float2 = Vec2;
+using float3 = Vec3;
+using float4 = Vec4;
+
+using int2 = Vec2i;
+using int3 = Vec3i;
+using int4 = Vec4i;
+
 #endif //__CUDA_CC__
+
+#define MAX_RESOURCES_COUNT 64
 
 typedef struct {
 	float4 position;
@@ -16,10 +23,7 @@ typedef struct {
 } Vertex;
 
 typedef struct {
-	union {
-		Vertex vertices[3];
-		Vertex v[3];
-	};
+	Vertex vertices[3];
 } Triangle;
 
 typedef struct {
