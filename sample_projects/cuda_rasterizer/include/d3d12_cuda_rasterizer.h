@@ -1,32 +1,17 @@
 #pragma once
 
+#include "cuda.h"
+#include "cuda_buffer.h"
+#include "cuda_cpu_common.h"
+#include "cuda_drawable.h"
+
 #include "d3d12_app.h"
 #include "d3d12_defines.h"
 #include "d3d12_math.h"
 #include "d3d12_pipeline_state.h"
 #include "d3d12_resource_handle.h"
 
-#include "cuda.h"
-#include "cuda_buffer.h"
-
 struct CUDAManager;
-
-#include "d3d12_math.h"
-
-#include "cuda_cpu_common.h"
-
-struct CudaRasterizer;
-struct Drawable {
-	virtual void draw(CudaRasterizer &renderer) const = 0;
-};
-
-struct Mesh : Drawable {
-	void draw(CudaRasterizer &renderer) const override;
-
-	Vector<Triangle> geometry;
-	mutable Vector<unsigned int> indices;
-	Mat4 transform;
-};
 
 struct CudaRasterizer : D3D12App {
 	CudaRasterizer(UINT width, UINT height, const String &windowTitle);
@@ -34,7 +19,7 @@ struct CudaRasterizer : D3D12App {
 	int init() override;
 	void deinit() override;
 
-	int loadScene(const String &name);
+	virtual int loadScene(const String &name);
 
 	/// Optional. \see D3D12App::drawUI()
 	void drawUI() override;
@@ -47,6 +32,10 @@ struct CudaRasterizer : D3D12App {
 	void setVertexShader(const String &name);
 	void setPixelShader(const String &name);
 	bool drawIndexed(const unsigned int numPrimitives);
+	void setClearColor(Vec4 color);
+	void setCulling(CudaRasterizerCullType cullType);
+	void clearRenderTarget();
+	void clearDepthBuffer();
 
 private:
 	int loadAssets();
@@ -90,9 +79,9 @@ private:
 	float *cudaRT;
 	ResourceHandle rtHandle;
 	CUDADefaultBuffer renderTarget;
-	CUDADefaultBuffer color;
 	CUDADefaultBuffer vertexBuffer;
 	CUDADefaultBuffer indexBuffer;
+	CUDADefaultBuffer depthBuffer;
 	CUDADefaultBuffer uavBuffers[MAX_RESOURCES_COUNT];
 
 	UINT64 fenceValues[frameCount];

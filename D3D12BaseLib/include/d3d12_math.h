@@ -10,16 +10,20 @@
 #undef max
 #endif
 
+#ifdef __CUDACC__
+__device__ {
+#endif // __CUDACC__
+
 namespace dmath {
 
 template <class T>
 T radians(T degrees) {
-	return degrees * static_cast<T>(0.01745329251994329576923690768489);
+	return degrees * static_cast< T >(0.01745329251994329576923690768489);
 }
 
 template <class T>
 T degrees(T radians) {
-	return radians * static_cast<T>(57.295779513082320876798154814105);
+	return radians * static_cast< T >(57.295779513082320876798154814105);
 }
 
 template <class T>
@@ -65,7 +69,7 @@ struct Vec2t {
 		y = other.y;
 		return this;
 	}
-	Vec2t(Vec2t &&other) : data(std::move(other.data)) { }
+	Vec2t(Vec2t &&other) = delete;
 
 	Vec2t operator+(const Vec2t &v) const {
 		return Vec2t{ x + v.x, y + v.y };
@@ -142,7 +146,7 @@ struct Vec3t {
 		z = other.z;
 		return *this;
 	}
-	Vec3t(Vec3t &&other) : data(std::move(other.data)) { }
+	Vec3t(Vec3t &&other) = delete;
 
 	Vec3t operator+(const Vec3t &v) const {
 		return Vec3t{ x + v.x, y + v.y, z + v.z };
@@ -227,7 +231,7 @@ struct Vec4t {
 		w = other.w;
 		return *this;
 	}
-	Vec4t(Vec4t &&other) : data(std::move(other.data)) { }
+	Vec4t(Vec4t &&other) = delete;
 
 	Vec4t operator+(const Vec4t &v) const {
 		return Vec4t{ x + v.x, y + v.y, z + v.z, w + v.w };
@@ -460,9 +464,9 @@ dmath::Mat4t<T> operator*(const dmath::Mat4t<T> &m1, const dmath::Mat4t<T> &m2) 
 	dmath::Mat4t<T> m = m2.transpose();
 	return dmath::Mat4t<T> {
 		VecType{ m1.row1.dot(m.row1), m1.row1.dot(m.row2), m1.row1.dot(m.row3), m1.row1.dot(m.row4) },
-		VecType{ m1.row2.dot(m.row1), m1.row2.dot(m.row2), m1.row2.dot(m.row3), m1.row2.dot(m.row4) },
-		VecType{ m1.row3.dot(m.row1), m1.row3.dot(m.row2), m1.row3.dot(m.row3), m1.row3.dot(m.row4) },
-		VecType{ m1.row4.dot(m.row1), m1.row4.dot(m.row2), m1.row4.dot(m.row3), m1.row4.dot(m.row4) },
+			VecType{ m1.row2.dot(m.row1), m1.row2.dot(m.row2), m1.row2.dot(m.row3), m1.row2.dot(m.row4) },
+			VecType{ m1.row3.dot(m.row1), m1.row3.dot(m.row2), m1.row3.dot(m.row3), m1.row3.dot(m.row4) },
+			VecType{ m1.row4.dot(m.row1), m1.row4.dot(m.row2), m1.row4.dot(m.row3), m1.row4.dot(m.row4) },
 	};
 }
 
@@ -490,5 +494,9 @@ using Vec2i = dmath::Vec2t<int>;
 using Vec3i = dmath::Vec3t<int>;
 using Vec4i = dmath::Vec4t<int>;
 
-using Mat  = dmath::Mat4t<float>;
+using Mat = dmath::Mat4t<float>;
 using Mat4 = Mat;
+
+#ifdef __CUDACC__
+}
+#endif // __CUDACC__

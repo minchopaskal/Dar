@@ -12,11 +12,13 @@ set(LIB_DIR ${PROJECT_SOURCE_DIR}/lib)
 set(HEADERS
 	${INCLUDE_DIR}/d3d12_cuda_rasterizer.h
 	${INCLUDE_DIR}/cuda_cpu_common.h
+	${INCLUDE_DIR}/cuda_drawable.h
 )
 
 set(SOURCES
 	${SRC_DIR}/main.cpp
 	${SRC_DIR}/d3d12_cuda_rasterizer.cpp
+	${SRC_DIR}/cuda_drawable.cpp
 )
 
 set(SHADERS
@@ -26,6 +28,7 @@ set(SHADERS
 
 set(CUDA_FILES
 	${GPU_DIR}/rasterizer.cu
+	${GPU_DIR}/rasterizer_utils.cu
 )
 
 source_group("src"     FILES ${SOURCES})
@@ -34,10 +37,13 @@ source_group("shaders" FILES ${SHADERS})
 source_group("gpu"     FILES ${CUDA_FILES})
 
 # Create stub library, so the .cu files show in the VS filters
-add_library(CudaRasterizerGPU ${CUDA_FILES})
+add_custom_target(CudaRasterizerGPU
+	ALL
+	SOURCES ${CUDA_FILES}
+)
 set_target_properties(CudaRasterizerGPU PROPERTIES FOLDER SampleProjects/CudaRasterizer)
-# this prevents VS from building the cuda files when the ALL_BUILD is being built.
 set_source_files_properties(${GPU_DIR}/rasterizer.cu PROPERTIES HEADER_FILE_ONLY ON)
+set_source_files_properties(${GPU_DIR}/rasterizer_utils.cu PROPERTIES HEADER_FILE_ONLY ON)
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:CONSOLE")
 
@@ -80,13 +86,21 @@ target_include_directories(
 )
 
 copyD3D12Core(CudaRasterizer)
+# copy object files to bin dir
+add_custom_command(
+	TARGET CudaRasterizer POST_BUILD
+	COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:CudaRasterizer>/res/obj
+	COMMAND ${CMAKE_COMMAND} -E copy_directory ${CUDA_RAST_DIR}/res/obj $<TARGET_FILE_DIR:CudaRasterizer>/res/obj
+)
+
 find_package(CUDAToolkit)
 # Include dir added to NVCC include path in order for it to see cuda_cpu_common.h
 set(NVCC_ADDITIONAL_ARGS 
 	--include-path ${INCLUDE_DIR}
 )
-compilePtx(CudaRasterizer 
-	${CUDA_FILES}
+compilePtx(
+	CudaRasterizer
+	"${CUDA_FILES}"
 	"${NVCC_ADDITIONAL_ARGS}"
 	TRUE
 )

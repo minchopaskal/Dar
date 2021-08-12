@@ -8,123 +8,12 @@
 #include "math_constants.h"
 
 #include "cuda_cpu_common.h"
-#define gvoid   __global__ void
-#define gint    __global__ int
-#define gint2   __global__ int2
-#define gint3   __global__ int3
-#define gint4   __global__ int4
-#define guint   __global__ unsigned int
-#define gbool   __global__ bool
-#define gfloat  __global__ float
-#define gfloat2 __global__ float2
-#define gfloat3 __global__ float3
-#define gfloat4 __global__ float4
+#include "rasterizer_utils.cu"
 
-#define dvoid   __device__ void
-#define dint    __device__ int
-#define dint2   __device__ int2
-#define dint3   __device__ int3
-#define dint4   __device__ int4
-#define duint   __device__ unsigned int
-#define dbool   __device__ bool
-#define dfloat  __device__ float
-#define dfloat2 __device__ float2
-#define dfloat3 __device__ float3
-#define dfloat4 __device__ float4
-
-#define cvoid   __constant__ void
-#define cint    __constant__ int
-#define cint2   __constant__ int2
-#define cint3   __constant__ int3
-#define cint4   __constant__ int4
-#define cuint   __constant__ unsigned int
-#define cbool   __constant__ bool
-#define cfloat  __constant__ float
-#define cfloat2 __constant__ float2
-#define cfloat3 __constant__ float3
-#define cfloat4 __constant__ float4
-
-#define FORCEINLINE __forceinline__
-
-// TODO: create shder input/output layout:
-/*
-InOutLayout{
-	float4 elements[MAX_ELEMENTS_COUNT];
-	int numElements;
-}
-*/
-// Should be one per vertex. Pixel shader should receive that 
-
-// TODO: structure with intrinsic vertex parameters
-typedef void (*vertexShader)(unsigned int vertexID);
-typedef float4 (*pixelShader)(unsigned int triIndex, void *vsOutput);
+typedef Vertex (*vertexShader)(unsigned int vertexID);
+typedef float4 (*pixelShader)(unsigned int triIndex, void *vsOutput, float3 barys);
 
 extern "C" {
-	// Needed for CudaManager::testSystem();
-	cint arrSize;
-	gvoid adder(int *arrA, int *arrB, int *result) {
-		int idx = blockIdx.x * blockDim.x + threadIdx.x;
-		idx = min(idx, arrSize - 1);
-		result[idx] = arrA[idx] + arrB[idx];
-	}
-
-	// TODO: Separate them in another file. This means CUDABase should support compilation of
-	// multiple files.
-	// CUDA helpers / Math functions
-	FORCEINLINE dfloat3 getFloat3(float x, float y, float z) {
-		float3 result;
-		result.x = x;
-		result.y = y;
-		result.z = z;
-
-		return result;
-	}
-
-	FORCEINLINE dfloat4 getFloat4(float x, float y, float z, float w) {
-		float4 result;
-		result.x = x;
-		result.y = y;
-		result.z = z;
-		result.w = w;
-
-		return result;
-	}
-
-	FORCEINLINE dfloat3 cross(const float3 v1, const float3 v2) {
-		return getFloat3(
-			v1.y * v2.z - v1.z * v2.y,
-			v1.z * v2.x - v1.x * v2.z,
-			v1.x * v2.y - v1.y * v2.x
-		);
-	}
-
-	FORCEINLINE dfloat4 fMulf4(float x, float4 v) {
-		float4 result;
-		result.x = v.x * x;
-		result.y = v.y * x;
-		result.z = v.z * x;
-		result.w = v.w * x;
-		return result;
-	}
-
-	FORCEINLINE dfloat4 f4Plusf4(float4 v1, float4 v2) {
-		float4 result;
-		result.x = v1.x * v2.x;
-		result.y = v1.y * v2.y;
-		result.z = v1.z * v2.z;
-		result.w = v1.w * v2.w;
-
-		return result;
-	}
-
-	FORCEINLINE dint2 i2Minusi2(int2 v1, int2 v2) {
-		int2 result;
-		result.x = v1.x - v2.x;
-		result.y = v1.y - v2.y;
-
-		return result;
-	}
-
 	/// Pointers to UAV resources
 	cfloat *depthBuffer;
 	cfloat *renderTarget;
@@ -132,15 +21,29 @@ extern "C" {
 	__device__ Vertex *vertexBuffer;
 	cuint *indexBuffer;
 	cvoid *resources[MAX_RESOURCES_COUNT];
+	cfloat clearColor[4];
 	cbool useDepthBuffer;
+	__device__ CudaRasterizerCullType cullType;
+	cuint width;
+	cuint height;
 
 	// These should be constants
-	dvoid vsMain(unsigned int vertexID) {
-		//vertexBuffer[vertexID].position = fMulf4(2.f, vertexBuffer[vertexID].position);
+	__device__ Vertex vsMain(unsigned int vertexID) {
+		Vertex *v = &vertexBuffer[vertexID];
+		Vertex result;
+		result.position = v->position;
+		result.position.z = -result.position.z;
+		return result;
 	}
 
-	dfloat4 psMain(unsigned int vertexID, void* /*vsOutput*/) {
-		return getFloat4(1.f, 0.f, 0.f, 1.f);
+	dfloat4 psMain(unsigned int primID, void *vsOutput, float3 barys) {
+		Vertex *v = (Vertex*)vsOutput;
+
+		// Z is in NDC, i.e [-1.f; 1.f]. We need a value between [0.f; 1.f], thus the transformation.
+		// Since Z increases as depth increases we subtract the value from 1
+		// so that nearer objects appear brighter.
+		float shade = 1.f - (v->position.z + 1.f) * 0.5f;
+		return make_float4(shade, shade, shade, 1.f);
 	}
 
 	__device__ vertexShader vsShader = vsMain;
@@ -167,12 +70,12 @@ extern "C" {
 	) {
 		// TODO: Crammer's rule but compacted. Test perf with classic
 		float3 u = cross(
-			getFloat3(p1.x - p0.x, p2.x - p0.x, p0.x - p.x),
-			getFloat3(p1.y - p0.y, p2.y - p0.y, p0.y - p.y)
+			make_float3(p1.x - p0.x, p2.x - p0.x, p0.x - p.x),
+			make_float3(p1.y - p0.y, p2.y - p0.y, p0.y - p.y)
 		);
 
 		if (fabs(u.z) < 1.f) {
-			return getFloat3(-1.f, 1.f, 1.f);
+			return make_float3(-1.f, 1.f, 1.f);
 		}
 
 		float3 res;
@@ -184,12 +87,13 @@ extern "C" {
 
 	FORCEINLINE __device__ Vertex getInterpolatedVertex(
 		const float3 barys,
-		const Vertex *pts0,
-		const Vertex *pts1,
-		const Vertex *pts2
+		const Vertex pts0,
+		const Vertex pts1,
+		const Vertex pts2
 	) {
 		Vertex result;
-		result.position = f4Plusf4(fMulf4(barys.x, pts0->position), f4Plusf4(fMulf4(barys.y, pts1->position), fMulf4(barys.z, pts2->position)));
+		result.position = barys.x * pts0.position + barys.y * pts1.position + barys.z * pts2.position;
+
 		return result;
 	}
 
@@ -217,9 +121,10 @@ extern "C" {
 		unsigned int primitiveID,
 		unsigned int numPrimitives,
 		const int4 bbox,
-		const Vertex *pts0,
-		const Vertex *pts1,
-		const Vertex *pts2,
+		const Vertex pts0,
+		const Vertex pts1,
+		const Vertex pts2,
+		float *depthBuffer,
 		const unsigned int width,
 		const unsigned int height
 	) {
@@ -229,26 +134,28 @@ extern "C" {
 
 		const unsigned int bboxWidth = bbox.w;
 
-		//printf("Launched child kernel! blockid: %d, blockdim: %d, threadid: %d TheadID: %d\n", blockIdx.x, blockDim.x, threadIdx.x, threadID);
-
 		for (int i = threadID; i < pixelsInBBox; i += stride) {
-			// Vertex positions are now in NDC so find barys based on NDC
-			// Only after that, will we compute the discreete device coordinates.
 			int2 p;
 			p.x = threadID % bboxWidth + bbox.x;
 			p.y = threadID / bboxWidth + bbox.y;
 
-			const unsigned int pixelIndex = (p.y * width + p.x) * 4;
+			const unsigned int y = height - p.y - 1;
+			const unsigned int pixelIndex = (y * width + p.x);
+			const unsigned int pixelIndexOffset = pixelIndex * 4;
+
+			assert(pixelIndex < width * height);
 
 			// TODO: do not do the culling here
 			if (pixelIndex >= width * height * 4) {
 				return;
 			}
 
+			// Transform vertex NDC coordinates to screen coords and
+			// find barys of shaded pixel based on that
 			float3 barys = findBarys(
-				getDiscreeteCoordinates(pts0->position, width, height),
-				getDiscreeteCoordinates(pts1->position, width, height),
-				getDiscreeteCoordinates(pts2->position, width, height),
+				getDiscreeteCoordinates(pts0.position, width, height),
+				getDiscreeteCoordinates(pts1.position, width, height),
+				getDiscreeteCoordinates(pts2.position, width, height),
 				p
 			);
 
@@ -261,18 +168,37 @@ extern "C" {
 			}
 
 			Vertex interpolated = getInterpolatedVertex(barys, pts0, pts1, pts2);
-			
-			float4 color = psShader(primitiveID, &interpolated);
-			// color renderTarget[x, y] with color returned from psShader
 
-			////while (atomicExch(&pixelsBarriers[pixelIndex], 1)) { /* busyWait */ }
+			bool passDepthTest = true;
+			while (true) {
+				if (!useDepthBuffer) {
+					break;
+				}
 
-			// TODO: depth test
-			renderTarget[pixelIndex + 0] = color.x;
-			renderTarget[pixelIndex + 1] = color.y;
-			renderTarget[pixelIndex + 2] = color.z;
-			renderTarget[pixelIndex + 3] = color.w;
-			//atomicExch(&pixelsBarriers[pixelIndex], 0);
+				passDepthTest = false;
+				float oldZ = depthBuffer[pixelIndex];
+				if (oldZ < interpolated.position.z) {
+					break;
+				}
+
+				passDepthTest = true;
+				if (atomicCAS(
+						(unsigned int*)&depthBuffer[pixelIndex],
+						__float_as_uint(oldZ),
+						__float_as_uint(interpolated.position.z)) == __float_as_uint(oldZ)) {
+					break;
+				}
+			}
+
+			if (!passDepthTest) {
+				continue;
+			}
+
+			float4 color = psShader(primitiveID, &interpolated, barys);
+			renderTarget[pixelIndexOffset + 0] = color.x;
+			renderTarget[pixelIndexOffset + 1] = color.y;
+			renderTarget[pixelIndexOffset + 2] = color.z;
+			renderTarget[pixelIndexOffset + 3] = color.w;
 		}
 	}
 
@@ -285,10 +211,24 @@ extern "C" {
 		}
 
 		for (int i = primitiveID; i < numPrimitives; i += stride) {
-			// 1. RUN VS SHADER
-			vsShader(indexBuffer[i * 3 + 0]);
-			vsShader(indexBuffer[i * 3 + 1]);
-			vsShader(indexBuffer[i * 3 + 2]);
+			// 1. RUN VS shader
+			const Vertex pts0 = vsShader(indexBuffer[i * 3 + 0]);
+			const Vertex pts1 = vsShader(indexBuffer[i * 3 + 1]);
+			const Vertex pts2 = vsShader(indexBuffer[i * 3 + 2]);
+
+			// Back-face culling
+			// Vertices are now in NDC, so we can test for back-face against
+			// the (0, 0, -1) vector which points outside the monitor.
+			// TODO: if (cull)
+			if (cullType != cullType_none) {
+				float3 ab = fromFloat4(pts1.position - pts0.position);
+				float3 ac = fromFloat4(pts2.position - pts0.position);
+				float3 normal = normalize(cross(ac, ab));
+				bool backface = dot(normal, make_float3(0.f, 0.f, -1.f)) < 0;
+				if ((cullType == cullType_backface && backface) || (cullType == cullType_frontface && !backface)) {
+					continue;
+				}
+			}
 
 			// 2. FOR EACH TRIANGLE RUN WITH DYNAMIC PARALLELISM 
 			// foreach (triangle) // i.e if vertexID % 3 == 0
@@ -296,29 +236,25 @@ extern "C" {
 			//   numThreads = bbox.width * bbox.height
 			//   shadeTriangleKernel<<<~numThreads>>>(triangleIndex, vsOutput)
 			// end foreach
-			const Vertex *pts0 = &vertexBuffer[indexBuffer[i * 3 + 0]];
-			const Vertex *pts1 = &vertexBuffer[indexBuffer[i * 3 + 1]];
-			const Vertex *pts2 = &vertexBuffer[indexBuffer[i * 3 + 2]];
-			const int4 bbox = computeBoundingBox(pts0->position, pts1->position, pts2->position, width, height);
-			const unsigned int blockSize = 192;
+			const int4 bbox = computeBoundingBox(pts0.position, pts1.position, pts2.position, width, height);
+			const unsigned int blockSize = 256;
 			const unsigned int numThreads = bbox.z * bbox.w;
-			const unsigned int numBlocks = (numThreads / blockSize) + (numThreads % 192 != 0);
+			const unsigned int numBlocks = (numThreads / blockSize) + (numThreads % blockSize != 0);
 
 			cudaStream_t stream;
 			cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
-			shadeTriangle<<<numBlocks, blockSize, 0, stream>>>(i, numPrimitives, bbox, pts0, pts1, pts2, width, height);
-			cudaDeviceSynchronize();
+			shadeTriangle<<<numBlocks, blockSize, 0, stream>>>(i, numPrimitives, bbox, pts0, pts1, pts2, depthBuffer, width, height);
 			cudaStreamDestroy(stream);
 		}
 	}
 
-	gvoid blank(float *target, float *color, int width, int height) {
+	gvoid blank(float *target, int width, int height) {
 		int idx = blockIdx.x * blockDim.x + threadIdx.x;
 		idx = min(idx, width * height - 1) * 4;
 
-		target[idx + 0] = color[0];
-		target[idx + 1] = color[1];
-		target[idx + 2] = color[2];
-		target[idx + 3] = color[3];
+		target[idx + 0] = clearColor[0];
+		target[idx + 1] = clearColor[1];
+		target[idx + 2] = clearColor[2];
+		target[idx + 3] = clearColor[3];
 	}
 }

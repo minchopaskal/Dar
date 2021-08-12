@@ -16,26 +16,28 @@ using int4 = Vec4i;
 
 #define MAX_RESOURCES_COUNT 64
 
-typedef struct {
+struct Vertex {
 	float4 position;
 	/*float3 normal;
 	float2 uv;*/
-} Vertex;
+};
 
-typedef struct {
+struct Triangle {
 	Vertex vertices[3];
-} Triangle;
+};
 
-typedef struct {
-	float4 positions[3];
-	/*float3 normals[3];
-	float2 uvs[3];*/
-} TriangleDOD;
-
-typedef enum {
+enum PrimitiveType {
 	primitiveType_triangle,
 
 	primitiveType_count
-} PrimitiveType;
+};
+
+enum CudaRasterizerCullType {
+	cullType_none,
+	cullType_backface,
+	cullType_frontface,
+
+	cullType_count
+};
 
 #endif // CUDA_CPU_COMMON_H

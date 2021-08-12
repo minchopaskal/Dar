@@ -3,16 +3,16 @@
 #include "cuda_manager.h"
 
 int main(int argc, char **argv) {
-	initializeCUDAManager("data\\rasterizer.ptx", true);
+	initializeCUDAManager(Vector<String>{ "data\\rasterizer.ptx" }, true);
 
 	CudaRasterizer app(1280, 720, "CudaRasterizer");
 	if (!app.init()) {
-		return 1;
+		return 2;
 	}
 
-	/*if (!app.loadScene("res\\scenes\\scene.obj")) {
+	if (!app.loadScene("")) {
 		return 1;
-	}*/
+	}
 	
 	int result = app.run();
 

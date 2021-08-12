@@ -24,10 +24,10 @@ do { \
 #else
 #define RETURN_ON_ERROR_FMT(cmd, retval, msg, ...) \
 do { \
-  if (!SUCCEEDED((res))) { \
+  if (!SUCCEEDED(cmd)) { \
       auto err = GetLastError(); \
       fprintf(stderr, "D3D12 Error: %s. Last error: %lu\n", (msg), (err)); \
-      return (retval); \
+      return retval; \
     } \
   } \
 while (false)
