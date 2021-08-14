@@ -3,7 +3,7 @@
 #include "cuda_manager.h"
 
 int main(int argc, char **argv) {
-	initializeCUDAManager(Vector<String>{ "data\\rasterizer.ptx" }, true);
+	initializeCUDAManager(Vector<String>{ "data\\rasterizer.ptx", "data\\basic_shader.ptx" }, true);
 
 	CudaRasterizer app(1280, 720, "CudaRasterizer");
 	if (!app.init()) {

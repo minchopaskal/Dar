@@ -11,7 +11,7 @@ struct Drawable {
 };
 
 struct Mesh : Drawable {
-	Mesh(const char *filename, const char *shaderName);
+	Mesh(const char *objFilePath, const char *shaderName);
 	void draw(CudaRasterizer &renderer) const override;
 
 	Vector<Vertex> geometry;

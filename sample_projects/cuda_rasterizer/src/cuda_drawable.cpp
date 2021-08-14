@@ -44,6 +44,7 @@ void Mesh::draw(CudaRasterizer &renderer) const {
 	renderer.setUseDepthBuffer(true);
 	renderer.setCulling(cullType_backface);
 
+	renderer.setShaderProgram(shader);
 	renderer.setVertexBuffer(geometry.data(), geometry.size());
 
 	if (indices.empty()) {

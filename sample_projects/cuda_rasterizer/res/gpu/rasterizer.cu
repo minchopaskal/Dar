@@ -6,14 +6,16 @@
 #endif
 
 #include "math_constants.h"
-
 #include "cuda_cpu_common.h"
-#include "rasterizer_utils.cu"
+#include "rasterizer_utils.cuh"
 
-typedef Vertex (*vertexShader)(unsigned int vertexID);
-typedef float4 (*pixelShader)(unsigned int triIndex, void *vsOutput, float3 barys);
+typedef Vertex(*VSShader)(const Vertex*);
+typedef float4(*PSShader)(const Vertex*);
 
 extern "C" {
+	__device__ VSShader vsShader;
+	__device__ PSShader psShader;
+
 	/// Pointers to UAV resources
 	cfloat *depthBuffer;
 	cfloat *renderTarget;
@@ -23,38 +25,16 @@ extern "C" {
 	cvoid *resources[MAX_RESOURCES_COUNT];
 	cfloat clearColor[4];
 	cbool useDepthBuffer;
-	__device__ CudaRasterizerCullType cullType;
+	__constant__ CudaRasterizerCullType cullType;
 	cuint width;
 	cuint height;
 
-	// These should be constants
-	__device__ Vertex vsMain(unsigned int vertexID) {
-		Vertex *v = &vertexBuffer[vertexID];
-		Vertex result;
-		result.position = v->position;
-		result.position.z = -result.position.z;
-		return result;
-	}
-
-	dfloat4 psMain(unsigned int primID, void *vsOutput, float3 barys) {
-		Vertex *v = (Vertex*)vsOutput;
-
-		// Z is in NDC, i.e [-1.f; 1.f]. We need a value between [0.f; 1.f], thus the transformation.
-		// Since Z increases as depth increases we subtract the value from 1
-		// so that nearer objects appear brighter.
-		float shade = 1.f - (v->position.z + 1.f) * 0.5f;
-		return make_float4(shade, shade, shade, 1.f);
-	}
-
-	__device__ vertexShader vsShader = vsMain;
-	__device__ pixelShader psShader = psMain;
-
-	FORCEINLINE dint getDiscreetValue(float value, const unsigned int steps) {
+	FORCEINLINE dfloat getDiscreetValue(const float value, const unsigned int steps) {
 		return (int)min(max((value + 1.f) * 0.5f * steps, 0.f), float(steps));
 	}
 
-	FORCEINLINE dint2 getDiscreeteCoordinates(float4 p, const unsigned int width, const unsigned int height) {
-		int2 result;
+	FORCEINLINE dfloat2 getDiscreeteCoordinates(const float4 p, const unsigned int width, const unsigned int height) {
+		float2 result;
 		// [-1.f, 1.f] -> [0; width/height]
 		result.x = getDiscreetValue(p.x, width);
 		result.y = getDiscreetValue(p.y, height);
@@ -63,9 +43,9 @@ extern "C" {
 	}
 
 	FORCEINLINE dfloat3 findBarys(
-		const int2 p0,
-		const int2 p1,
-		const int2 p2,
+		const float2 p0,
+		const float2 p1,
+		const float2 p2,
 		const int2 p
 	) {
 		// TODO: Crammer's rule but compacted. Test perf with classic
@@ -85,46 +65,46 @@ extern "C" {
 		return res;
 	}
 
-	FORCEINLINE __device__ Vertex getInterpolatedVertex(
-		const float3 barys,
-		const Vertex pts0,
-		const Vertex pts1,
-		const Vertex pts2
+	/// Computes bounding box of a triangle given its coordinates.
+	/// Bounding box layout:
+	/// float4(bbox.topLeftXCoordinate, bbox.topLeftYCoordinate, bbox.height, bbox.width)
+	dfloat4 computeBoundingBox(
+		const float2 pos0,
+		const float2 pos1,
+		const float2 pos2
 	) {
-		Vertex result;
-		result.position = barys.x * pts0.position + barys.y * pts1.position + barys.z * pts2.position;
+		float4 result;
+		result.x = min(min(pos0.x, pos1.x), pos2.x);
+		result.y = min(min(pos0.y, pos1.y), pos2.y);
+		result.z = (int)max(max(pos0.y, pos1.y), pos2.y) - result.y;
+		result.w = (int)max(max(pos0.x, pos1.x), pos2.x) - result.x;
 
 		return result;
 	}
 
-	/// Computes bounding box of a triangle given its coordinates.
-	/// Bounding box layout:
-	/// float4(bbox.topLeftXCoordinate, bbox.topLeftYCoordinate, bbox.height, bbox.width)
-	dint4 computeBoundingBox(
-		float4 pos0,
-		float4 pos1,
-		float4 pos2,
-		const unsigned int width,
-		const unsigned int height
-	) {
-		int4 result;
-		result.x = getDiscreetValue(min(min(pos0.x, pos1.x), pos2.x), width);
-		result.y = getDiscreetValue(min(min(pos0.y, pos1.y), pos2.y), height);
-		result.z = getDiscreetValue(max(max(pos0.y, pos1.y), pos2.y), height) - result.y;
-		result.w = getDiscreetValue(max(max(pos0.x, pos1.x), pos2.x), width) - result.x;
+	FORCEINLINE __device__ Vertex getInterpolatedVertex(float3 barys, Vertex v0, Vertex v1, Vertex v2) {
+		Vertex result;
+		result.position = barys.x * v0.position + barys.y * v1.position + barys.z * v2.position;
+		/*result.normal = barys.x * v0.normal + barys.y * v1.normal + barys.z * v2.normal;
+		result.uv = barys.x * v0.uv + barys.y * v1.uv + barys.z * v2.uv;*/
 
 		return result;
 	}
 
 	// Rasterization functions
 	gvoid shadeTriangle(
-		unsigned int primitiveID,
-		unsigned int numPrimitives,
-		const int4 bbox,
-		const Vertex pts0,
-		const Vertex pts1,
-		const Vertex pts2,
-		float *depthBuffer,
+		const unsigned int primitiveID,
+		const unsigned int numPrimitives,
+		const float4 bbox,
+		const Vertex v0,
+		const Vertex v1,
+		const Vertex v2,
+		const float2 dp0, // screen-space coordinates of the vertices. to-do: change name
+		const float2 dp1, // screen-space coordinates of the vertices. to-do: change name
+		const float2 dp2, // screen-space coordinates of the vertices. to-do: change name
+		const float3 edge0,
+		const float3 edge1,
+		const float3 edge2,
 		const unsigned int width,
 		const unsigned int height
 	) {
@@ -139,6 +119,18 @@ extern "C" {
 			p.x = threadID % bboxWidth + bbox.x;
 			p.y = threadID / bboxWidth + bbox.y;
 
+			const float dX = p.x - bbox.x;
+			const float dY = p.y - bbox.y;
+			const float edge0Eq = edge0.z + dX * edge0.y - dY * edge0.x;
+			const float edge1Eq = edge1.z + dX * edge1.y - dY * edge1.x;
+			const float edge2Eq = edge2.z + dX * edge2.y - dY * edge2.x;
+
+			// Check if point is inside the triangle by checking it agains the
+			// edge equations of the triangle edges.
+			if (edge0Eq > 0 || edge1Eq > 0 || edge2Eq > 0) {
+				continue;
+			}
+
 			const unsigned int y = height - p.y - 1;
 			const unsigned int pixelIndex = (y * width + p.x);
 			const unsigned int pixelIndexOffset = pixelIndex * 4;
@@ -152,22 +144,8 @@ extern "C" {
 
 			// Transform vertex NDC coordinates to screen coords and
 			// find barys of shaded pixel based on that
-			float3 barys = findBarys(
-				getDiscreeteCoordinates(pts0.position, width, height),
-				getDiscreeteCoordinates(pts1.position, width, height),
-				getDiscreeteCoordinates(pts2.position, width, height),
-				p
-			);
-
-			if (
-				barys.x < 0.f || barys.x > 1.f ||
-				barys.y < 0.f || barys.y > 1.f ||
-				barys.z < 0.f || barys.z > 1.f ||
-				fabs(barys.x + barys.y + barys.z - 1.f) > 1e-6f) {
-				continue;
-			}
-
-			Vertex interpolated = getInterpolatedVertex(barys, pts0, pts1, pts2);
+			const float3 barys = findBarys(dp0, dp1, dp2, p);
+			Vertex interpolatedVertex = getInterpolatedVertex(barys, v0, v1, v2);
 
 			bool passDepthTest = true;
 			while (true) {
@@ -177,7 +155,7 @@ extern "C" {
 
 				passDepthTest = false;
 				float oldZ = depthBuffer[pixelIndex];
-				if (oldZ < interpolated.position.z) {
+				if (oldZ < interpolatedVertex.position.z) {
 					break;
 				}
 
@@ -185,7 +163,7 @@ extern "C" {
 				if (atomicCAS(
 						(unsigned int*)&depthBuffer[pixelIndex],
 						__float_as_uint(oldZ),
-						__float_as_uint(interpolated.position.z)) == __float_as_uint(oldZ)) {
+						__float_as_uint(interpolatedVertex.position.z)) == __float_as_uint(oldZ)) {
 					break;
 				}
 			}
@@ -194,7 +172,7 @@ extern "C" {
 				continue;
 			}
 
-			float4 color = psShader(primitiveID, &interpolated, barys);
+			float4 color = psShader(&interpolatedVertex);
 			renderTarget[pixelIndexOffset + 0] = color.x;
 			renderTarget[pixelIndexOffset + 1] = color.y;
 			renderTarget[pixelIndexOffset + 2] = color.z;
@@ -202,7 +180,7 @@ extern "C" {
 		}
 	}
 
-	gvoid drawIndexed(const int numPrimitives, int width, int height) {
+	gvoid drawIndexed(const int numPrimitives, const unsigned int width, const unsigned int height) {
 		const unsigned int primitiveID = blockIdx.x * blockDim.x + threadIdx.x;
 		const unsigned int stride = gridDim.x * blockDim.x;
 
@@ -212,38 +190,59 @@ extern "C" {
 
 		for (int i = primitiveID; i < numPrimitives; i += stride) {
 			// 1. RUN VS shader
-			const Vertex pts0 = vsShader(indexBuffer[i * 3 + 0]);
-			const Vertex pts1 = vsShader(indexBuffer[i * 3 + 1]);
-			const Vertex pts2 = vsShader(indexBuffer[i * 3 + 2]);
+			Vertex v0 = vsShader(&vertexBuffer[indexBuffer[i * 3 + 0]]);
+			Vertex v1 = vsShader(&vertexBuffer[indexBuffer[i * 3 + 1]]);
+			Vertex v2 = vsShader(&vertexBuffer[indexBuffer[i * 3 + 2]]);
 
 			// Back-face culling
 			// Vertices are now in NDC, so we can test for back-face against
 			// the (0, 0, -1) vector which points outside the monitor.
 			// TODO: if (cull)
+			const float3 ab = fromFloat4(v1.position - v0.position);
+			const float3 ac = fromFloat4(v2.position - v0.position);
+			const float3 normal = normalize(cross(ac, ab));
 			if (cullType != cullType_none) {
-				float3 ab = fromFloat4(pts1.position - pts0.position);
-				float3 ac = fromFloat4(pts2.position - pts0.position);
-				float3 normal = normalize(cross(ac, ab));
-				bool backface = dot(normal, make_float3(0.f, 0.f, -1.f)) < 0;
+				const bool backface = dot(normal, make_float3(0.f, 0.f, -1.f)) < 0;
 				if ((cullType == cullType_backface && backface) || (cullType == cullType_frontface && !backface)) {
 					continue;
 				}
 			}
 
+			// TODO: write rasterization in hierarchical approach
+			// for each triangle run 1 thread for each 8x8(or smth else) block
+			// inside its bounding box. The thread should quickly test if the block 
+			// is inside the triangle. Mark the blocks that contain part of the triangle.
+			// Second level would be to run threads for each marked block and rasterize
+			// the part of the triangle inside.
+			
 			// 2. FOR EACH TRIANGLE RUN WITH DYNAMIC PARALLELISM 
 			// foreach (triangle) // i.e if vertexID % 3 == 0
 			//   computeBoundingBox();
 			//   numThreads = bbox.width * bbox.height
 			//   shadeTriangleKernel<<<~numThreads>>>(triangleIndex, vsOutput)
 			// end foreach
-			const int4 bbox = computeBoundingBox(pts0.position, pts1.position, pts2.position, width, height);
-			const unsigned int blockSize = 256;
+			const float2 dp0 = getDiscreeteCoordinates(v0.position, width, height);
+			const float2 dp1 = getDiscreeteCoordinates(v1.position, width, height);
+			const float2 dp2 = getDiscreeteCoordinates(v2.position, width, height);
+
+			const float2 e0 = dp1 - dp0;
+			const float2 e1 = dp2 - dp1;
+			const float2 e2 = dp0 - dp2;
+
+			const float4 bbox = computeBoundingBox(dp0, dp1, dp2);
+			// Layout of edge vectors:
+			// (x coordinate of start of edge in screen-coords, dx, dy, edge equation for top-left bbox corner)
+			const float3 edge0 = make_float3(e0.x, e0.y, (bbox.x - dp0.x) * e0.y - (bbox.y - dp0.y) * e0.x);
+			const float3 edge1 = make_float3(e1.x, e1.y, (bbox.x - dp1.x) * e1.y - (bbox.y - dp1.y) * e1.x);
+			const float3 edge2 = make_float3(e2.x, e2.y, (bbox.x - dp2.x) * e2.y - (bbox.y - dp2.y) * e2.x);
+
+			const unsigned int blockSize = 128;
 			const unsigned int numThreads = bbox.z * bbox.w;
 			const unsigned int numBlocks = (numThreads / blockSize) + (numThreads % blockSize != 0);
 
 			cudaStream_t stream;
 			cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
-			shadeTriangle<<<numBlocks, blockSize, 0, stream>>>(i, numPrimitives, bbox, pts0, pts1, pts2, depthBuffer, width, height);
+			shadeTriangle<<<numBlocks, blockSize, 0, stream>>>(i, numPrimitives, bbox, v0, v1, v2, dp0, dp1, dp2, edge0, edge1, edge2, width, height);
 			cudaStreamDestroy(stream);
 		}
 	}

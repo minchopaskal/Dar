@@ -40,4 +40,9 @@ enum CudaRasterizerCullType {
 	cullType_count
 };
 
+struct CUDAShaderPointers {
+	void *vsShaderPtr;
+	void *psShaderPtr;
+};
+
 #endif // CUDA_CPU_COMMON_H

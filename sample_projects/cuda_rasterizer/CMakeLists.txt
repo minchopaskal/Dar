@@ -28,7 +28,8 @@ set(SHADERS
 
 set(CUDA_FILES
 	${GPU_DIR}/rasterizer.cu
-	${GPU_DIR}/rasterizer_utils.cu
+	${GPU_DIR}/rasterizer_utils.cuh
+	${GPU_DIR}/basic_shader.cu
 )
 
 source_group("src"     FILES ${SOURCES})
@@ -44,6 +45,8 @@ add_custom_target(CudaRasterizerGPU
 set_target_properties(CudaRasterizerGPU PROPERTIES FOLDER SampleProjects/CudaRasterizer)
 set_source_files_properties(${GPU_DIR}/rasterizer.cu PROPERTIES HEADER_FILE_ONLY ON)
 set_source_files_properties(${GPU_DIR}/rasterizer_utils.cu PROPERTIES HEADER_FILE_ONLY ON)
+set_source_files_properties(${GPU_DIR}/rasterizer_shader.cuh PROPERTIES HEADER_FILE_ONLY ON)
+set_source_files_properties(${GPU_DIR}/basic_shader.cuh PROPERTIES HEADER_FILE_ONLY ON)
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:CONSOLE")
 

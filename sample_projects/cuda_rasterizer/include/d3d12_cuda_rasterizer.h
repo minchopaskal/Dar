@@ -29,8 +29,7 @@ struct CudaRasterizer : D3D12App {
 	void setVertexBuffer(const Vertex *buffer, SizeType verticesCount);
 	void setIndexBuffer(const unsigned int *buffer, SizeType indicesCount);
 	void setUAVBuffer(const void *buffer, SizeType size, int index);
-	void setVertexShader(const String &name);
-	void setPixelShader(const String &name);
+	void setShaderProgram(const String &name);
 	bool drawIndexed(const unsigned int numPrimitives);
 	void setClearColor(Vec4 color);
 	void setCulling(CudaRasterizerCullType cullType);
@@ -62,7 +61,6 @@ private:
 	static constexpr unsigned int numComps = 4;
 
 	ComPtr<ID3D12RootSignature> rootSignature;
-	//ComPtr<ID3D12PipelineState> pipelineState;
 	PipelineState pipelineState;
 
 	// Descriptors
@@ -76,9 +74,9 @@ private:
 	float aspectRatio;
 
 	// Resources
-	float *cudaRT;
-	ResourceHandle rtHandle;
-	CUDADefaultBuffer renderTarget;
+	float *cudaRenderTargetHost;
+	ResourceHandle dx12RenderTargetHandle;
+	CUDADefaultBuffer cudaRenderTargetDevice;
 	CUDADefaultBuffer vertexBuffer;
 	CUDADefaultBuffer indexBuffer;
 	CUDADefaultBuffer depthBuffer;
@@ -87,8 +85,11 @@ private:
 	UINT64 fenceValues[frameCount];
 	UINT64 previousFrameIndex;
 
-	// Cache cuda manager
-	CUDAManager *cudaManager;
+	// Cache the cuda device we are using for rasterization
+	const CUDADevice &cudaDevice;
+
+	// TODO: something better than this
+	Set<String> cachedShaders;
 
 	Drawable *scene;
 

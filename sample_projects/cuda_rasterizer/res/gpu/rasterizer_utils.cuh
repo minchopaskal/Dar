@@ -14,18 +14,19 @@
 #define gfloat3 __global__ float3
 #define gfloat4 __global__ float4
 
-#define dvoid   __device__ void
-#define dint    __device__ int
-#define dint2   __device__ int2
-#define dint3   __device__ int3
-#define dint4   __device__ int4
-#define duint   __device__ unsigned int
-#define duchar  __device__ unsigned char
-#define dbool   __device__ bool
-#define dfloat  __device__ float
-#define dfloat2 __device__ float2
-#define dfloat3 __device__ float3
-#define dfloat4 __device__ float4
+#define dvoidptr __device__ void*
+#define dvoid    __device__ void
+#define dint     __device__ int
+#define dint2    __device__ int2
+#define dint3    __device__ int3
+#define dint4    __device__ int4
+#define duint    __device__ unsigned int
+#define duchar   __device__ unsigned char
+#define dbool    __device__ bool
+#define dfloat   __device__ float
+#define dfloat2  __device__ float2
+#define dfloat3  __device__ float3
+#define dfloat4  __device__ float4
 
 #define cvoid   __constant__ void
 #define cint    __constant__ int
@@ -50,12 +51,41 @@ FORCEINLINE dfloat4 toFloat4(float3 v) {
 	return make_float4(v.x, v.y, v.z, 1.f);
 }
 
+FORCEINLINE dfloat2 operator+(float2 a, float2 b) {
+	return make_float2(
+		a.x + b.x,
+		a.y + b.y
+	);
+}
+
+FORCEINLINE dfloat3 operator+(float3 a, float3 b) {
+	return make_float3(
+		a.x + b.x,
+		a.y + b.y,
+		a.z + b.z
+	);
+}
+
 FORCEINLINE dfloat4 operator+(float4 a, float4 b) {
 	return make_float4(
 		a.x + b.x,
 		a.y + b.y,
 		a.z + b.z,
 		a.w + b.w
+	);
+}
+
+FORCEINLINE dint2 operator-(int2 a, int2 b) {
+	return make_int2(
+		a.x - b.x,
+		a.y - b.y
+	);
+}
+
+FORCEINLINE dfloat2 operator-(float2 a, float2 b) {
+	return make_float2(
+		a.x - b.x,
+		a.y - b.y
 	);
 }
 
@@ -84,6 +114,37 @@ FORCEINLINE dfloat4 operator*(float b, float4 a) {
 		a.z * b,
 		a.w * b
 		);
+}
+
+FORCEINLINE dfloat2 operator*(float b, float2 a) {
+	return make_float2(
+		a.x * b,
+		a.y * b
+	);
+}
+
+FORCEINLINE dfloat2 operator*(float2 a, float b) {
+	return make_float2(
+		a.x * b,
+		a.y * b
+	);
+}
+
+
+FORCEINLINE dfloat3 operator*(float3 a, float b) {
+	return make_float3(
+		a.x * b,
+		a.y * b,
+		a.z * b
+	);
+}
+
+FORCEINLINE dfloat3 operator*(float b, float3 a) {
+	return make_float3(
+		a.x * b,
+		a.y * b,
+		a.z * b
+	);
 }
 
 FORCEINLINE dfloat dot(float3 v1, float3 v2) {
