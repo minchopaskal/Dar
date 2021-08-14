@@ -14,8 +14,9 @@
 struct CUDAManager;
 
 struct CudaRasterizer : D3D12App {
-	CudaRasterizer(UINT width, UINT height, const String &windowTitle);
-	
+	CudaRasterizer(Vector<String> &shadersFilenames, const String &windowTitle, UINT width, UINT height);
+	~CudaRasterizer();
+
 	int init() override;
 	void deinit() override;
 
@@ -86,10 +87,7 @@ private:
 	UINT64 previousFrameIndex;
 
 	// Cache the cuda device we are using for rasterization
-	const CUDADevice &cudaDevice;
-
-	// TODO: something better than this
-	Set<String> cachedShaders;
+	const CUDADevice *cudaDevice;
 
 	Drawable *scene;
 

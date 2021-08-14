@@ -20,7 +20,7 @@
 
 #include "imgui.h"
 
-CudaRasterizer::CudaRasterizer(UINT width, UINT height, const String &windowTitle) :
+CudaRasterizer::CudaRasterizer(Vector<String> &shaders, const String &windowTitle, UINT width, UINT height) :
 	D3D12App(width, height, windowTitle.c_str()),
 	rtvHeapHandleIncrementSize(0),
 	viewport{ 0.f, 0.f, static_cast<float>(width), static_cast<float>(height) },
@@ -29,13 +29,20 @@ CudaRasterizer::CudaRasterizer(UINT width, UINT height, const String &windowTitl
 	cudaRenderTargetHost{ nullptr },
 	fenceValues{ 0 },
 	previousFrameIndex(0),
-	cudaDevice(getCUDAManager().getDevices()[0]),
 	FOV(45.0),
 	fps(0.0),
 	totalTime(0.0)
 { 
+	shaders.push_back("data\\rasterizer.ptx");
+	initializeCUDAManager(shaders, true);
+	cudaDevice = &getCUDAManager().getDevices()[0];
+
 	// Switch to the context of this device from now on.
-	cudaDevice.use();
+	cudaDevice->use();
+}
+
+CudaRasterizer::~CudaRasterizer() {
+	deinit();
 }
 
 int CudaRasterizer::init() {
@@ -87,6 +94,7 @@ int CudaRasterizer::loadScene(const String &name) {
 void CudaRasterizer::deinit() {
 	flush();
 	deinitCUDAData();
+	deinitializeCUDAManager();
 	delete scene;
 	Super::deinit();
 }
@@ -102,7 +110,7 @@ void CudaRasterizer::update() {
 	// Render the image with CUDA
 	scene->draw(*this);
 
-	CUstream stream = cudaDevice.getDefaultStream(CUDADefaultStreamsEnumeration::Execution);
+	CUstream stream = cudaDevice->getDefaultStream(CUDADefaultStreamsEnumeration::Execution);
 	cuStreamSynchronize(stream);
 
 	cudaRenderTargetDevice.download(cudaRenderTargetHost);
@@ -200,7 +208,7 @@ void CudaRasterizer::drawUI() {
 }
 
 void CudaRasterizer::setUseDepthBuffer(bool useDepthBuffer) {
-	cudaDevice.uploadConstantParam<bool>(&useDepthBuffer, "useDepthBuffer");
+	cudaDevice->uploadConstantParam<bool>(&useDepthBuffer, "useDepthBuffer");
 
 	CUDAMemHandle depthBufferHandle = NULL;
 	if (useDepthBuffer) {
@@ -213,7 +221,7 @@ void CudaRasterizer::setUseDepthBuffer(bool useDepthBuffer) {
 		}
 	}
 
-	cudaDevice.uploadConstantParam(&depthBufferHandle, "depthBuffer");
+	cudaDevice->uploadConstantParam(&depthBufferHandle, "depthBuffer");
 }
 
 void CudaRasterizer::setVertexBuffer(const Vertex *buffer, SizeType verticesCount) {
@@ -222,7 +230,7 @@ void CudaRasterizer::setVertexBuffer(const Vertex *buffer, SizeType verticesCoun
 
 	CUDAMemHandle vertexBufferHandle = vertexBuffer.handle();
 
-	cudaDevice.uploadConstantParam(&vertexBufferHandle, "vertexBuffer");
+	cudaDevice->uploadConstantParam(&vertexBufferHandle, "vertexBuffer");
 }
 
 void CudaRasterizer::setIndexBuffer(const unsigned int *buffer, SizeType indicesCount) {
@@ -231,7 +239,7 @@ void CudaRasterizer::setIndexBuffer(const unsigned int *buffer, SizeType indices
 
 	CUDAMemHandle indexBufferHandle = indexBuffer.handle();
 
-	cudaDevice.uploadConstantParam(&indexBufferHandle, "indexBuffer");
+	cudaDevice->uploadConstantParam(&indexBufferHandle, "indexBuffer");
 }
 
 void CudaRasterizer::setUAVBuffer(const void *buffer, SizeType size, int index) {
@@ -240,34 +248,34 @@ void CudaRasterizer::setUAVBuffer(const void *buffer, SizeType size, int index) 
 
 	CUDAMemHandle uavBufferHandle = uavBuffers[index].handle();
 
-	cudaDevice.uploadConstantParam(&uavBufferHandle, "resources", SizeType(index));
+	cudaDevice->uploadConstantParam(&uavBufferHandle, "resources", SizeType(index));
 }
 
 void CudaRasterizer::setShaderProgram(const String &name) {
 	CUDADefaultBuffer shaderPtrs;
 	RETURN_ERR_ON_CUDA_ERROR_HANDLED(shaderPtrs.initialize(sizeof(CUDAShaderPointers)), );
 
-	CUDAFunction getShaderPtrsFunction(cudaDevice.getModule(), ("getShaderPtrs_" + name).c_str());
+	CUDAFunction getShaderPtrsFunction(cudaDevice->getModule(), ("getShaderPtrs_" + name).c_str());
 	getShaderPtrsFunction.addParams(
 		shaderPtrs.handle()
 	);
-	RETURN_ERR_ON_CUDA_ERROR_HANDLED(getShaderPtrsFunction.launchSync(1, cudaDevice.getDefaultStream(CUDADefaultStreamsEnumeration::Execution)), );
+	RETURN_ERR_ON_CUDA_ERROR_HANDLED(getShaderPtrsFunction.launchSync(1, cudaDevice->getDefaultStream(CUDADefaultStreamsEnumeration::Execution)), );
 
 	CUDAShaderPointers ptrs;
 	RETURN_ERR_ON_CUDA_ERROR_HANDLED(shaderPtrs.download(&ptrs), );
-	RETURN_ERR_ON_CUDA_ERROR_HANDLED(cudaDevice.uploadConstantParam(&ptrs.vsShaderPtr, "vsShader"), );
-	RETURN_ERR_ON_CUDA_ERROR_HANDLED(cudaDevice.uploadConstantParam(&ptrs.psShaderPtr, "psShader"), );
+	RETURN_ERR_ON_CUDA_ERROR_HANDLED(cudaDevice->uploadConstantParam(&ptrs.vsShaderPtr, "vsShader"), );
+	RETURN_ERR_ON_CUDA_ERROR_HANDLED(cudaDevice->uploadConstantParam(&ptrs.psShaderPtr, "psShader"), );
 }
 
 bool CudaRasterizer::drawIndexed(const unsigned int numPrimitives) {
-	CUDAFunction drawIndexedFunc(cudaDevice.getModule(), "drawIndexed");
+	CUDAFunction drawIndexedFunc(cudaDevice->getModule(), "drawIndexed");
 	drawIndexedFunc.addParams(
 		numPrimitives,
 		width,
 		height
 	);
 	
-	RETURN_FALSE_ON_CUDA_ERROR_HANDLED(drawIndexedFunc.launchSync(numPrimitives, cudaDevice.getDefaultStream(CUDADefaultStreamsEnumeration::Execution)));
+	RETURN_FALSE_ON_CUDA_ERROR_HANDLED(drawIndexedFunc.launchSync(numPrimitives, cudaDevice->getDefaultStream(CUDADefaultStreamsEnumeration::Execution)));
 
 	return true;
 }
@@ -278,11 +286,11 @@ void CudaRasterizer::setClearColor(Vec4 color) {
 		colorHost[i] = color.data[i];
 	}
 
-	cudaDevice.uploadConstantArray(colorHost, 4, "clearColor");
+	cudaDevice->uploadConstantArray(colorHost, 4, "clearColor");
 }
 
 void CudaRasterizer::setCulling(CudaRasterizerCullType cullType) {
-	cudaDevice.uploadConstantParam(&cullType, "cullType");
+	cudaDevice->uploadConstantParam(&cullType, "cullType");
 }
 
 void CudaRasterizer::clearRenderTarget() {
@@ -293,14 +301,14 @@ void CudaRasterizer::clearRenderTarget() {
 		return;
 	}
 
-	CUDAFunction blankKernel(cudaDevice.getModule(), "blank");
+	CUDAFunction blankKernel(cudaDevice->getModule(), "blank");
 	blankKernel.addParams(
 		rt,
 		width,
 		height
 	);
 	
-	blankKernel.launchSync(width * height, cudaDevice.getDefaultStream(CUDADefaultStreamsEnumeration::Execution));
+	blankKernel.launchSync(width * height, cudaDevice->getDefaultStream(CUDADefaultStreamsEnumeration::Execution));
 }
 
 void CudaRasterizer::clearDepthBuffer() {
@@ -463,8 +471,8 @@ void CudaRasterizer::initCUDAData() {
 	cudaRenderTargetDevice.initialize(SizeType(width) * height * numComps * sizeof(float));
 	clearRenderTarget();
 	CUDAMemHandle rt = cudaRenderTargetDevice.handle();
-	cudaDevice.uploadConstantParam(&rt, "renderTarget");
+	cudaDevice->uploadConstantParam(&rt, "renderTarget");
 
-	cudaDevice.uploadConstantParam(&width, "width");
-	cudaDevice.uploadConstantParam(&height, "height");
+	cudaDevice->uploadConstantParam(&width, "width");
+	cudaDevice->uploadConstantParam(&height, "height");
 }
