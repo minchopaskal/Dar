@@ -82,11 +82,35 @@ extern "C" {
 		return result;
 	}
 
+	FORCEINLINE dfloat4 baryInterpolationf4(const float3 barys, const float4 v1, const float4 v2, const float4 v3) {
+		return make_float4(
+			fmaf(barys.x, v1.x, fmaf(barys.y, v2.x, fmaf(barys.z, v3.x, 0.f))),
+			fmaf(barys.x, v1.y, fmaf(barys.y, v2.y, fmaf(barys.z, v3.y, 0.f))),
+			fmaf(barys.x, v1.z, fmaf(barys.y, v2.z, fmaf(barys.z, v3.z, 0.f))),
+			fmaf(barys.x, v1.w, fmaf(barys.y, v2.w, fmaf(barys.z, v3.w, 0.f)))
+		);
+	}
+
+	FORCEINLINE dfloat3 baryInterpolationf3(const float3 barys, const float3 v1, const float3 v2, const float3 v3) {
+		return make_float3(
+			fmaf(barys.x, v1.x, fmaf(barys.y, v2.x, fmaf(barys.z, v3.x, 0.f))),
+			fmaf(barys.x, v1.y, fmaf(barys.y, v2.y, fmaf(barys.z, v3.y, 0.f))),
+			fmaf(barys.x, v1.z, fmaf(barys.y, v2.z, fmaf(barys.z, v3.z, 0.f)))
+		);
+	}
+
+	FORCEINLINE dfloat2 baryInterpolationf2(const float3 barys, const float2 v1, const float2 v2, const float2 v3) {
+		return make_float2(
+			fmaf(barys.x, v1.x, fmaf(barys.y, v2.x, fmaf(barys.z, v3.x, 0.f))),
+			fmaf(barys.x, v1.y, fmaf(barys.y, v2.y, fmaf(barys.z, v3.y, 0.f)))
+		);
+	}
+
 	FORCEINLINE __device__ Vertex getInterpolatedVertex(float3 barys, Vertex v0, Vertex v1, Vertex v2) {
 		Vertex result;
-		result.position = barys.x * v0.position + barys.y * v1.position + barys.z * v2.position;
-		result.normal = barys.x * v0.normal + barys.y * v1.normal + barys.z * v2.normal;
-		result.uv = barys.x * v0.uv + barys.y * v1.uv + barys.z * v2.uv;
+		result.position = baryInterpolationf4(barys, v0.position, v1.position, v2.position);
+		result.normal = baryInterpolationf3(barys, v0.normal, v1.normal, v2.normal);
+		result.uv = baryInterpolationf2(barys, v0.uv, v1.uv, v2.uv);
 
 		return result;
 	}
@@ -121,9 +145,9 @@ extern "C" {
 
 			const float dX = p.x - bbox.x;
 			const float dY = p.y - bbox.y;
-			const float edge0Eq = edge0.z + dX * edge0.y - dY * edge0.x;
-			const float edge1Eq = edge1.z + dX * edge1.y - dY * edge1.x;
-			const float edge2Eq = edge2.z + dX * edge2.y - dY * edge2.x;
+			const float edge0Eq = fmaf(dX, edge0.y, fmaf(-dY, edge0.x, edge0.z));
+			const float edge1Eq = fmaf(dX, edge1.y, fmaf(-dY, edge1.x, edge1.z));
+			const float edge2Eq = fmaf(dX, edge2.y, fmaf(-dY, edge2.x, edge2.z));
 
 			// Check if point is inside the triangle by checking it agains the
 			// edge equations of the triangle edges.

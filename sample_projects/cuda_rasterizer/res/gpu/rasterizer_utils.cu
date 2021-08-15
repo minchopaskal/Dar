@@ -61,7 +61,7 @@ dfloat4 operator*(float4 a, float b) {
 		a.y * b,
 		a.z * b,
 		a.w * b
-		);
+	);
 }
 
 dfloat4 operator*(float b, float4 a) {
@@ -70,7 +70,7 @@ dfloat4 operator*(float b, float4 a) {
 		a.y * b,
 		a.z * b,
 		a.w * b
-		);
+	);
 }
 
 dfloat2 operator*(float b, float2 a) {
@@ -105,18 +105,18 @@ dfloat3 operator*(float b, float3 a) {
 }
 
 dfloat dot(float3 v1, float3 v2) {
-	return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+	return fmaf(v1.x, v2.x, fmaf(v1.y, v2.y, fmaf(v1.z, v2.z, 0.f)));
 }
 
 dfloat dot(float4 v1, float4 v2) {
-	return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+	return fmaf(v1.x, v2.x, fmaf(v1.y, v2.y, fmaf(v1.z, v2.z, fmaf(v1.w, v2.w, 0.f))));
 }
 
 dfloat3 cross(const float3 v1, const float3 v2) {
 	return make_float3(
-		v1.y * v2.z - v1.z * v2.y,
-		v1.z * v2.x - v1.x * v2.z,
-		v1.x * v2.y - v1.y * v2.x
+		fmaf(v1.y, v2.z, -fmaf(v1.z, v2.y, 0.f)),
+		fmaf(v1.z, v2.x, -fmaf(v1.x, v2.z, 0.f)),
+		fmaf(v1.x, v2.y, -fmaf(v1.y, v2.x, 0.f))
 	);
 }
 

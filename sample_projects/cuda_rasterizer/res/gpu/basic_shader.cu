@@ -15,9 +15,9 @@ FORCEINLINE __device__ float4 psBasicShader(const Vertex *v) {
 	// Z is in NDC, i.e [-1.f; 1.f]. We need a value between [0.f; 1.f], thus the transformation.
 	// Since Z increases as depth increases we subtract the value from 1
 	// so that nearer objects appear brighter.
-	const float shade = 1.f - (v->position.z + 1.f) * 0.5f;
+	//const float shade = 1.f - (v->position.z + 1.f) * 0.5f;
 
-	//const float shade = dot(v->normal, make_float3(0.f, 0.f, 1.f));
+	const float shade = dot(v->normal, make_float3(0.f, 0.f, 1.f));
 
 	return make_float4(shade, shade, shade, 1.f);
 }
