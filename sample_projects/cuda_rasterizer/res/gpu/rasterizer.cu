@@ -35,7 +35,7 @@ extern "C" {
 
 	FORCEINLINE dfloat2 getDiscreeteCoordinates(const float4 p, const unsigned int width, const unsigned int height) {
 		float2 result;
-		// [-1.f, 1.f] -> [0; width/height]
+		// [-1.f, 1.f] -> [0; width] OR [0; height]
 		result.x = getDiscreetValue(p.x, width);
 		result.y = getDiscreetValue(p.y, height);
 
@@ -85,8 +85,8 @@ extern "C" {
 	FORCEINLINE __device__ Vertex getInterpolatedVertex(float3 barys, Vertex v0, Vertex v1, Vertex v2) {
 		Vertex result;
 		result.position = barys.x * v0.position + barys.y * v1.position + barys.z * v2.position;
-		/*result.normal = barys.x * v0.normal + barys.y * v1.normal + barys.z * v2.normal;
-		result.uv = barys.x * v0.uv + barys.y * v1.uv + barys.z * v2.uv;*/
+		result.normal = barys.x * v0.normal + barys.y * v1.normal + barys.z * v2.normal;
+		result.uv = barys.x * v0.uv + barys.y * v1.uv + barys.z * v2.uv;
 
 		return result;
 	}
@@ -135,7 +135,7 @@ extern "C" {
 			const unsigned int pixelIndex = (y * width + p.x);
 			const unsigned int pixelIndexOffset = pixelIndex * 4;
 
-			assert(pixelIndex < width * height);
+			//assert(pixelIndex < width * height);
 
 			// TODO: do not do the culling here
 			if (pixelIndex >= width * height * 4) {
@@ -231,7 +231,7 @@ extern "C" {
 
 			const float4 bbox = computeBoundingBox(dp0, dp1, dp2);
 			// Layout of edge vectors:
-			// (x coordinate of start of edge in screen-coords, dx, dy, edge equation for top-left bbox corner)
+			// (dx, dy, edge equation for top-left bbox corner)
 			const float3 edge0 = make_float3(e0.x, e0.y, (bbox.x - dp0.x) * e0.y - (bbox.y - dp0.y) * e0.x);
 			const float3 edge1 = make_float3(e1.x, e1.y, (bbox.x - dp1.x) * e1.y - (bbox.y - dp1.y) * e1.x);
 			const float3 edge2 = make_float3(e2.x, e2.y, (bbox.x - dp2.x) * e2.y - (bbox.y - dp2.y) * e2.x);

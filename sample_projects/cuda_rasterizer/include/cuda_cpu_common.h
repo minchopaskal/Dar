@@ -14,13 +14,21 @@ using int4 = Vec4i;
 
 #endif //__CUDA_CC__
 
+#ifdef _WIN64
+#define ALIGNAS(x) __declspec(align((x)))
+#elif defined(__CUDACC__)
+#define ALIGNAS(x)
+#endif
+
 #define MAX_RESOURCES_COUNT 64
 
+// Alignment requirements from CUDA
 struct Vertex {
-	float4 position;
-	/*float3 normal;
-	float2 uv;*/
+	ALIGNAS(16) float4 position;
+	float3 normal;
+	ALIGNAS(8) float2 uv;
 };
+static_assert(sizeof(Vertex) == 48, "Invalid size for struct Vertex. Check alignment!");
 
 struct Triangle {
 	Vertex vertices[3];

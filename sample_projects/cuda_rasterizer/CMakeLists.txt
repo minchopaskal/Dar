@@ -27,9 +27,10 @@ set(SHADERS
 )
 
 set(CUDA_FILES
-	${GPU_DIR}/rasterizer.cu
-	${GPU_DIR}/rasterizer_utils.cuh
 	${GPU_DIR}/basic_shader.cu
+	${GPU_DIR}/rasterizer.cu
+	${GPU_DIR}/rasterizer_utils.cu
+	${GPU_DIR}/rasterizer_utils.cuh
 )
 
 source_group("src"     FILES ${SOURCES})
@@ -38,14 +39,11 @@ source_group("shaders" FILES ${SHADERS})
 source_group("gpu"     FILES ${CUDA_FILES})
 
 # Create stub library, so the .cu files show in the VS filters
-add_custom_target(CudaRasterizerGPU
-	ALL
-	SOURCES ${CUDA_FILES}
-)
+add_custom_target(CudaRasterizerGPU ALL SOURCES ${CUDA_FILES})
 set_target_properties(CudaRasterizerGPU PROPERTIES FOLDER SampleProjects/CudaRasterizer)
 set_source_files_properties(${GPU_DIR}/rasterizer.cu PROPERTIES HEADER_FILE_ONLY ON)
 set_source_files_properties(${GPU_DIR}/rasterizer_utils.cu PROPERTIES HEADER_FILE_ONLY ON)
-set_source_files_properties(${GPU_DIR}/rasterizer_shader.cuh PROPERTIES HEADER_FILE_ONLY ON)
+set_source_files_properties(${GPU_DIR}/rasterizer_utils.cuh PROPERTIES HEADER_FILE_ONLY ON)
 set_source_files_properties(${GPU_DIR}/basic_shader.cuh PROPERTIES HEADER_FILE_ONLY ON)
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:CONSOLE")

@@ -146,7 +146,7 @@ struct Vec3t {
 		z = other.z;
 		return *this;
 	}
-	Vec3t(Vec3t &&other) = delete;
+	Vec3t(Vec3t &&other) : x(other.x), y(other.y), z(other.z) { }
 
 	Vec3t operator+(const Vec3t &v) const {
 		return Vec3t{ x + v.x, y + v.y, z + v.z };
@@ -231,7 +231,7 @@ struct Vec4t {
 		w = other.w;
 		return *this;
 	}
-	Vec4t(Vec4t &&other) = delete;
+	Vec4t(Vec4t &&other) : x(other.x), y(other.y), z(other.z), w(other.w) { }
 
 	Vec4t operator+(const Vec4t &v) const {
 		return Vec4t{ x + v.x, y + v.y, z + v.z, w + v.w };

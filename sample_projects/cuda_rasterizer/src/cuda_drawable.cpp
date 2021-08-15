@@ -13,6 +13,9 @@ Mesh::Mesh(const char *filename, const char *shaderName) {
 	if (in.fail()) {
 		return;
 	}
+	Vector<Vec4> positions;
+	Vector<Vec3> normals;
+
 	std::string line;
 	while (!in.eof()) {
 		std::getline(in, line);
@@ -25,8 +28,12 @@ Mesh::Mesh(const char *filename, const char *shaderName) {
 				iss >> v.data[i];
 			}
 			v.w = 1.f;
-			Vertex res{ v };
-			geometry.push_back(res);
+			positions.push_back(v);
+		} else if (!line.compare(0, 3, "vn ")) {
+			iss >> trash >> trash;
+			Vec3 normal;
+			iss >> normal.x >> normal.y >> normal.z;
+			normals.push_back(normal);
 		} else if (!line.compare(0, 2, "f ")) {
 			int itrash, idx;
 			iss >> trash;
@@ -35,6 +42,14 @@ Mesh::Mesh(const char *filename, const char *shaderName) {
 				indices.push_back(idx);
 			}
 		}
+	}
+
+	massert(positions.size() == normals.size());
+
+	// Resolve vertices
+	for (int i = 0; i < positions.size(); ++i) {
+		Vertex v = { positions[i], normals[i], Vec2{ 0.f, 0.f } };
+		geometry.push_back(v);
 	}
 }
 

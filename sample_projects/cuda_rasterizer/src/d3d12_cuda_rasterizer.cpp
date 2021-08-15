@@ -33,7 +33,8 @@ CudaRasterizer::CudaRasterizer(Vector<String> &shaders, const String &windowTitl
 	fps(0.0),
 	totalTime(0.0)
 { 
-	shaders.push_back("data\\rasterizer.ptx");
+	shaders.insert(shaders.begin(), "data\\rasterizer.ptx");
+	shaders.insert(shaders.begin(), "data\\rasterizer_utils.ptx");
 	initializeCUDAManager(shaders, true);
 	cudaDevice = &getCUDAManager().getDevices()[0];
 
@@ -227,6 +228,9 @@ void CudaRasterizer::setUseDepthBuffer(bool useDepthBuffer) {
 void CudaRasterizer::setVertexBuffer(const Vertex *buffer, SizeType verticesCount) {
 	vertexBuffer.initialize(verticesCount * sizeof(Vertex));
 	vertexBuffer.upload(buffer);
+
+	Vertex *vs = new Vertex[verticesCount];
+	cuMemcpyDtoH(( void* )vs, vertexBuffer.handle(), vertexBuffer.getSize());
 
 	CUDAMemHandle vertexBufferHandle = vertexBuffer.handle();
 
