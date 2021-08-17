@@ -3,7 +3,6 @@
 #include "cuda.h"
 #include "cuda_buffer.h"
 #include "cuda_cpu_common.h"
-#include "cuda_drawable.h"
 
 #include "d3d12_app.h"
 #include "d3d12_defines.h"
@@ -14,31 +13,31 @@
 struct CUDAManager;
 
 struct CudaRasterizer : D3D12App {
+	using DrawUICallback = void(*)();
+	using UpdateFrameCallback = void(*)(CudaRasterizer &rasterizer, void *state);
+
 	CudaRasterizer(Vector<String> &shadersFilenames, const String &windowTitle, UINT width, UINT height);
-	~CudaRasterizer();
+	~CudaRasterizer() override;
 
-	int init() override;
-	void deinit() override;
-
-	virtual int loadScene(const String &name);
-
-	/// Optional. \see D3D12App::drawUI()
-	void drawUI() override;
+	void setUpdateFramebufferCallback(const UpdateFrameCallback cb, void *state);
+	void setImGuiCallback(const DrawUICallback cb);
 
 	// API calls
-	void setUseDepthBuffer(bool useDepthBuffer);
-	void setVertexBuffer(const Vertex *buffer, SizeType verticesCount);
-	void setIndexBuffer(const unsigned int *buffer, SizeType indicesCount);
-	void setUAVBuffer(const void *buffer, SizeType size, int index);
-	void setShaderProgram(const String &name);
-	bool drawIndexed(const unsigned int numPrimitives);
-	void setClearColor(Vec4 color);
-	void setCulling(CudaRasterizerCullType cullType);
-	void clearRenderTarget();
-	void clearDepthBuffer();
+	CUDAError setUseDepthBuffer(bool useDepthBuffer);
+	CUDAError setVertexBuffer(const Vertex* buffer, SizeType verticesCount);
+	CUDAError setIndexBuffer(const unsigned int* buffer, SizeType indicesCount);
+	CUDAError setUavBuffer(const void *buffer, SizeType size, int index);
+	CUDAError setShaderProgram(const String &name) const;
+	CUDAError drawIndexed(const unsigned int numPrimitives) const;
+	CUDAError setClearColor(const Vec4 &color) const;
+	CUDAError setCulling(CudaRasterizerCullType cullType) const;
+	CUDAError clearRenderTarget();
+	CUDAError clearDepthBuffer();
 
 private:
 	int loadAssets();
+	int init() override;
+	void deinit() override;
 
 	// Inherited via D3D12App
 	void update() override;
@@ -46,6 +45,7 @@ private:
 	virtual void onResize(int width, int height) override;
 	virtual void onKeyboardInput(int key, int action) override;
 	virtual void onMouseScroll(double xOffset, double yOffset) override;
+	void drawUI() override;
 
 private:
 	CommandList populateCommandList();
@@ -89,7 +89,10 @@ private:
 	// Cache the cuda device we are using for rasterization
 	const CUDADevice *cudaDevice;
 
-	Drawable *scene;
+	// Callbacks
+	UpdateFrameCallback updateFrameCb = nullptr;
+	DrawUICallback drawUICb = nullptr;
+	void *frameState = nullptr;
 
 	float FOV;
 

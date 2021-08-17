@@ -53,4 +53,11 @@ struct CUDAShaderPointers {
 	void *psShaderPtr;
 };
 
+// Parameters passed to both shader stages
+struct UniformParams {
+	void *const *resources;
+	unsigned int width;
+	unsigned int height;
+};
+
 #endif // CUDA_CPU_COMMON_H

@@ -1,7 +1,7 @@
 #include "cuda_cpu_common.h"
 #include "rasterizer_utils.cuh"
 
-FORCEINLINE __device__ Vertex vsBasicShader(const Vertex *v) {
+FORCEINLINE __device__ Vertex vsBasicShader(const Vertex *v, UniformParams params) {
 	Vertex result;
 	result.position = v->position;
 	result.normal = v->normal;
@@ -11,7 +11,7 @@ FORCEINLINE __device__ Vertex vsBasicShader(const Vertex *v) {
 	return result;
 }
 
-FORCEINLINE __device__ float4 psBasicShader(const Vertex *v) {
+FORCEINLINE __device__ float4 psBasicShader(const Vertex *v, UniformParams params) {
 	// Z is in NDC, i.e [-1.f; 1.f]. We need a value between [0.f; 1.f], thus the transformation.
 	// Since Z increases as depth increases we subtract the value from 1
 	// so that nearer objects appear brighter.

@@ -10,10 +10,6 @@
 #undef max
 #endif
 
-#ifdef __CUDACC__
-__device__ {
-#endif // __CUDACC__
-
 namespace dmath {
 
 template <class T>
@@ -37,7 +33,7 @@ T min(T v1, T v2) {
 }
 
 #pragma pack(push, 1)
-namespace /*Packed*/ {
+namespace Packed {
 
 template <typename T>
 struct Vec2t {
@@ -389,7 +385,7 @@ VecT normalized(const VecT vec) {
 }
 
 template <class T>
-Mat4t<T> lookAt(const Vec3t<T> &target, const Vec3t<T> &pos, const Vec3t<T> &upTmp) {
+Packed::Mat4t<T> lookAt(const Packed::Vec3t<T> &target, const Packed::Vec3t<T> &pos, const Packed::Vec3t<T> &upTmp) {
 	// LH view
 	const Vec3t<T> in = (target - pos).normalized();
 	const Vec3t<T> right = upTmp.cross(in);
@@ -405,7 +401,7 @@ Mat4t<T> lookAt(const Vec3t<T> &target, const Vec3t<T> &pos, const Vec3t<T> &upT
 }
 
 template <class T>
-Mat4t<T> perspective(T FOV, T aspectRatio, T nearPlane, T farPlane) {
+Packed::Mat4t<T> perspective(T FOV, T aspectRatio, T nearPlane, T farPlane) {
 	const T theta = radians(FOV * T(0.5));
 	const T cosTheta = std::cos(theta);
 	const T sinTheta = std::sin(theta);
@@ -429,7 +425,7 @@ Mat4t<T> perspective(T FOV, T aspectRatio, T nearPlane, T farPlane) {
 
 // TODO
 template <class T>
-Mat4t<T> orthographic(T left, T right, T bottom, T top, T nearPlane, T farPlane) {
+Packed::Mat4t<T> orthographic(T left, T right, T bottom, T top, T nearPlane, T farPlane) {
 	auto xDivisor = 1 / (right - left);
 	auto yDivisor = 1 / (top - bottom);
 	auto zDivisor = 1 / (farPlane - nearPlane);
@@ -448,17 +444,17 @@ Mat4t<T> orthographic(T left, T right, T bottom, T top, T nearPlane, T farPlane)
 } // namespace dmath
 
 template <class T>
-dmath::Vec2t<T> operator*(T f, dmath::Vec2t<T> v) {
+dmath::Packed::Vec2t<T> operator*(T f, dmath::Packed::Vec2t<T> v) {
 	return Vec2t{ v.x * f, v.y * f };
 }
 
 template <class T>
-dmath::Vec3t<T> operator*(T f, dmath::Vec3t<T> v) {
+dmath::Packed::Vec3t<T> operator*(T f, dmath::Packed::Vec3t<T> v) {
 	return dmath::Vec3t<T>{ v.x * f, v.y * f, v.z * f };
 }
 
 template <class T>
-dmath::Mat4t<T> operator*(const dmath::Mat4t<T> &m1, const dmath::Mat4t<T> &m2) {
+dmath::Packed::Mat4t<T> operator*(const dmath::Packed::Mat4t<T> &m1, const dmath::Packed::Mat4t<T> &m2) {
 	using VecType = dmath::Mat4t<T>::VecType;
 
 	dmath::Mat4t<T> m = m2.transpose();
@@ -471,14 +467,14 @@ dmath::Mat4t<T> operator*(const dmath::Mat4t<T> &m1, const dmath::Mat4t<T> &m2) 
 }
 
 template <class T>
-dmath::Vec4t<T> operator*(const dmath::Mat4t<T> &m, const dmath::Vec4t<T> &v) {
+dmath::Packed::Vec4t<T> operator*(const dmath::Packed::Mat4t<T> &m, const dmath::Packed::Vec4t<T> &v) {
 	return Vec3t<T> {
 		m.row1.dot(v), m.row2.dot(v), m.row3.dot(v)
 	};
 }
 
 template <class T>
-dmath::Vec3t<T> operator*(const dmath::Mat4t<T> &m, const dmath::Vec3t<T> &vec) {
+dmath::Packed::Vec3t<T> operator*(const dmath::Packed::Mat4t<T> &m, const dmath::Packed::Vec3t<T> &vec) {
 	auto v = Vec4t<T>(vec);
 	v.w = T(1);
 	return Vec3t<T> {
@@ -486,17 +482,13 @@ dmath::Vec3t<T> operator*(const dmath::Mat4t<T> &m, const dmath::Vec3t<T> &vec) 
 	};
 }
 
-using Vec2 = dmath::Vec2t<float>;
-using Vec3 = dmath::Vec3t<float>;
-using Vec4 = dmath::Vec4t<float>;
+using Vec2 = dmath::Packed::Vec2t<float>;
+using Vec3 = dmath::Packed::Vec3t<float>;
+using Vec4 = dmath::Packed::Vec4t<float>;
 
-using Vec2i = dmath::Vec2t<int>;
-using Vec3i = dmath::Vec3t<int>;
-using Vec4i = dmath::Vec4t<int>;
+using Vec2i = dmath::Packed::Vec2t<int>;
+using Vec3i = dmath::Packed::Vec3t<int>;
+using Vec4i = dmath::Packed::Vec4t<int>;
 
-using Mat = dmath::Mat4t<float>;
+using Mat = dmath::Packed::Mat4t<float>;
 using Mat4 = Mat;
-
-#ifdef __CUDACC__
-}
-#endif // __CUDACC__

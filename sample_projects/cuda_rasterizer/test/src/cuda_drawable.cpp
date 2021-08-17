@@ -4,12 +4,12 @@
 #include <fstream>
 #include <sstream>
 
-Mesh::Mesh(const char *filename, const char *shaderName) {
+Mesh::Mesh(const char *objFilePath, const char *shaderName) {
 	shader = shaderName;
 
 	// read model from obj file
 	std::ifstream in;
-	in.open(filename, std::ifstream::in);
+	in.open(objFilePath, std::ifstream::in);
 	if (in.fail()) {
 		return;
 	}
@@ -54,7 +54,7 @@ Mesh::Mesh(const char *filename, const char *shaderName) {
 }
 
 void Mesh::draw(CudaRasterizer &renderer) const {
-	const unsigned int verticesInTriangle = 3;
+	const SizeType verticesInTriangle = 3;
 	
 	renderer.setUseDepthBuffer(true);
 	renderer.setCulling(cullType_backface);
@@ -75,7 +75,7 @@ void Mesh::draw(CudaRasterizer &renderer) const {
 		return;
 	}
 
-	renderer.drawIndexed(indices.size() / verticesInTriangle);
+	renderer.drawIndexed(static_cast<unsigned int>(indices.size() / verticesInTriangle));
 }
 
 void Scene::draw(CudaRasterizer &renderer) const {

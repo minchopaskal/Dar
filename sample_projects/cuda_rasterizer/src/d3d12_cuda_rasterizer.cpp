@@ -14,7 +14,7 @@
 
 #include "cuda_manager.h"
 
-// TODO: To make things simple, child projects should not rely on third party software
+// TODO: To make things simple, child projects should not rely on third party software.
 // Expose some input controller interface or something like that.
 #include <glfw/glfw3.h> // keyboard input
 
@@ -25,14 +25,16 @@ CudaRasterizer::CudaRasterizer(Vector<String> &shaders, const String &windowTitl
 	rtvHeapHandleIncrementSize(0),
 	viewport{ 0.f, 0.f, static_cast<float>(width), static_cast<float>(height) },
 	scissorRect{ 0, 0, LONG_MAX, LONG_MAX }, // always render on the entire screen
-	aspectRatio(width / float(height)),
+	aspectRatio(width / static_cast<float>(height)),
 	cudaRenderTargetHost{ nullptr },
+	dx12RenderTargetHandle(INVALID_RESOURCE_HANDLE),
 	fenceValues{ 0 },
 	previousFrameIndex(0),
 	FOV(45.0),
 	fps(0.0),
-	totalTime(0.0)
-{ 
+	totalTime(0.0),
+	deltaTime(0.0)
+{
 	shaders.insert(shaders.begin(), "data\\rasterizer.ptx");
 	shaders.insert(shaders.begin(), "data\\rasterizer_utils.ptx");
 	initializeCUDAManager(shaders, true);
@@ -40,10 +42,21 @@ CudaRasterizer::CudaRasterizer(Vector<String> &shaders, const String &windowTitl
 
 	// Switch to the context of this device from now on.
 	cudaDevice->use();
+
+	reinterpret_cast<CudaRasterizer*>(this)->init();
 }
 
 CudaRasterizer::~CudaRasterizer() {
-	deinit();
+	reinterpret_cast< CudaRasterizer*>(this)->deinit();
+}
+
+void CudaRasterizer::setUpdateFramebufferCallback(const UpdateFrameCallback cb, void *state) {
+	updateFrameCb = cb;
+	frameState = state;
+}
+
+void CudaRasterizer::setImGuiCallback(const DrawUICallback cb) {
+	drawUICb = cb;
 }
 
 int CudaRasterizer::init() {
@@ -85,33 +98,21 @@ int CudaRasterizer::init() {
 	return loadAssets();
 }
 
-int CudaRasterizer::loadScene(const String &name) {
-	Mesh *mesh = new Mesh("res\\obj\\head.obj", "BasicShader");
-	scene = mesh;
-
-	return 1;
-}
-
 void CudaRasterizer::deinit() {
 	flush();
 	deinitCUDAData();
 	deinitializeCUDAManager();
-	delete scene;
 	Super::deinit();
 }
 
 void CudaRasterizer::update() {
 	timeIt();
 
-	setClearColor(Vec4{ 0.1f, 0.3f, 1.f, 1.f });
-	clearRenderTarget();
+	if (updateFrameCb) {
+		updateFrameCb(*this, frameState);
+	}
 
-	clearDepthBuffer();
-
-	// Render the image with CUDA
-	scene->draw(*this);
-
-	CUstream stream = cudaDevice->getDefaultStream(CUDADefaultStreamsEnumeration::Execution);
+	const CUstream stream = cudaDevice->getDefaultStream(CUDADefaultStreamsEnumeration::Execution);
 	cuStreamSynchronize(stream);
 
 	cudaRenderTargetDevice.download(cudaRenderTargetHost);
@@ -119,10 +120,10 @@ void CudaRasterizer::update() {
 
 void CudaRasterizer::render() {
 	// Upload the rendered image as a D3D12 texture
-	UploadHandle handle = resManager->beginNewUpload();
+	const UploadHandle handle = resManager->beginNewUpload();
 	D3D12_SUBRESOURCE_DATA subresData;
 	subresData.pData = cudaRenderTargetHost;
-	subresData.RowPitch = SizeType(width) * numComps * sizeof(float);
+	subresData.RowPitch = static_cast<LONG_PTR>(width) * numComps * sizeof(float);
 	subresData.SlicePitch = subresData.RowPitch * height;
 	resManager->uploadTextureData(handle, dx12RenderTargetHandle, &subresData, 1, 0);
 	resManager->uploadBuffers();
@@ -133,8 +134,8 @@ void CudaRasterizer::render() {
 
 	fenceValues[frameIndex] = commandQueueDirect.executeCommandLists();
 
-	UINT syncInterval = vSyncEnabled ? 1 : 0;
-	UINT presentFlags = allowTearing && !vSyncEnabled ? DXGI_PRESENT_ALLOW_TEARING : 0;
+	const UINT syncInterval = vSyncEnabled ? 1 : 0;
+	const UINT presentFlags = allowTearing && !vSyncEnabled ? DXGI_PRESENT_ALLOW_TEARING : 0;
 	RETURN_ON_ERROR(swapChain->Present(syncInterval, presentFlags), , "Failed to execute command list!");
 
 	previousFrameIndex = frameIndex;
@@ -152,7 +153,7 @@ void CudaRasterizer::onResize(int w, int h) {
 	this->width = std::max(1, w);
 	this->height = std::max(1, h);
 	viewport = { 0.f, 0.f, static_cast<float>(width), static_cast<float>(height) };
-	aspectRatio = width / float(height);
+	aspectRatio = width / static_cast<float>(height);
 
 	flush();
 
@@ -196,82 +197,89 @@ void CudaRasterizer::onKeyboardInput(int key, int action) {
 
 void CudaRasterizer::onMouseScroll(double xOffset, double yOffset) {
 	static const double speed = 500.f;
-	FOV -= float(speed * deltaTime * yOffset);
+	FOV -= static_cast<float>(speed * deltaTime * yOffset);
 	FOV = dmath::min(dmath::max(30.f, FOV), 120.f);
 }
 
 void CudaRasterizer::drawUI() {
 	Super::drawUI();
 
-	ImGui::Begin("FPS Counter");
-	ImGui::Text("FPS: %.2f", fps);
-	ImGui::End();
+	if (drawUICb) {
+		drawUICb();
+	}
 }
 
-void CudaRasterizer::setUseDepthBuffer(bool useDepthBuffer) {
-	cudaDevice->uploadConstantParam<bool>(&useDepthBuffer, "useDepthBuffer");
+CUDAError CudaRasterizer::setUseDepthBuffer(bool useDepthBuffer) {
+	RETURN_ON_CUDA_ERROR_HANDLED(cudaDevice->uploadConstantParam<bool>(&useDepthBuffer, "useDepthBuffer"));
 
 	CUDAMemHandle depthBufferHandle = NULL;
 	if (useDepthBuffer) {
-		if (depthBuffer.getSize() == SizeType(width) * height * sizeof(float)) {
+		if (depthBuffer.getSize() == static_cast<SizeType>(width) * height * sizeof(float)) {
 			depthBufferHandle = depthBuffer.handle();
 		} else {
-			depthBuffer.initialize(SizeType(width) * height * sizeof(float));
+			depthBuffer.initialize(static_cast<SizeType>(width) * height * sizeof(float));
 			depthBufferHandle = depthBuffer.handle();
 			clearDepthBuffer();
 		}
 	}
 
-	cudaDevice->uploadConstantParam(&depthBufferHandle, "depthBuffer");
+	RETURN_ON_CUDA_ERROR_HANDLED(cudaDevice->uploadConstantParam(&depthBufferHandle, "depthBuffer"));
+
+	return CUDAError();
 }
 
-void CudaRasterizer::setVertexBuffer(const Vertex *buffer, SizeType verticesCount) {
+CUDAError CudaRasterizer::setVertexBuffer(const Vertex* buffer, SizeType verticesCount) {
 	vertexBuffer.initialize(verticesCount * sizeof(Vertex));
 	vertexBuffer.upload(buffer);
 
-	Vertex *vs = new Vertex[verticesCount];
-	cuMemcpyDtoH(( void* )vs, vertexBuffer.handle(), vertexBuffer.getSize());
+	auto *vs = new Vertex[verticesCount];
+	cuMemcpyDtoH(reinterpret_cast<void*>(vs), vertexBuffer.handle(), vertexBuffer.getSize());
 
-	CUDAMemHandle vertexBufferHandle = vertexBuffer.handle();
+	const CUDAMemHandle vertexBufferHandle = vertexBuffer.handle();
 
-	cudaDevice->uploadConstantParam(&vertexBufferHandle, "vertexBuffer");
+	RETURN_ON_CUDA_ERROR_HANDLED(cudaDevice->uploadConstantParam(&vertexBufferHandle, "vertexBuffer"));
+	return CUDAError();
 }
 
-void CudaRasterizer::setIndexBuffer(const unsigned int *buffer, SizeType indicesCount) {
+CUDAError CudaRasterizer::setIndexBuffer(const unsigned int* buffer, SizeType indicesCount) {
 	indexBuffer.initialize(indicesCount * sizeof(unsigned int));
 	indexBuffer.upload(reinterpret_cast<const void*>(buffer));
 
-	CUDAMemHandle indexBufferHandle = indexBuffer.handle();
+	const CUDAMemHandle indexBufferHandle = indexBuffer.handle();
 
-	cudaDevice->uploadConstantParam(&indexBufferHandle, "indexBuffer");
+	RETURN_ON_CUDA_ERROR_HANDLED(cudaDevice->uploadConstantParam(&indexBufferHandle, "indexBuffer"));
+	return CUDAError();
 }
 
-void CudaRasterizer::setUAVBuffer(const void *buffer, SizeType size, int index) {
+CUDAError CudaRasterizer::setUavBuffer(const void *buffer, SizeType size, int index) {
 	uavBuffers[index].initialize(size);
-	uavBuffers[index].upload(reinterpret_cast<const void*>(buffer));
+	uavBuffers[index].upload(buffer);
 
-	CUDAMemHandle uavBufferHandle = uavBuffers[index].handle();
+	const CUDAMemHandle uavBufferHandle = uavBuffers[index].handle();
 
-	cudaDevice->uploadConstantParam(&uavBufferHandle, "resources", SizeType(index));
+	RETURN_ON_CUDA_ERROR_HANDLED(cudaDevice->uploadConstantParam(&uavBufferHandle, "resources", static_cast<SizeType>(index)));
+	return CUDAError();
 }
 
-void CudaRasterizer::setShaderProgram(const String &name) {
+CUDAError CudaRasterizer::setShaderProgram(const String &name) const {
 	CUDADefaultBuffer shaderPtrs;
-	RETURN_ERR_ON_CUDA_ERROR_HANDLED(shaderPtrs.initialize(sizeof(CUDAShaderPointers)), );
+	RETURN_ON_CUDA_ERROR_HANDLED(shaderPtrs.initialize(sizeof(CUDAShaderPointers)));
 
 	CUDAFunction getShaderPtrsFunction(cudaDevice->getModule(), ("getShaderPtrs_" + name).c_str());
 	getShaderPtrsFunction.addParams(
 		shaderPtrs.handle()
 	);
-	RETURN_ERR_ON_CUDA_ERROR_HANDLED(getShaderPtrsFunction.launchSync(1, cudaDevice->getDefaultStream(CUDADefaultStreamsEnumeration::Execution)), );
+	RETURN_ON_CUDA_ERROR_HANDLED(getShaderPtrsFunction.launchSync(1, cudaDevice->getDefaultStream(CUDADefaultStreamsEnumeration::Execution)));
 
-	CUDAShaderPointers ptrs;
-	RETURN_ERR_ON_CUDA_ERROR_HANDLED(shaderPtrs.download(&ptrs), );
-	RETURN_ERR_ON_CUDA_ERROR_HANDLED(cudaDevice->uploadConstantParam(&ptrs.vsShaderPtr, "vsShader"), );
-	RETURN_ERR_ON_CUDA_ERROR_HANDLED(cudaDevice->uploadConstantParam(&ptrs.psShaderPtr, "psShader"), );
+	CUDAShaderPointers ptrs = { };
+	RETURN_ON_CUDA_ERROR_HANDLED(shaderPtrs.download(&ptrs));
+	RETURN_ON_CUDA_ERROR_HANDLED(cudaDevice->uploadConstantParam(&ptrs.vsShaderPtr, "vsShader"));
+	RETURN_ON_CUDA_ERROR_HANDLED(cudaDevice->uploadConstantParam(&ptrs.psShaderPtr, "psShader"));
+
+	return CUDAError();
 }
 
-bool CudaRasterizer::drawIndexed(const unsigned int numPrimitives) {
+CUDAError CudaRasterizer::drawIndexed(const unsigned int numPrimitives) const {
 	CUDAFunction drawIndexedFunc(cudaDevice->getModule(), "drawIndexed");
 	drawIndexedFunc.addParams(
 		numPrimitives,
@@ -279,31 +287,30 @@ bool CudaRasterizer::drawIndexed(const unsigned int numPrimitives) {
 		height
 	);
 	
-	RETURN_FALSE_ON_CUDA_ERROR_HANDLED(drawIndexedFunc.launchSync(numPrimitives, cudaDevice->getDefaultStream(CUDADefaultStreamsEnumeration::Execution)));
+	RETURN_ON_CUDA_ERROR_HANDLED(drawIndexedFunc.launchSync(numPrimitives, cudaDevice->getDefaultStream(CUDADefaultStreamsEnumeration::Execution)));
 
-	return true;
+	return CUDAError();
 }
 
-void CudaRasterizer::setClearColor(Vec4 color) {
+CUDAError CudaRasterizer::setClearColor(const Vec4 &color) const {
 	float colorHost[4];
 	for (int i = 0; i < numComps; ++i) {
 		colorHost[i] = color.data[i];
 	}
 
-	cudaDevice->uploadConstantArray(colorHost, 4, "clearColor");
+	RETURN_ON_CUDA_ERROR_HANDLED(cudaDevice->uploadConstantArray(colorHost, 4, "clearColor"));
+
+	return CUDAError();
 }
 
-void CudaRasterizer::setCulling(CudaRasterizerCullType cullType) {
-	cudaDevice->uploadConstantParam(&cullType, "cullType");
+CUDAError CudaRasterizer::setCulling(CudaRasterizerCullType cullType) const {
+	RETURN_ON_CUDA_ERROR_HANDLED(cudaDevice->uploadConstantParam(&cullType, "cullType"));
+	return CUDAError();
 }
 
-void CudaRasterizer::clearRenderTarget() {
-	CUDAMemHandle rt = cudaRenderTargetDevice.handle();
-	CUDAError err = handleCUDAError(cuMemsetD8(rt, 0, cudaRenderTargetDevice.getSize()));
-	if (err.hasError()) {
-		// TODO: handle error
-		return;
-	}
+CUDAError CudaRasterizer::clearRenderTarget() {
+	const CUDAMemHandle rt = cudaRenderTargetDevice.handle();
+	RETURN_ON_CUDA_ERROR(cuMemsetD8(rt, 0, cudaRenderTargetDevice.getSize()));
 
 	CUDAFunction blankKernel(cudaDevice->getModule(), "blank");
 	blankKernel.addParams(
@@ -312,19 +319,23 @@ void CudaRasterizer::clearRenderTarget() {
 		height
 	);
 	
-	blankKernel.launchSync(width * height, cudaDevice->getDefaultStream(CUDADefaultStreamsEnumeration::Execution));
+	RETURN_ON_CUDA_ERROR_HANDLED(blankKernel.launchSync(width * height, cudaDevice->getDefaultStream(CUDADefaultStreamsEnumeration::Execution)));
+
+	return CUDAError();
 }
 
-void CudaRasterizer::clearDepthBuffer() {
+CUDAError CudaRasterizer::clearDepthBuffer() {
 	if (depthBuffer.getSize() == 0) {
-		return;
+		return CUDAError();
 	}
 
-	const float floatOne = 1.f;
-	const unsigned int floatOneBits = *reinterpret_cast< const unsigned int*>(&floatOne);
+	constexpr float floatOne = 1.f;
+	const auto floatOneBits = *reinterpret_cast<const unsigned int*>(&floatOne);
 
-	CUDAMemHandle depthBufferHandle = depthBuffer.handle();
-	cuMemsetD32(depthBufferHandle, floatOneBits, SizeType(width) * height);
+	const CUDAMemHandle depthBufferHandle = depthBuffer.handle();
+	RETURN_ON_CUDA_ERROR(cuMemsetD32(depthBufferHandle, floatOneBits, static_cast<SizeType>(width) * height));
+
+	return CUDAError();
 }
 
 int CudaRasterizer::loadAssets() {
@@ -450,8 +461,8 @@ void CudaRasterizer::deinitCUDAData() {
 
 	depthBuffer.deinitialize();
 
-	for (int j = 0; j < MAX_RESOURCES_COUNT; ++j) {
-		uavBuffers[j].deinitialize();
+	for (auto &uavBuffer : uavBuffers) {
+		uavBuffer.deinitialize();
 	}
 
 	if (cudaRenderTargetHost != nullptr) {
@@ -470,9 +481,9 @@ void CudaRasterizer::initCUDAData() {
 	resData.textureData.mipLevels = 1;
 	resData.heapFlags = D3D12_HEAP_FLAG_NONE;
 	dx12RenderTargetHandle = resManager->createBuffer(resData);
-	cudaRenderTargetHost = new float[SizeType(width) * height * numComps];
+	cudaRenderTargetHost = new float[static_cast<SizeType>(width) * height * numComps];
 	
-	cudaRenderTargetDevice.initialize(SizeType(width) * height * numComps * sizeof(float));
+	cudaRenderTargetDevice.initialize(static_cast<SizeType>(width) * height * numComps * sizeof(float));
 	clearRenderTarget();
 	CUDAMemHandle rt = cudaRenderTargetDevice.handle();
 	cudaDevice->uploadConstantParam(&rt, "renderTarget");

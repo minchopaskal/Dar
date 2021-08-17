@@ -9,8 +9,8 @@
 #include "cuda_cpu_common.h"
 #include "rasterizer_utils.cuh"
 
-typedef Vertex(*VSShader)(const Vertex*);
-typedef float4(*PSShader)(const Vertex*);
+typedef Vertex(*VSShader)(const Vertex*, UniformParams params);
+typedef float4(*PSShader)(const Vertex*, UniformParams params);
 
 extern "C" {
 	__device__ VSShader vsShader;
@@ -117,6 +117,7 @@ extern "C" {
 
 	// Rasterization functions
 	gvoid shadeTriangle(
+		UniformParams params,
 		const unsigned int primitiveID,
 		const unsigned int numPrimitives,
 		const float4 bbox,
@@ -196,7 +197,7 @@ extern "C" {
 				continue;
 			}
 
-			float4 color = psShader(&interpolatedVertex);
+			float4 color = psShader(&interpolatedVertex, params);
 			renderTarget[pixelIndexOffset + 0] = color.x;
 			renderTarget[pixelIndexOffset + 1] = color.y;
 			renderTarget[pixelIndexOffset + 2] = color.z;
@@ -212,11 +213,16 @@ extern "C" {
 			return;
 		}
 
+		UniformParams params;
+		params.resources = resources;
+		params.width = width;
+		params.height = height;
+
 		for (int i = primitiveID; i < numPrimitives; i += stride) {
 			// 1. RUN VS shader
-			Vertex v0 = vsShader(&vertexBuffer[indexBuffer[i * 3 + 0]]);
-			Vertex v1 = vsShader(&vertexBuffer[indexBuffer[i * 3 + 1]]);
-			Vertex v2 = vsShader(&vertexBuffer[indexBuffer[i * 3 + 2]]);
+			Vertex v0 = vsShader(&vertexBuffer[indexBuffer[i * 3 + 0]], params);
+			Vertex v1 = vsShader(&vertexBuffer[indexBuffer[i * 3 + 1]], params);
+			Vertex v2 = vsShader(&vertexBuffer[indexBuffer[i * 3 + 2]], params);
 
 			// Back-face culling
 			// Vertices are now in NDC, so we can test for back-face against
@@ -266,7 +272,7 @@ extern "C" {
 
 			cudaStream_t stream;
 			cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
-			shadeTriangle<<<numBlocks, blockSize, 0, stream>>>(i, numPrimitives, bbox, v0, v1, v2, dp0, dp1, dp2, edge0, edge1, edge2, width, height);
+			shadeTriangle<<<numBlocks, blockSize, 0, stream>>>(params, i, numPrimitives, bbox, v0, v1, v2, dp0, dp1, dp2, edge0, edge1, edge2, width, height);
 			cudaStreamDestroy(stream);
 		}
 	}

@@ -12,13 +12,10 @@ set(LIB_DIR ${PROJECT_SOURCE_DIR}/lib)
 set(HEADERS
 	${INCLUDE_DIR}/d3d12_cuda_rasterizer.h
 	${INCLUDE_DIR}/cuda_cpu_common.h
-	${INCLUDE_DIR}/cuda_drawable.h
 )
 
-set(SOURCES
-	${SRC_DIR}/main.cpp
+set(SRCS
 	${SRC_DIR}/d3d12_cuda_rasterizer.cpp
-	${SRC_DIR}/cuda_drawable.cpp
 )
 
 set(SHADERS
@@ -27,13 +24,12 @@ set(SHADERS
 )
 
 set(CUDA_FILES
-	${GPU_DIR}/basic_shader.cu
 	${GPU_DIR}/rasterizer.cu
 	${GPU_DIR}/rasterizer_utils.cu
 	${GPU_DIR}/rasterizer_utils.cuh
 )
 
-source_group("src"     FILES ${SOURCES})
+source_group("src"     FILES ${SRCS})
 source_group("include" FILES ${HEADERS})
 source_group("shaders" FILES ${SHADERS})
 source_group("gpu"     FILES ${CUDA_FILES})
@@ -44,11 +40,10 @@ set_target_properties(CudaRasterizerGPU PROPERTIES FOLDER SampleProjects/CudaRas
 set_source_files_properties(${GPU_DIR}/rasterizer.cu PROPERTIES HEADER_FILE_ONLY ON)
 set_source_files_properties(${GPU_DIR}/rasterizer_utils.cu PROPERTIES HEADER_FILE_ONLY ON)
 set_source_files_properties(${GPU_DIR}/rasterizer_utils.cuh PROPERTIES HEADER_FILE_ONLY ON)
-set_source_files_properties(${GPU_DIR}/basic_shader.cuh PROPERTIES HEADER_FILE_ONLY ON)
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:CONSOLE")
 
-add_executable(CudaRasterizer ${HEADERS} ${SOURCES} ${SHADERS})
+add_library(CudaRasterizer ${HEADERS} ${SRCS} ${SHADERS})
 add_dependencies(CudaRasterizer CUDABaseLib)
 
 compile_shaders(CudaRasterizer ${SHADERS_DIR} "6_5")
@@ -61,11 +56,6 @@ target_compile_definitions(
 	PRIVATE
 	$<$<CONFIG:Debug>:D3D12_DEBUG>
 	$<$<CONFIG:Release>:D3D12_NDEBUG>
-)
-
-target_compile_definitions(
-	CudaRasterizer
-	PRIVATE
 	_CRT_SECURE_NO_WARNINGS
 )
 
@@ -86,18 +76,10 @@ target_include_directories(
 	${PROJECT_SPECIFIC_SUBMODULE_DIR}/CUDAPlayground/CUDABase/include
 )
 
-copyD3D12Core(CudaRasterizer)
-# copy object files to bin dir
-add_custom_command(
-	TARGET CudaRasterizer POST_BUILD
-	COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:CudaRasterizer>/res/obj
-	COMMAND ${CMAKE_COMMAND} -E copy_directory ${CUDA_RAST_DIR}/res/obj $<TARGET_FILE_DIR:CudaRasterizer>/res/obj
-)
-
 find_package(CUDAToolkit)
 # Include dir added to NVCC include path in order for it to see cuda_cpu_common.h
 set(NVCC_ADDITIONAL_ARGS 
-	--include-path ${INCLUDE_DIR}
+	-I${INCLUDE_DIR}
 )
 compilePtx(
 	CudaRasterizer
@@ -105,3 +87,17 @@ compilePtx(
 	"${NVCC_ADDITIONAL_ARGS}"
 	TRUE
 )
+
+macro(cudaRasterizerPrepare TRG)
+copyD3D12Core(${TRG})
+
+add_custom_command(
+	TARGET ${TRG} POST_BUILD
+	COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${TRG}>/data
+	COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${TRG}>/res/shaders
+	COMMAND ${CMAKE_COMMAND} -E copy_directory $<TARGET_FILE_DIR:CudaRasterizer>/data $<TARGET_FILE_DIR:${TRG}>/data
+	COMMAND ${CMAKE_COMMAND} -E copy_directory $<TARGET_FILE_DIR:CudaRasterizer>/res/shaders $<TARGET_FILE_DIR:${TRG}>/res/shaders
+)
+endmacro()
+
+add_subdirectory(test)
