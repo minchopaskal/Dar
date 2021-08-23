@@ -65,6 +65,7 @@ void processKeyboardInput(GLFWwindow *window) {
 ////////////
 D3D12App::D3D12App(UINT width, UINT height, const char *windowTitle) :
 	commandQueueDirect(D3D12_COMMAND_LIST_TYPE_DIRECT),
+	resManager(nullptr),
 	frameIndex(0),
 	width(width),
 	height(height),
@@ -75,7 +76,7 @@ D3D12App::D3D12App(UINT width, UINT height, const char *windowTitle) :
 	allowTearing(false),
 	fullscreen(false),
 	useImGui(false),
-	imGuiShutdown(false) {
+	imGuiShutdown(true) {
 	strncpy(title, windowTitle, strlen(windowTitle) + 1);
 	title[strlen(windowTitle)] = '\0';
 }
@@ -322,6 +323,7 @@ int D3D12App::init() {
 
 void D3D12App::deinit() {
 	deinitResourceManager();
+	resManager = nullptr;
 	ImGui_ImplDX12_InvalidateDeviceObjects();
 	if (!imGuiShutdown) {
 		ImGui_ImplDX12_Shutdown();
@@ -402,7 +404,9 @@ HWND D3D12App::getWindow() const {
 
 void D3D12App::flush() {
 	commandQueueDirect.flush();
-	resManager->flush();
+	if (resManager) {
+		resManager->flush();
+	}
 }
 
 int D3D12App::run() {

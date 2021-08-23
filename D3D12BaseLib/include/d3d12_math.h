@@ -387,16 +387,16 @@ VecT normalized(const VecT vec) {
 template <class T>
 Packed::Mat4t<T> lookAt(const Packed::Vec3t<T> &target, const Packed::Vec3t<T> &pos, const Packed::Vec3t<T> &upTmp) {
 	// LH view
-	const Vec3t<T> in = (target - pos).normalized();
-	const Vec3t<T> right = upTmp.cross(in);
-	const Vec3t<T> up = in.cross(right);
+	const Packed::Vec3t<T> in = (target - pos).normalized();
+	const Packed::Vec3t<T> right = upTmp.cross(in);
+	const Packed::Vec3t<T> up = in.cross(right);
 
-	using VecType = Mat4t<T>::VecType;
-	return Mat4t<T> {
+	using VecType = Packed::Mat4t<T>::VecType;
+	return Packed::Mat4t<T> {
 		VecType(right, -right.dot(pos)),
-			VecType(up, -up.dot(pos)),
-			VecType(in, -in.dot(pos)),
-			VecType(T(0), T(0), T(0), T(1))
+		VecType(up, -up.dot(pos)),
+		VecType(in, -in.dot(pos)),
+		VecType(T(0), T(0), T(0), T(1))
 	};
 }
 
@@ -412,7 +412,7 @@ Packed::Mat4t<T> perspective(T FOV, T aspectRatio, T nearPlane, T farPlane) {
 	const T invDepth = farPlane / (farPlane - nearPlane);
 	const T scaledInvDepth = -nearPlane * invDepth;
 
-	Mat4t<T> result(one);
+	Packed::Mat4t<T> result(one);
 	result.row1.x = width;
 	result.row2.y = height;
 	result.row3.z = invDepth;
@@ -423,14 +423,13 @@ Packed::Mat4t<T> perspective(T FOV, T aspectRatio, T nearPlane, T farPlane) {
 	return result;
 }
 
-// TODO
 template <class T>
 Packed::Mat4t<T> orthographic(T left, T right, T bottom, T top, T nearPlane, T farPlane) {
 	auto xDivisor = 1 / (right - left);
 	auto yDivisor = 1 / (top - bottom);
 	auto zDivisor = 1 / (farPlane - nearPlane);
 
-	Mat4t<T> result(T(1));
+	Packed::Mat4t<T> result(T(1));
 	result.row1.x = 2 * xDivisor;
 	result.row1.w = -(right + left) * xDivisor;
 	result.row2.y = 2 * yDivisor;
@@ -445,39 +444,39 @@ Packed::Mat4t<T> orthographic(T left, T right, T bottom, T top, T nearPlane, T f
 
 template <class T>
 dmath::Packed::Vec2t<T> operator*(T f, dmath::Packed::Vec2t<T> v) {
-	return Vec2t{ v.x * f, v.y * f };
+	return dmath::Packed::Vec2t{ v.x * f, v.y * f };
 }
 
 template <class T>
 dmath::Packed::Vec3t<T> operator*(T f, dmath::Packed::Vec3t<T> v) {
-	return dmath::Vec3t<T>{ v.x * f, v.y * f, v.z * f };
+	return dmath::Packed::Vec3t<T>{ v.x * f, v.y * f, v.z * f };
 }
 
 template <class T>
 dmath::Packed::Mat4t<T> operator*(const dmath::Packed::Mat4t<T> &m1, const dmath::Packed::Mat4t<T> &m2) {
-	using VecType = dmath::Mat4t<T>::VecType;
+	using VecType = dmath::Packed::Mat4t<T>::VecType;
 
-	dmath::Mat4t<T> m = m2.transpose();
-	return dmath::Mat4t<T> {
+	dmath::Packed::Mat4t<T> m = m2.transpose();
+	return dmath::Packed::Mat4t<T> {
 		VecType{ m1.row1.dot(m.row1), m1.row1.dot(m.row2), m1.row1.dot(m.row3), m1.row1.dot(m.row4) },
-			VecType{ m1.row2.dot(m.row1), m1.row2.dot(m.row2), m1.row2.dot(m.row3), m1.row2.dot(m.row4) },
-			VecType{ m1.row3.dot(m.row1), m1.row3.dot(m.row2), m1.row3.dot(m.row3), m1.row3.dot(m.row4) },
-			VecType{ m1.row4.dot(m.row1), m1.row4.dot(m.row2), m1.row4.dot(m.row3), m1.row4.dot(m.row4) },
+		VecType{ m1.row2.dot(m.row1), m1.row2.dot(m.row2), m1.row2.dot(m.row3), m1.row2.dot(m.row4) },
+		VecType{ m1.row3.dot(m.row1), m1.row3.dot(m.row2), m1.row3.dot(m.row3), m1.row3.dot(m.row4) },
+		VecType{ m1.row4.dot(m.row1), m1.row4.dot(m.row2), m1.row4.dot(m.row3), m1.row4.dot(m.row4) },
 	};
 }
 
 template <class T>
 dmath::Packed::Vec4t<T> operator*(const dmath::Packed::Mat4t<T> &m, const dmath::Packed::Vec4t<T> &v) {
-	return Vec3t<T> {
+	return dmath::Packed::Vec3t<T> {
 		m.row1.dot(v), m.row2.dot(v), m.row3.dot(v)
 	};
 }
 
 template <class T>
 dmath::Packed::Vec3t<T> operator*(const dmath::Packed::Mat4t<T> &m, const dmath::Packed::Vec3t<T> &vec) {
-	auto v = Vec4t<T>(vec);
+	auto v = dmath::Packed::Vec4t<T>(vec);
 	v.w = T(1);
-	return Vec3t<T> {
+	return dmath::Packed::Vec3t<T> {
 		m.row1.dot(v), m.row2.dot(v), m.row3.dot(v)
 	};
 }

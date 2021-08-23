@@ -60,6 +60,10 @@ int main(int argc, char **argv) {
 	Mesh *mesh = new Mesh("res\\obj\\head.obj", "BasicShader");
 
 	CudaRasterizer rasterizer(Vector<String>{"data\\basic_shader.ptx"}, "CudaRasterizer", 1280, 720);
+	if (!rasterizer.isInitialized()) {
+		return 1;
+	}
+
 	rasterizer.setUpdateFramebufferCallback(updateFrame, reinterpret_cast<void*>(mesh));
 	rasterizer.setImGuiCallback(drawUI);
 

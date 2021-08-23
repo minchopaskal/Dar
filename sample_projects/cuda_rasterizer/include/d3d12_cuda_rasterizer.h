@@ -22,6 +22,8 @@ struct CudaRasterizer : D3D12App {
 	void setUpdateFramebufferCallback(const UpdateFrameCallback cb, void *state);
 	void setImGuiCallback(const DrawUICallback cb);
 
+	bool isInitialized() const;
+
 	// API calls
 	CUDAError setUseDepthBuffer(bool useDepthBuffer);
 	CUDAError setVertexBuffer(const Vertex* buffer, SizeType verticesCount);
@@ -100,4 +102,6 @@ private:
 	double fps;
 	double totalTime;
 	double deltaTime;
+
+	bool inited;
 };

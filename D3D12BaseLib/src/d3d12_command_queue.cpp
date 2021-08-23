@@ -237,6 +237,9 @@ void CommandQueue::waitForFenceValue(UINT64 fenceVal) {
 }
 
 void CommandQueue::flush() {
+	if (commandQueue == nullptr) {
+		return;
+	}
 	UINT64 fenceVal = signal();
 	waitForFenceValue(fenceVal);
 }

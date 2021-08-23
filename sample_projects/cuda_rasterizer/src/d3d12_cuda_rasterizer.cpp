@@ -35,15 +35,20 @@ CudaRasterizer::CudaRasterizer(Vector<String> &shaders, const String &windowTitl
 	totalTime(0.0),
 	deltaTime(0.0)
 {
+	inited = false;
 	shaders.insert(shaders.begin(), "data\\rasterizer.ptx");
 	shaders.insert(shaders.begin(), "data\\rasterizer_utils.ptx");
-	initializeCUDAManager(shaders, true);
+	if (!initializeCUDAManager(shaders, true)) {
+		return;
+	}
 	cudaDevice = &getCUDAManager().getDevices()[0];
 
 	// Switch to the context of this device from now on.
 	cudaDevice->use();
 
 	reinterpret_cast<CudaRasterizer*>(this)->init();
+
+	inited = true;
 }
 
 CudaRasterizer::~CudaRasterizer() {
@@ -57,6 +62,10 @@ void CudaRasterizer::setUpdateFramebufferCallback(const UpdateFrameCallback cb, 
 
 void CudaRasterizer::setImGuiCallback(const DrawUICallback cb) {
 	drawUICb = cb;
+}
+
+bool CudaRasterizer::isInitialized() const {
+	return inited;
 }
 
 int CudaRasterizer::init() {
