@@ -59,6 +59,12 @@ struct D3D12App {
 	/// if the app wants its ImGui draw calls rendered.
 	void renderUI(CommandList &cmdList, D3D12_CPU_DESCRIPTOR_HANDLE &rtvHandle);
 
+	/// Return width of window
+	int getWidth() const;
+
+	/// Return height of window
+	int getHeight() const;
+
 	// TODO: mouse callback, etc.
 	virtual void onResize(int width, int height) = 0;
 	virtual void onKeyboardInput(int key, int action) = 0;

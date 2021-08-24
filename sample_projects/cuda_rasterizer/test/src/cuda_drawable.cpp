@@ -15,6 +15,8 @@ Mesh::Mesh(const char *objFilePath, const char *shaderName) {
 	}
 	Vector<Vec4> positions;
 	Vector<Vec3> normals;
+	Vector<Vec2> uvs;
+	Map<int, int> vertToUV;
 
 	std::string line;
 	while (!in.eof()) {
@@ -28,18 +30,32 @@ Mesh::Mesh(const char *objFilePath, const char *shaderName) {
 				iss >> v.data[i];
 			}
 			v.w = 1.f;
+
+			// Out "in" vector is (0.0, 0.0, 1.0) instead of (0.0, 0.0, -1.0)
+			// so reverse the .z
+			v.z *= -1.f;
+
 			positions.push_back(v);
 		} else if (!line.compare(0, 3, "vn ")) {
 			iss >> trash >> trash;
 			Vec3 normal;
 			iss >> normal.x >> normal.y >> normal.z;
 			normals.push_back(normal);
+		} else if (!line.compare(0, 3, "vt ")) {
+			iss >> trash >> trash;
+			Vec2 uv;
+			iss >> uv.x >> uv.y;
+			uvs.push_back(uv);
 		} else if (!line.compare(0, 2, "f ")) {
-			int itrash, idx;
+			int vertIdx, uvIdx, itrash;
 			iss >> trash;
-			while (iss >> idx >> trash >> itrash >> trash >> itrash) {
-				idx--; // in wavefront obj all indices start at 1, not zero
-				indices.push_back(idx);
+			while (iss >> vertIdx >> trash >> uvIdx >> trash >> itrash) {
+				vertIdx--; // in wavefront obj all indices start at 1, not zero
+				indices.push_back(vertIdx);
+				--uvIdx;
+				if (vertToUV.find(vertIdx) == vertToUV.end()) {
+					vertToUV[vertIdx] = uvIdx;
+				}
 			}
 		}
 	}
@@ -48,7 +64,7 @@ Mesh::Mesh(const char *objFilePath, const char *shaderName) {
 
 	// Resolve vertices
 	for (int i = 0; i < positions.size(); ++i) {
-		Vertex v = { positions[i], normals[i], Vec2{ 0.f, 0.f } };
+		Vertex v = { positions[i], normals[i], uvs[vertToUV[i]] };
 		geometry.push_back(v);
 	}
 }

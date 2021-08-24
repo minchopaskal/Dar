@@ -17,7 +17,7 @@ using int4 = Vec4i;
 #ifdef _WIN64
 #define ALIGNAS(x) __declspec(align((x)))
 #elif defined(__CUDACC__)
-#define ALIGNAS(x)
+#define ALIGNAS(x) __alignas__((x))
 #endif
 
 #define MAX_RESOURCES_COUNT 64
@@ -59,5 +59,13 @@ struct UniformParams {
 	unsigned int width;
 	unsigned int height;
 };
+
+struct ALIGNAS(16) TextureSampler {
+	unsigned char *data;
+	int width;
+	int height;
+	int numComp;
+};
+static_assert(alignof(TextureSampler) == 16, "Misaligned TextureData structure!");
 
 #endif // CUDA_CPU_COMMON_H

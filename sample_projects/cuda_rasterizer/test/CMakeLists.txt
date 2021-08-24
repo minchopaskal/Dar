@@ -12,6 +12,7 @@ set(CUDA_RAST_BASE_INCLUDE ${CUDA_RAST_BASE_DIR}/include)
 
 set(HEADERS
 	${INCLUDE_DIR}/cuda_drawable.h
+	${PROJECT_SPECIFIC_SUBMODULE_DIR}/stb_image.h
 )
 
 set(SRCS
@@ -62,6 +63,7 @@ target_include_directories(
 	${SUBMODULE_DIR}/imgui
 	${PROJECT_SPECIFIC_SUBMODULE_DIR}/CUDAPlayground/CUDABase/include
 	${CUDA_RAST_BASE_INCLUDE}
+	${GPU_DIR}
 )
 
 cudaRasterizerPrepare(CudaRasterizerTest)
@@ -70,7 +72,8 @@ cudaRasterizerPrepare(CudaRasterizerTest)
 add_custom_command(
 	TARGET CudaRasterizerTest POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:CudaRasterizerTest>/res/obj
-	COMMAND ${CMAKE_COMMAND} -E copy_directory ${RESOURCES_DIR}/obj $<TARGET_FILE_DIR:CudaRasterizerTest>/res/obj
+	COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:CudaRasterizerTest>/res/tex
+	COMMAND ${CMAKE_COMMAND} -E copy_directory ${RESOURCES_DIR} $<TARGET_FILE_DIR:CudaRasterizerTest>/res/
 )
 
 find_package(CUDAToolkit)

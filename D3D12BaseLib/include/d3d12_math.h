@@ -65,7 +65,7 @@ struct Vec2t {
 		y = other.y;
 		return this;
 	}
-	Vec2t(Vec2t &&other) = delete;
+	Vec2t(Vec2t &&other) : x(other.x), y(other.y) { }
 
 	Vec2t operator+(const Vec2t &v) const {
 		return Vec2t{ x + v.x, y + v.y };
@@ -316,6 +316,11 @@ struct Mat4t {
 		return *this;
 	}
 
+	Mat4t inverse() const {
+		// TODO:
+		return Mat4t(T(1));
+	}
+
 	Mat4t transpose() const {
 		return Mat4t{
 			VecType { row1.x, row2.x, row3.x, row4.x },
@@ -467,8 +472,8 @@ dmath::Packed::Mat4t<T> operator*(const dmath::Packed::Mat4t<T> &m1, const dmath
 
 template <class T>
 dmath::Packed::Vec4t<T> operator*(const dmath::Packed::Mat4t<T> &m, const dmath::Packed::Vec4t<T> &v) {
-	return dmath::Packed::Vec3t<T> {
-		m.row1.dot(v), m.row2.dot(v), m.row3.dot(v)
+	return dmath::Packed::Vec4t<T> {
+		m.row1.dot(v), m.row2.dot(v), m.row3.dot(v), m.row4.dot(v)
 	};
 }
 

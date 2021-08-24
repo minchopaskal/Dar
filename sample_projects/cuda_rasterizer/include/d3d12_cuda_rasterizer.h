@@ -15,12 +15,16 @@ struct CUDAManager;
 struct CudaRasterizer : D3D12App {
 	using DrawUICallback = void(*)();
 	using UpdateFrameCallback = void(*)(CudaRasterizer &rasterizer, void *state);
+	using KeyboardCallback = void(*)(int key, int action);
+	using MouseScrollCallback = void(*)(double xoffset, double yoffset);
 
 	CudaRasterizer(Vector<String> &shadersFilenames, const String &windowTitle, UINT width, UINT height);
 	~CudaRasterizer() override;
 
 	void setUpdateFramebufferCallback(const UpdateFrameCallback cb, void *state);
 	void setImGuiCallback(const DrawUICallback cb);
+	void setKeyboardCallback(const KeyboardCallback cb);
+	void setMouseScrollCallback(const MouseScrollCallback cb);
 
 	bool isInitialized() const;
 
@@ -94,6 +98,8 @@ private:
 	// Callbacks
 	UpdateFrameCallback updateFrameCb = nullptr;
 	DrawUICallback drawUICb = nullptr;
+	KeyboardCallback keyboardCb = nullptr;
+	MouseScrollCallback mouseScrollCb = nullptr;
 	void *frameState = nullptr;
 
 	float FOV;

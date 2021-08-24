@@ -195,19 +195,15 @@ void CudaRasterizer::onResize(int w, int h) {
 }
 
 void CudaRasterizer::onKeyboardInput(int key, int action) {
-	if (keyPressed[GLFW_KEY_F] && !keyRepeated[GLFW_KEY_F]) {
-		toggleFullscreen();
-	}
-
-	if (keyPressed[GLFW_KEY_V] && !keyRepeated[GLFW_KEY_V]) {
-		vSyncEnabled = !vSyncEnabled;
+	if (keyboardCb) {
+		keyboardCb(key, action);
 	}
 }
 
 void CudaRasterizer::onMouseScroll(double xOffset, double yOffset) {
-	static const double speed = 500.f;
-	FOV -= static_cast<float>(speed * deltaTime * yOffset);
-	FOV = dmath::min(dmath::max(30.f, FOV), 120.f);
+	if (mouseScrollCb) {
+		mouseScrollCb(xOffset, yOffset);
+	}
 }
 
 void CudaRasterizer::drawUI() {
@@ -261,6 +257,10 @@ CUDAError CudaRasterizer::setIndexBuffer(const unsigned int* buffer, SizeType in
 }
 
 CUDAError CudaRasterizer::setUavBuffer(const void *buffer, SizeType size, int index) {
+	if (index < 0 || index >= MAX_RESOURCES_COUNT) {
+		return CUDAError(CUDA_ERROR_INVALID_VALUE, "Invalid UAV index", "Index of UAV resource is out of bounds!");
+	}
+
 	uavBuffers[index].initialize(size);
 	uavBuffers[index].upload(buffer);
 

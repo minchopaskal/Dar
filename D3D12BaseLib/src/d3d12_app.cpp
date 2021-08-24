@@ -352,6 +352,14 @@ void D3D12App::renderUI(CommandList &cmdList, D3D12_CPU_DESCRIPTOR_HANDLE &rtvHa
 	}
 }
 
+int D3D12App::getWidth() const {
+	return width;
+}
+
+int D3D12App::getHeight() const {
+	return height;
+}
+
 void D3D12App::toggleFullscreen() {
 	fullscreen = !fullscreen;
 

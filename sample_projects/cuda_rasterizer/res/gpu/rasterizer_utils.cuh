@@ -1,6 +1,8 @@
 #ifndef RASTERIZER_UTILS_CU
 #define RASTERIZER_UTILS_CU
 
+#include "cuda_cpu_common.h"
+
 #define gvoid   __global__ void
 #define gint    __global__ int
 #define gint2   __global__ int2
@@ -42,6 +44,20 @@
 #define cfloat4 __constant__ float4
 
 #define FORCEINLINE __forceinline__
+
+struct mat4 {
+	float4 rows[4];
+
+	dvoid transpose();
+};
+
+extern __device__ mat4 operator*(mat4 m1, mat4 m2);
+
+extern dfloat4 operator*(mat4 m, float4 v);
+
+extern dfloat3 operator*(mat4 m, float3 v);
+
+extern dfloat4 sample(TextureSampler *sampler, float2 uv);
 
 extern dfloat3 fromFloat4(float4 v);
 
