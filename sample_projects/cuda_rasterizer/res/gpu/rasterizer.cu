@@ -205,6 +205,25 @@ extern "C" {
 		}
 	}
 
+	gvoid processVertices(const unsigned int numVertices, const unsigned int width, const unsigned int height) {
+		const unsigned int vertexID = blockIdx.x * blockDim.x + threadIdx.x;
+		const unsigned int stride = gridDim.x * blockDim.x;
+
+		if (vertexID >= numVertices) {
+			return;
+		}
+
+		UniformParams params;
+		params.resources = resources;
+		params.width = width;
+		params.height = height;
+
+		for (int i = vertexID; i < numVertices; i += stride) {
+			Vertex res = vsShader(&vertexBuffer[i], params);
+			vertexBuffer[i] = res;
+		}
+	}
+
 	gvoid drawIndexed(const int numPrimitives, const unsigned int width, const unsigned int height) {
 		const unsigned int primitiveID = blockIdx.x * blockDim.x + threadIdx.x;
 		const unsigned int stride = gridDim.x * blockDim.x;
@@ -219,10 +238,9 @@ extern "C" {
 		params.height = height;
 
 		for (int i = primitiveID; i < numPrimitives; i += stride) {
-			// 1. RUN VS shader
-			Vertex v0 = vsShader(&vertexBuffer[indexBuffer[i * 3 + 0]], params);
-			Vertex v1 = vsShader(&vertexBuffer[indexBuffer[i * 3 + 1]], params);
-			Vertex v2 = vsShader(&vertexBuffer[indexBuffer[i * 3 + 2]], params);
+			Vertex v0 = vertexBuffer[indexBuffer[i * 3 + 0]];
+			Vertex v1 = vertexBuffer[indexBuffer[i * 3 + 1]];
+			Vertex v2 = vertexBuffer[indexBuffer[i * 3 + 2]];
 
 			// Back-face culling
 			// Vertices are now in NDC, so we can test for back-face against

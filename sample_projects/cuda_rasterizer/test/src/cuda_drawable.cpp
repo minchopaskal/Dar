@@ -70,7 +70,7 @@ Mesh::Mesh(const char *objFilePath, const char *shaderName) {
 }
 
 void Mesh::draw(CudaRasterizer &renderer) const {
-	const SizeType verticesInTriangle = 3;
+	constexpr SizeType verticesInTriangle = 3;
 	
 	renderer.setUseDepthBuffer(true);
 	renderer.setCulling(cullType_backface);
@@ -86,7 +86,7 @@ void Mesh::draw(CudaRasterizer &renderer) const {
 	}
 	renderer.setIndexBuffer(indices.data(), indices.size());
 
-	CUresult err = cuCtxSetLimit(CU_LIMIT_DEV_RUNTIME_PENDING_LAUNCH_COUNT, indices.size() / verticesInTriangle + 200);
+	const CUresult err = cuCtxSetLimit(CU_LIMIT_DEV_RUNTIME_PENDING_LAUNCH_COUNT, indices.size() / verticesInTriangle + 200);
 	if (err != CUDA_SUCCESS) {
 		return;
 	}

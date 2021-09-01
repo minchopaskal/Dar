@@ -17,6 +17,8 @@ FORCEINLINE __device__ Vertex vsBasicShader(const Vertex *v, UniformParams param
 	result.position = *viewMat * result.position;
 	result.position = *perspective * result.position;
 
+	result.normal = fromFloat4(*normalMat * toFloat4(result.normal));
+
 	return result;
 }
 

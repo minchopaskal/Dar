@@ -15,16 +15,12 @@ struct CUDAManager;
 struct CudaRasterizer : D3D12App {
 	using DrawUICallback = void(*)();
 	using UpdateFrameCallback = void(*)(CudaRasterizer &rasterizer, void *state);
-	using KeyboardCallback = void(*)(int key, int action);
-	using MouseScrollCallback = void(*)(double xoffset, double yoffset);
 
 	CudaRasterizer(Vector<String> &shadersFilenames, const String &windowTitle, UINT width, UINT height);
 	~CudaRasterizer() override;
 
 	void setUpdateFramebufferCallback(const UpdateFrameCallback cb, void *state);
 	void setImGuiCallback(const DrawUICallback cb);
-	void setKeyboardCallback(const KeyboardCallback cb);
-	void setMouseScrollCallback(const MouseScrollCallback cb);
 
 	bool isInitialized() const;
 
@@ -42,8 +38,8 @@ struct CudaRasterizer : D3D12App {
 
 private:
 	int loadAssets();
-	int init() override;
-	void deinit() override;
+	int init() final;
+	void deinit() final;
 
 	// Inherited via D3D12App
 	void update() override;
@@ -89,6 +85,12 @@ private:
 	CUDADefaultBuffer depthBuffer;
 	CUDADefaultBuffer uavBuffers[MAX_RESOURCES_COUNT];
 
+	// Cache the vertices count from the last setVertexBuffer call
+	// in order to pass it to the processVertices kernel.
+	// We could cache it on the gpu as a constant, but that's easier,
+	// also, reduces constant memory reads.
+	int cacheVerticesCount;
+
 	UINT64 fenceValues[frameCount];
 	UINT64 previousFrameIndex;
 
@@ -98,11 +100,7 @@ private:
 	// Callbacks
 	UpdateFrameCallback updateFrameCb = nullptr;
 	DrawUICallback drawUICb = nullptr;
-	KeyboardCallback keyboardCb = nullptr;
-	MouseScrollCallback mouseScrollCb = nullptr;
 	void *frameState = nullptr;
-
-	float FOV;
 
 	// timing
 	double fps;

@@ -58,12 +58,12 @@ struct Vec2t {
 	Vec2t(const Vec2t &other) : x(other.x), y(other.y) { }
 	Vec2t& operator=(const Vec2t &other) {
 		if (this == &other) {
-			return this;
+			return *this;
 		}
 
 		x = other.x;
 		y = other.y;
-		return this;
+		return *this;
 	}
 	Vec2t(Vec2t &&other) : x(other.x), y(other.y) { }
 

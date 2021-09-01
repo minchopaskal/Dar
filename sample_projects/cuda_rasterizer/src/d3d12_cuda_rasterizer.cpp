@@ -30,7 +30,6 @@ CudaRasterizer::CudaRasterizer(Vector<String> &shaders, const String &windowTitl
 	dx12RenderTargetHandle(INVALID_RESOURCE_HANDLE),
 	fenceValues{ 0 },
 	previousFrameIndex(0),
-	FOV(45.0),
 	fps(0.0),
 	totalTime(0.0),
 	deltaTime(0.0)
@@ -44,15 +43,17 @@ CudaRasterizer::CudaRasterizer(Vector<String> &shaders, const String &windowTitl
 	cudaDevice = &getCUDAManager().getDevices()[0];
 
 	// Switch to the context of this device from now on.
-	cudaDevice->use();
+	if (cudaDevice->use().hasError()) {
+		return;
+	}
 
-	reinterpret_cast<CudaRasterizer*>(this)->init();
+	init();
 
 	inited = true;
 }
 
 CudaRasterizer::~CudaRasterizer() {
-	reinterpret_cast< CudaRasterizer*>(this)->deinit();
+	deinit();
 }
 
 void CudaRasterizer::setUpdateFramebufferCallback(const UpdateFrameCallback cb, void *state) {
@@ -195,15 +196,11 @@ void CudaRasterizer::onResize(int w, int h) {
 }
 
 void CudaRasterizer::onKeyboardInput(int key, int action) {
-	if (keyboardCb) {
-		keyboardCb(key, action);
-	}
+	
 }
 
 void CudaRasterizer::onMouseScroll(double xOffset, double yOffset) {
-	if (mouseScrollCb) {
-		mouseScrollCb(xOffset, yOffset);
-	}
+	
 }
 
 void CudaRasterizer::drawUI() {
@@ -243,6 +240,9 @@ CUDAError CudaRasterizer::setVertexBuffer(const Vertex* buffer, SizeType vertice
 	const CUDAMemHandle vertexBufferHandle = vertexBuffer.handle();
 
 	RETURN_ON_CUDA_ERROR_HANDLED(cudaDevice->uploadConstantParam(&vertexBufferHandle, "vertexBuffer"));
+	
+	cacheVerticesCount = verticesCount;
+
 	return CUDAError();
 }
 
@@ -289,6 +289,16 @@ CUDAError CudaRasterizer::setShaderProgram(const String &name) const {
 }
 
 CUDAError CudaRasterizer::drawIndexed(const unsigned int numPrimitives) const {
+	constexpr unsigned int verticesInTriangle = 3;
+
+	CUDAFunction vertexProcessingFunc(cudaDevice->getModule(), "processVertices");
+	vertexProcessingFunc.addParams(
+		cacheVerticesCount,
+		width,
+		height
+	);
+	RETURN_ON_CUDA_ERROR_HANDLED(vertexProcessingFunc.launchSync(numPrimitives * verticesInTriangle, cudaDevice->getDefaultStream(CUDADefaultStreamsEnumeration::Execution)));
+
 	CUDAFunction drawIndexedFunc(cudaDevice->getModule(), "drawIndexed");
 	drawIndexedFunc.addParams(
 		numPrimitives,
