@@ -74,8 +74,8 @@ int D3D12HelloTriangle::init() {
 }
 
 void D3D12HelloTriangle::deinit() {
-	Super::deinit();
 	flush();
+	Super::deinit();
 }
 
 void D3D12HelloTriangle::update() {
@@ -295,7 +295,7 @@ int D3D12HelloTriangle::loadAssets() {
 		static WORD triangleIndices[] = { 0, 1, 2 };
 		const UINT indexBufferSize = sizeof(triangleIndices);
 
-		CommandList commandList = commandQueueCopy.getCommandList();
+		CommandList commandList = commandQueueDirect.getCommandList();
 
 		ResourceInitData vertData(ResourceType::DataBuffer);
 		vertData.size = vertexBufferSize;

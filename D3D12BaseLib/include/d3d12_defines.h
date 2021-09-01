@@ -6,6 +6,9 @@
 #include <queue>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
+
+#include <comdef.h>
 
 #ifdef D3D12_DEBUG
 #define RETURN_ON_ERROR_FMT(cmd, retval, msg, ...) \
@@ -13,7 +16,7 @@ do { \
   if (!SUCCEEDED((cmd))) { \
       auto err = GetLastError(); \
       fprintf(stderr, "D3D12 Error: %s\n", (msg)); \
-      char error[512]; sprintf(error, "D3D12 Error: %lu\n", err); \
+      char error[512]; sprintf(error, "D3D12 Error: %s\n", _com_error(err).ErrorMessage()); \
       OutputDebugString(error); \
       DebugBreak(); \
       return retval; \
@@ -22,10 +25,10 @@ do { \
 #else
 #define RETURN_ON_ERROR_FMT(cmd, retval, msg, ...) \
 do { \
-  if (!SUCCEEDED((res))) { \
+  if (!SUCCEEDED(cmd)) { \
       auto err = GetLastError(); \
       fprintf(stderr, "D3D12 Error: %s. Last error: %lu\n", (msg), (err)); \
-      return (retval); \
+      return retval; \
     } \
   } \
 while (false)
@@ -58,6 +61,9 @@ using Bitset = std::bitset<N>;
 
 template <class K, class V>
 using Map = std::unordered_map<K, V>;
+
+template <class T>
+using Set = std::unordered_set<T>;
 
 using String = std::string;
 using WString = std::wstring;

@@ -169,20 +169,26 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStat
 	}
 
 	const int numConstantBufferViews = dmath::min(UINT(15), desc.numConstantBufferViews);
-	const int numParams = numConstantBufferViews;
+	const int numParams = numConstantBufferViews + (desc.numTextures > 0 ? 1 : 0);
 	Vector<CD3DX12_ROOT_PARAMETER1> rsParams(numParams);
 	for (int i = 0; i < numConstantBufferViews; ++i) {
 		rsParams[i].InitAsConstantBufferView(i);
 	}
 
+	CD3DX12_DESCRIPTOR_RANGE1 range;
+	range.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, desc.numTextures, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+	if (desc.numTextures > 0) {
+		rsParams[numConstantBufferViews].InitAsDescriptorTable(1, &range, D3D12_SHADER_VISIBILITY_PIXEL);
+	}
+
 	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
-	rootSignatureDesc.Init_1_1(numParams, rsParams.data(), 1, desc.staticSamplerDesc, rsFlags);
+	rootSignatureDesc.Init_1_1(numParams, rsParams.data(), desc.staticSamplerDesc ? 1 : 0, desc.staticSamplerDesc, rsFlags);
 
 	ComPtr<ID3DBlob> signature;
 	ComPtr<ID3DBlob> error;
 	// TODO: read error if any
 	RETURN_FALSE_ON_ERROR(
-		D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, desc.maxVersion, &signature, &error),
+		D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, desc.maxVersion, signature.GetAddressOf(), error.GetAddressOf()),
 		"Failed to create root signature!"
 	);
 
@@ -200,7 +206,7 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStat
 	rtFormat.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	stream.insert(RTFormatsToken{ rtFormat });
 
-	stream.insert(DepthStencilFormatToken{ DXGI_FORMAT_D32_FLOAT });
+	stream.insert(DepthStencilFormatToken{ desc.depthStencilBufferFormat });
 
 	stream.insert(RasterizerDescToken{ CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT) });
 

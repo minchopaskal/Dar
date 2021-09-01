@@ -12,6 +12,8 @@ add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
 
 set(D3D12_COMPILE_SAMPLE_PROJECTS CACHE BOOL "Compile sample projects")
 
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
 macro(copyD3D12Core TRG)
 	set(DLLS_TO_COPY
 		${LIB_DIR}/D3D12AgilitySDK/D3D12Core.dll
@@ -25,17 +27,19 @@ macro(copyD3D12Core TRG)
 		${DLLS_TO_COPY} $<TARGET_FILE_DIR:${TRG}>/D3D12/)
 endmacro()
 
-# Temporary solution until shader model 6.6 is supported in windows.
-macro(compile_shaders TRG SHADER_FOLDER)
+macro(compile_shaders TRG SHADERS_FOLDER SHADER_VERSION)
 	add_custom_command(TARGET ${TRG} PRE_BUILD
 		COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${TRG}>/res/shaders/
 	)
-	foreach(SHADER_FILE ${SHADERS})
+
+	FILE(GLOB SHADER_FILES "${SHADERS_FOLDER}/*.hlsl")
+
+	foreach(SHADER_FILE ${SHADER_FILES})
 		get_filename_component(SF_NAME ${SHADER_FILE} NAME_WE)
 		get_filename_component(SF_NAME_EXT ${SHADER_FILE} NAME)
 		message("Setting properties of ${SF_NAME_EXT}")
 
-		set(SHADER_VERSION "")
+		set(SHADER_TYPE "")
 		string(FIND ${SHADER_FILE} "_ps.hlsl" IS_PIXEL_SHADER)
 		string(FIND ${SHADER_FILE} "_vs.hlsl" IS_VERTEX_SHADER)
 		string(FIND ${SHADER_FILE} "_gs.hlsl" IS_GEOM_SHADER)
@@ -45,21 +49,21 @@ macro(compile_shaders TRG SHADER_FOLDER)
 		string(FIND ${SHADER_FILE} "_ds.hlsl" IS_DOMAIN_SHADER)
 		string(FIND ${SHADER_FILE} "_cs.hlsl" IS_COMPUTE_SHADER)
 		if (NOT ${IS_PIXEL_SHADER} STREQUAL "-1")
-			set(SHADER_VERSION "ps_6_6")
+			set(SHADER_TYPE "ps_${SHADER_VERSION}")
 		elseif(NOT ${IS_VERTEX_SHADER} STREQUAL "-1")
-			set(SHADER_VERSION "vs_6_6")
+			set(SHADER_TYPE "vs_${SHADER_VERSION}")
 		elseif(NOT ${IS_GEOM_SHADER} STREQUAL "-1")
-			set(SHADER_VERSION "gs_6_6")
+			set(SHADER_TYPE "gs_${SHADER_VERSION}")
 		elseif(NOT ${IS_HULL_SHADER} STREQUAL "-1")
-			set(SHADER_VERSION "hs_6_6")
+			set(SHADER_TYPE "hs_${SHADER_VERSION}")
 		elseif(NOT ${IS_MESH_SHADER} STREQUAL "-1")
-			set(SHADER_VERSION "ms_6_6")
+			set(SHADER_TYPE "ms_${SHADER_VERSION}")
 		elseif(NOT ${IS_AMP_SHADER} STREQUAL "-1")
-			set(SHADER_VERSION "as_6_6")
+			set(SHADER_TYPE "as_${SHADER_VERSION}")
 		elseif(NOT ${IS_DOMAIN_SHADER} STREQUAL "-1")
-			set(SHADER_VERSION "ds_6_6")
+			set(SHADER_TYPE "ds_${SHADER_VERSION}")
 		elseif(NOT ${IS_COMPUTE_SHADER} STREQUAL "-1")
-			set(SHADER_VERSION "ps_6_6")
+			set(SHADER_TYPE "ps_${SHADER_VERSION}")
 		else()
 			message(FATAL_ERROR "Invalid shader name - either it's not ps/vs or it's not a .hlsl file!")
 		endif()
@@ -70,7 +74,7 @@ macro(compile_shaders TRG SHADER_FOLDER)
 		add_custom_command(TARGET ${TRG} PRE_BUILD
 			COMMAND ${SUBMODULE_DIR}/dxc_1.6/dxc.exe
 			-E main # shader entry point. Only main is valid. Each different type of shader must be in its own file.
-			-T ${SHADER_VERSION} # target profile
+			-T ${SHADER_TYPE} # target profile
 			-Fo $<TARGET_FILE_DIR:${TRG}>/res/shaders/${SF_NAME}.bin # output file location
 			$<$<CONFIG:Debug>:-Zi> # Output debug information, but only in DEBUG mode
 			$<$<CONFIG:Debug>:-Fd> $<$<CONFIG:Debug>:$<TARGET_FILE_DIR:${TRG}>/res/shaders/${SF_NAME}.pdb> # output pdb file

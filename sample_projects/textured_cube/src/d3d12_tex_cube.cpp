@@ -60,7 +60,20 @@ D3D12TexturedCube::D3D12TexturedCube(UINT width, UINT height, const String &wind
 { }
 
 int D3D12TexturedCube::init() {
+	setUseImGui();
+
 	if (!Super::init()) {
+		return false;
+	}
+
+	D3D12_FEATURE_DATA_SHADER_MODEL shaderModel{ D3D_SHADER_MODEL_6_6 };
+	RETURN_FALSE_ON_ERROR(
+		device->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &shaderModel, sizeof(shaderModel)),
+		"Device does not support shader model 6.6!"
+	);
+
+	if (shaderModel.HighestShaderModel != D3D_SHADER_MODEL_6_6) {
+		fprintf(stderr, "Shader model 6.6 not supported!");
 		return false;
 	}
 
@@ -111,6 +124,7 @@ int D3D12TexturedCube::init() {
 }
 
 void D3D12TexturedCube::deinit() {
+	flush();
 	Super::deinit();
 }
 

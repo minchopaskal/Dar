@@ -20,6 +20,8 @@ struct CommandQueue {
 
 	ComPtr<ID3D12CommandQueue> getCommandQueue() const;
 
+	ComPtr<ID3D12Fence> getFence() const;
+
 	UINT64 signal();
 	bool fenceCompleted(UINT64 fenceVal) const;
 	void waitForFenceValue(UINT64 fenceVal);

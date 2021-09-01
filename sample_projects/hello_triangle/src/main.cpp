@@ -2,8 +2,13 @@
 
 int main(int argc, char **argv) {
 	D3D12HelloTriangle app(1280, 720, "Hello Triangle");
-	app.init();
-	app.loadAssets();
+	if (!app.init()) {
+		return 1;
+	}
+
+	if (!app.loadAssets()) {
+		return 1;
+	}
 	
 	return app.run();
 }
