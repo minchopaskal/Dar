@@ -219,7 +219,8 @@ extern "C" {
 		params.height = height;
 
 		for (int i = vertexID; i < numVertices; i += stride) {
-			Vertex res = vsShader(&vertexBuffer[i], params);
+			Vertex res = vsShader(&vertexBuffer[i], params); // vertex shading
+			res.position /= res.position.w; // perspective division
 			vertexBuffer[i] = res;
 		}
 	}

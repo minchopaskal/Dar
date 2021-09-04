@@ -155,19 +155,19 @@ void CudaRasterizer::render() {
 	commandQueueDirect.waitForFenceValue(fenceValues[frameIndex]);
 }
 
-void CudaRasterizer::onResize(int w, int h) {
+void CudaRasterizer::onResize(const unsigned int w, const unsigned int h) {
 	if (width == w && height == h) {
 		return;
 	}
 
-	this->width = std::max(1, w);
-	this->height = std::max(1, h);
+	this->width = std::max(1u, w);
+	this->height = std::max(1u, h);
 	viewport = { 0.f, 0.f, static_cast<float>(width), static_cast<float>(height) };
 	aspectRatio = width / static_cast<float>(height);
 
 	flush();
 
-	for (int i = 0; i < frameCount; ++i) {
+	for (unsigned int i = 0; i < frameCount; ++i) {
 		backBuffers[i].Reset();
 		resManager->deregisterResource(backBuffersHandles[i]);
 	}

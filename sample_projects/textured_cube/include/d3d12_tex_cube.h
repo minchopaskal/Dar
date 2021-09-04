@@ -16,14 +16,14 @@ struct D3D12TexturedCube : D3D12App {
 	void update() override;
 	void render() override;
 	void drawUI() override;
-	void onResize(int width, int height) override;
+	void onResize(const unsigned int w, const unsigned int h) override;
 	void onKeyboardInput(int key, int action) override;
 	void onMouseScroll(double xOffset, double yOffset) override;
 
 private:
 	CommandList populateCommandList();
 	bool updateRenderTargetViews();
-	bool resizeDepthBuffer(int width, int height);
+	bool resizeDepthBuffer();
 
 	void timeIt();
 
@@ -50,11 +50,11 @@ private:
 	ResourceHandle depthBufferHandle;
 
 	// MVP matrix
-	Mat4 MVP;
+	Mat4 mvp;
 	ResourceHandle mvpBufferHandle[frameCount];
 
 	// Texture data
-	static const int numTextures = 1;
+	static constexpr int numTextures = 1;
 	ResourceHandle texturesHandles[numTextures];
 	ComPtr<ID3D12DescriptorHeap> srvHeap;
 

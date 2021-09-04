@@ -21,7 +21,7 @@ struct Camera {
 		front(Vec3(0.f, 0.f, 1.f)),
 		right(Vec3(1.f, 0.f, 0.f)),
 		up(Vec3(0.f, 1.f, 0.f)),
-		position(Vec3(.0f, 0.f, .0f)) {
+		position(Vec3(.0f, .0f, -2.f)) {
 	}
 
 	[[nodiscard]] Mat4 getViewMatrix() const {

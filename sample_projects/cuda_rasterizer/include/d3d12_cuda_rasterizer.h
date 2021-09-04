@@ -44,7 +44,7 @@ private:
 	// Inherited via D3D12App
 	void update() override;
 	void render() override;
-	virtual void onResize(int width, int height) override;
+	virtual void onResize(const unsigned int w, const unsigned int h) override;
 	virtual void onKeyboardInput(int key, int action) override;
 	virtual void onMouseScroll(double xOffset, double yOffset) override;
 	void drawUI() override;

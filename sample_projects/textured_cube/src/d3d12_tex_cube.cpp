@@ -13,7 +13,7 @@
 
 // TODO: To make things simple, child projects should not rely on third party software
 // Expose some input controller interface or something like that.
-#include <glfw/glfw3.h> // keyboard input
+#include "GLFW/glfw3.h" // keyboard input
 
 // For loading the texture image
 #define STB_IMAGE_IMPLEMENTATION
@@ -30,33 +30,37 @@ struct ImageData {
 };
 
 ImageData loadImage(const wchar_t *name) {
-	WString pathStr = getAssetFullPath(name, AssetType::Texture);
+	const WString pathStr = getAssetFullPath(name, AssetType::Texture);
 	const wchar_t *path = pathStr.c_str();
 	const SizeType bufferlen = wcslen(path) * sizeof(wchar_t);
-	char *pathUTF8 = new char[bufferlen + 1];
-	stbi_convert_wchar_to_utf8(pathUTF8, bufferlen, path);
+	char *pathUtf8 = new char[bufferlen + 1];
+	stbi_convert_wchar_to_utf8(pathUtf8, bufferlen, path);
 
 	ImageData result = {};
-	result.data = stbi_load(pathUTF8, &result.width, &result.height, nullptr, 4);
+	result.data = stbi_load(pathUtf8, &result.width, &result.height, nullptr, 4);
 	result.ncomp = 4;
 
 	return result;
 }
 
-D3D12TexturedCube::D3D12TexturedCube(UINT width, UINT height, const String &windowTitle) :
-	D3D12App(width, height, windowTitle.c_str()),
+D3D12TexturedCube::D3D12TexturedCube(const UINT w, const UINT h, const String &windowTitle) :
+	D3D12App(w, h, windowTitle.c_str()),
 	rtvHeapHandleIncrementSize(0),
 	vertexBufferHandle(INVALID_RESOURCE_HANDLE),
 	indexBufferHandle(INVALID_RESOURCE_HANDLE),
-	texturesHandles{ INVALID_RESOURCE_HANDLE },
+	vertexBufferView{},
+	indexBufferView{},
+	depthBufferHandle(INVALID_RESOURCE_HANDLE),
 	mvpBufferHandle{ INVALID_RESOURCE_HANDLE },
-	viewport{ 0.f, 0.f, static_cast<float>(width), static_cast<float>(height) },
+	texturesHandles{ INVALID_RESOURCE_HANDLE },
+	viewport{ 0.f, 0.f, static_cast<float>(w), static_cast<float>(h), 0.001f, 100.f },
 	scissorRect{ 0, 0, LONG_MAX, LONG_MAX }, // always render on the entire screen
-	aspectRatio(width / float(height)),
+	aspectRatio(static_cast<float>(w) / static_cast<float>(h)),
 	fenceValues{ 0 },
 	FOV(45.0),
 	fps(0.0),
-	totalTime(0.0)
+	totalTime(0.0),
+	deltaTime(0.0)
 { }
 
 int D3D12TexturedCube::init() {
@@ -102,7 +106,7 @@ int D3D12TexturedCube::init() {
 		"Failed to create DSV descriptor heap!"
 	);
 	
-	if (!resizeDepthBuffer(this->width, this->height)) {
+	if (!resizeDepthBuffer()) {
 		return false;
 	}
 
@@ -132,20 +136,20 @@ void D3D12TexturedCube::update() {
 	timeIt();
 
 	// Update MVP matrices
-	float angle = static_cast<float>(totalTime * 90.0);
-	const Vec3 rotationAxis = Vec3(0, 1, 1);
-	Mat4 modelMat = Mat4(1.f);
+	const auto angle = static_cast<float>(totalTime * 90.0);
+	const auto rotationAxis = Vec3(0, 1, 1);
+	auto modelMat = Mat4(1.f);
 	modelMat = modelMat.rotate(rotationAxis, angle);
 	modelMat = modelMat.translate({ 0, 0, 0 });
 
-	const Vec3 eyePosition = Vec3(0, 0, -10);
-	const Vec3 focusPoint  = Vec3(0, 0, 0);
-	const Vec3 upDirection = Vec3(0, 1, 0);
+	const auto eyePosition = Vec3(0, 0, -10);
+	const auto focusPoint  = Vec3(0, 0, 0);
+	const auto upDirection = Vec3(0, 1, 0);
 	Mat4 viewMat = dmath::lookAt(focusPoint, eyePosition, upDirection);
 	Mat4 projectionMat = projectionType == ProjectionType::Perspective ? 
 		dmath::perspective(FOV, aspectRatio, 0.1f, 100.f) :
 		dmath::orthographic(-orthoDim * aspectRatio, orthoDim * aspectRatio, -orthoDim, orthoDim, 0.1f, 100.f);
-	MVP = projectionMat * viewMat * modelMat;
+	mvp = projectionMat * viewMat * modelMat;
 
 	/// Initialize the MVP constant buffer resource if needed
 	if (mvpBufferHandle[frameIndex] == INVALID_RESOURCE_HANDLE) {
@@ -159,7 +163,7 @@ void D3D12TexturedCube::update() {
 	}
 
 	UploadHandle uploadHandle = resManager->beginNewUpload();
-	resManager->uploadBufferData(uploadHandle, mvpBufferHandle[frameIndex], reinterpret_cast<void*>(&MVP), sizeof(Mat4));
+	resManager->uploadBufferData(uploadHandle, mvpBufferHandle[frameIndex], reinterpret_cast<void*>(&mvp), sizeof(Mat4));
 	resManager->uploadBuffers();
 }
 
@@ -167,8 +171,8 @@ void D3D12TexturedCube::render() {
 	commandQueueDirect.addCommandListForExecution(populateCommandList());
 	fenceValues[frameIndex] = commandQueueDirect.executeCommandLists();
 
-	UINT syncInterval = vSyncEnabled ? 1 : 0;
-	UINT presentFlags = allowTearing && !vSyncEnabled ? DXGI_PRESENT_ALLOW_TEARING : 0;
+	const UINT syncInterval = vSyncEnabled ? 1 : 0;
+	const UINT presentFlags = allowTearing && !vSyncEnabled ? DXGI_PRESENT_ALLOW_TEARING : 0;
 	RETURN_ON_ERROR(swapChain->Present(syncInterval, presentFlags), ,"Failed to execute command list!");
 	
 	frameIndex = swapChain->GetCurrentBackBufferIndex();
@@ -181,23 +185,23 @@ void D3D12TexturedCube::drawUI() {
 	Super::drawUI();
 
 	ImGui::Begin("Stats");
-	ImGui::Text("FPS: %.f", fps);
+	ImGui::Text("FPS: %.2f", fps);
 	ImGui::End();
 }
 
-void D3D12TexturedCube::onResize(int w, int h) {
+void D3D12TexturedCube::onResize(const unsigned int w, const unsigned int h) {
 	if (width == w && height == h) {
 		return;
 	}
 
-	this->width = std::max(1, w);
-	this->height = std::max(1, h);
-	viewport = { 0.f, 0.f, static_cast<float>(width), static_cast<float>(height) };
-	aspectRatio = width / float(height);
+	this->width = std::max(1u, w);
+	this->height = std::max(1u, h);
+	viewport = { 0.f, 0.f, static_cast<float>(width), static_cast<float>(height), 0.001f, 100.f };
+	aspectRatio = static_cast<float>(width) / static_cast<float>(height);
 
 	flush();
 
-	for (int i = 0; i < frameCount; ++i) {
+	for (unsigned int i = 0; i < frameCount; ++i) {
 		backBuffers[i].Reset();
 		// TODO: handle this automatically
 		// It's important to deregister an outside resource if you want it deallocated
@@ -226,7 +230,7 @@ void D3D12TexturedCube::onResize(int w, int h) {
 
 	updateRenderTargetViews();
 
-	resizeDepthBuffer(this->width, this->height);
+	resizeDepthBuffer();
 }
 
 void D3D12TexturedCube::onKeyboardInput(int key, int action) {
@@ -244,8 +248,7 @@ void D3D12TexturedCube::onKeyboardInput(int key, int action) {
 }
 
 void D3D12TexturedCube::onMouseScroll(double xOffset, double yOffset) {
-	static const double speed = 5.f;
-	float change = float(yOffset);
+	const auto change = static_cast<float>(yOffset);
 	if (projectionType == ProjectionType::Perspective) {
 		FOV -= change;
 		FOV = dmath::min(dmath::max(30.f, FOV), 120.f);
@@ -293,7 +296,7 @@ int D3D12TexturedCube::loadAssets() {
 			{ {-1.0f, -1.0f, -1.0f }, { 0.0f, 1.0f } }, // 10
 			{ { 1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f } }, // 11
 		};
-		const UINT vertexBufferSize = sizeof(cubeVertices);
+		constexpr UINT vertexBufferSize = sizeof(cubeVertices);
 
 		static WORD cubeIndices[] = { 
 			0, 1, 2, 0, 2, 3,
@@ -303,19 +306,21 @@ int D3D12TexturedCube::loadAssets() {
 			8, 5, 6, 1, 6, 9,
 			4, 10, 11, 4, 11, 7
 		};
-		const UINT indexBufferSize = sizeof(cubeIndices);
+		constexpr UINT indexBufferSize = sizeof(cubeIndices);
 
 		ResourceInitData vertData(ResourceType::DataBuffer);
 		vertData.size = vertexBufferSize;
 		vertData.name = L"VertexBuffer";
-		if (!(vertexBufferHandle = resManager->createBuffer(vertData))) {
+		vertexBufferHandle = resManager->createBuffer(vertData);
+		if (vertexBufferHandle == INVALID_RESOURCE_HANDLE) {
 			return false;
 		}
 
 		ResourceInitData indexBufferData(ResourceType::DataBuffer);
 		indexBufferData.size = indexBufferSize;
 		indexBufferData.name = L"IndexBuffer";
-		if (!(indexBufferHandle = resManager->createBuffer(indexBufferData))) {
+		indexBufferHandle = resManager->createBuffer(indexBufferData);
+		if (indexBufferHandle == INVALID_RESOURCE_HANDLE) {
 			return false;
 		}
 
@@ -332,8 +337,8 @@ int D3D12TexturedCube::loadAssets() {
 			texInitData.textureData.height = texData[i].height;
 			texInitData.textureData.format = DXGI_FORMAT_R8G8B8A8_UNORM;
 			texInitData.name = textureName;
-			
-			if (!(texturesHandles[i] = resManager->createBuffer(texInitData))) {
+			texturesHandles[i] = resManager->createBuffer(texInitData);
+			if (texturesHandles[i] == INVALID_RESOURCE_HANDLE) {
 				return false;
 			}
 		}
@@ -345,7 +350,7 @@ int D3D12TexturedCube::loadAssets() {
 
 		D3D12_SUBRESOURCE_DATA textureSubresources = {};
 		textureSubresources.pData = texData[0].data;
-		textureSubresources.RowPitch = texData[0].width * UINT64(texData[0].ncomp);
+		textureSubresources.RowPitch = static_cast<UINT64>(texData[0].width) * static_cast<UINT64>(texData[0].ncomp);
 		textureSubresources.SlicePitch = textureSubresources.RowPitch * texData[0].height;
 		resManager->uploadTextureData(uploadHandle, texturesHandles[0], &textureSubresources, 1, 0);
 
@@ -395,18 +400,17 @@ CommandList D3D12TexturedCube::populateCommandList() {
 
 	commandList.transition(backBuffersHandles[frameIndex], D3D12_RESOURCE_STATE_RENDER_TARGET);
 
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(rtvHeap->GetCPUDescriptorHandleForHeapStart(), frameIndex, rtvHeapHandleIncrementSize);
-	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = dsvHeap->GetCPUDescriptorHandleForHeapStart();
+	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(rtvHeap->GetCPUDescriptorHandleForHeapStart(), static_cast<int>(frameIndex), rtvHeapHandleIncrementSize);
+	const D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = dsvHeap->GetCPUDescriptorHandleForHeapStart();
 
-	const float blue[] = { 0.2f, 0.2f, 0.8f, 1.f };
-	const float red[] = { 1.f, 0.2f, 0.2f, 1.f };
+	constexpr float blue[] = { 0.2f, 0.2f, 0.8f, 1.f };
+	//constexpr float red[] = { 1.f, 0.2f, 0.2f, 1.f };
 	const float *clearColor = blue;
 	commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 	commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
 	
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	// TODO: this only needs to be done once for the vertex and index buffer so we need some sort of a resource tracking mechanism
 	commandList.transition(vertexBufferHandle, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 	commandList.transition(indexBufferHandle, D3D12_RESOURCE_STATE_INDEX_BUFFER);
 	commandList.transition(mvpBufferHandle[frameIndex], D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
@@ -434,7 +438,7 @@ bool D3D12TexturedCube::updateRenderTargetViews() {
 			"Failed to create Render-Target-View for buffer %u!", i
 		);
 		device->CreateRenderTargetView(backBuffers[i].Get(), nullptr, rtvHandle);
-		rtvHandle.Offset(rtvHeapHandleIncrementSize);
+		rtvHandle.Offset(static_cast<int>(rtvHeapHandleIncrementSize));
 
 		// Register the back buffer's resources manually since the resource manager doesn't own them, the swap chain does.
 		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, D3D12_RESOURCE_STATE_PRESENT);
@@ -447,9 +451,9 @@ bool D3D12TexturedCube::updateRenderTargetViews() {
 	return true;
 }
 
-bool D3D12TexturedCube::resizeDepthBuffer(int width, int height) {
-	width = std::max(1, width);
-	height = std::max(1, height);
+bool D3D12TexturedCube::resizeDepthBuffer() {
+	width = std::max(1u, width);
+	height = std::max(1u, height);
 
 	ResourceInitData resData(ResourceType::DepthStencilBuffer);
 	resData.textureData.width = width;
@@ -471,16 +475,15 @@ bool D3D12TexturedCube::resizeDepthBuffer(int width, int height) {
 
 void D3D12TexturedCube::timeIt() {
 	using std::chrono::duration_cast;
-	using HRC = std::chrono::high_resolution_clock;
-	
-	static constexpr double SECONDS_IN_NANOSECOND = 1e-9;
+	using Hrc = std::chrono::high_resolution_clock;
+
+	static constexpr double seconds_in_nanosecond = 1e-9;
 	static UINT64 frameCount = 0;
 	static double elapsedTime = 0.0;
-	static HRC clock;
-	static HRC::time_point t0 = clock.now();
+	static Hrc::time_point t0 = Hrc::now();
 
-	HRC::time_point t1 = clock.now();
-	deltaTime = (t1 - t0).count() * SECONDS_IN_NANOSECOND;
+	const Hrc::time_point t1 = Hrc::now();
+	deltaTime = static_cast<double>((t1 - t0).count()) * seconds_in_nanosecond;
 	elapsedTime += deltaTime;
 	totalTime += deltaTime;
 	
@@ -488,7 +491,7 @@ void D3D12TexturedCube::timeIt() {
 	t0 = t1;
 
 	if (elapsedTime > 1.0) {
-		fps = frameCount / elapsedTime;
+		fps = static_cast<double>(frameCount) / elapsedTime;
 
 #if defined(D3D12_DEBUG)
 		char buffer[512];

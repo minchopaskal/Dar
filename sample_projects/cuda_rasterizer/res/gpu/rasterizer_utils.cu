@@ -123,6 +123,24 @@ dfloat4 operator*(float b, float4 a) {
 	);
 }
 
+dfloat4 operator/(float4 a, float b) {
+	return make_float4(
+		a.x / b,
+		a.y / b,
+		a.z / b,
+		a.w / b
+	);
+}
+
+__device__ float4& operator/=(float4 &a, float b) {
+	a.x /= b;
+	a.y /= b;
+	a.z /= b;
+	a.w /= b;
+
+	return a;
+}
+
 dfloat2 operator*(float b, float2 a) {
 	return make_float2(
 		a.x * b,

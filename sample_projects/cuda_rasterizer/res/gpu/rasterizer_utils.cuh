@@ -77,6 +77,10 @@ extern dfloat4 operator-(float4 a, float4 b);
 
 extern dfloat4 operator*(float4 a, float b);
 
+extern dfloat4 operator/(float4 a, float b);
+
+extern __device__ float4& operator/=(float4 &a, float b);
+
 extern dfloat4 operator*(float b, float4 a);
 
 extern dfloat2 operator*(float b, float2 a);

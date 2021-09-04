@@ -15,7 +15,7 @@ struct D3D12HelloTriangle : D3D12App {
 	void deinit() override;
 	void update() override;
 	void render() override;
-	void onResize(int width, int height) override;
+	void onResize(const unsigned int w, const unsigned int h) override;
 	void onKeyboardInput(int key, int action) override;
 	void onMouseScroll(double xOffset, double yOffset) override;
 

@@ -66,7 +66,7 @@ struct D3D12App {
 	int getHeight() const;
 
 	// TODO: mouse callback, etc.
-	virtual void onResize(int width, int height) = 0;
+	virtual void onResize(const unsigned int w, const unsigned int h) = 0;
 	virtual void onKeyboardInput(int key, int action) = 0;
 	virtual void onMouseScroll(double xOffset, double yOffset) = 0;
 	virtual void onWindowPosChange(int xPos, int yPos) { }

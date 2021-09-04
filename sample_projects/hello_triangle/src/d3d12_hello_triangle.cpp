@@ -112,13 +112,13 @@ void D3D12HelloTriangle::render() {
 	commandQueueDirect.waitForFenceValue(fenceValues[frameIndex]);
 }
 
-void D3D12HelloTriangle::onResize(int w, int h) {
+void D3D12HelloTriangle::onResize(const unsigned int w, const unsigned int h) {
 	if (width == w && height == h) {
 		return;
 	}
 
-	this->width = std::max(1, w);
-	this->height = std::max(1, h);
+	this->width = std::max(1u, w);
+	this->height = std::max(1u, h);
 	viewport = { 0.f, 0.f, static_cast<float>(width), static_cast<float>(height) };
 	aspectRatio = width / float(height);
 
