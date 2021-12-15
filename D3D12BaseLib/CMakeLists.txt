@@ -20,6 +20,8 @@ set(HEADERS
 	${INCLUDE_DIR}/d3d12_async.h
 	${INCLUDE_DIR}/d3d12_command_list.h
 	${INCLUDE_DIR}/d3d12_resource_handle.h
+	${INCLUDE_DIR}/d3d12_scene.h
+	${INCLUDE_DIR}/scene_loader.h
 )
 
 set(SOURCES
@@ -31,6 +33,9 @@ set(SOURCES
 	${SRC_DIR}/d3d12_resource_manager.cpp
 	${SRC_DIR}/d3d12_command_list.cpp
 	${SRC_DIR}/d3d12_resource_handle.cpp
+	${SRC_DIR}/d3d12_scene.cpp
+	${SRC_DIR}/scene_loader.cpp
+
 )
 
 set(SUBMODULES
@@ -71,6 +76,12 @@ target_compile_definitions(
 
 target_link_directories(D3D12BaseLib PRIVATE ${LIB_DIR})
 
+target_link_libraries(
+	D3D12BaseLib
+	$<$<CONFIG:Debug>:assimpd>
+	$<$<CONFIG:Release>:assimp>
+)
+
 target_link_libraries(D3D12BaseLib "d3d12.lib" "d3dcompiler.lib" "dxgi.lib" "dxguid.lib" "glfw3.lib")
 
 target_include_directories(
@@ -79,4 +90,5 @@ target_include_directories(
 	${INCLUDE_DIR}
 	${SUBMODULE_DIR}
 	${SUBMODULE_DIR}/imgui
+	${SUBMODULE_DIR}/assimp/include
 )

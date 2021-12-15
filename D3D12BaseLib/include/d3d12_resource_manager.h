@@ -10,10 +10,12 @@ using UploadHandle = SizeType;
 #define INVALID_RESOURCE_HANDLE SizeType(0)
 #define INVALID_UPLOAD_HANDLE SizeType(0)
 
-enum class ResourceType {
+enum class ResourceType : int {
+	Invalid = 0,
 	DataBuffer,
 	StagingBuffer,
 	TextureBuffer,
+	RenderTargetView,
 	DepthStencilBuffer,
 };
 
@@ -48,6 +50,7 @@ struct ResourceInitData {
 		case ResourceType::DataBuffer:
 			size = 0;
 			break;
+		case ResourceType::RenderTargetView:
 		case ResourceType::DepthStencilBuffer:
 		case ResourceType::TextureBuffer:
 			textureData = {};
@@ -79,7 +82,7 @@ struct ResourceManager {
 	/// @param destResource A handle to the destination resource
 	/// @param data Pointer to CPU memory holding the data we wish to upload
 	/// @param size Size in bytes of the data we wish to upload
-	bool uploadBufferData(UploadHandle uploadHandle, ResourceHandle destResource, void *data, SizeType size);
+	bool uploadBufferData(UploadHandle uploadHandle, ResourceHandle destResource, const void *data, SizeType size);
 	
 	/// Upload 2D data to the specified GPU resource. Array data is not supported!
 	/// Implicitly creates a staging buffer which
@@ -114,7 +117,11 @@ struct ResourceManager {
 	/// Set the global state of a subresource for all of its subresources
 	bool setGlobalStateForSubres(ResourceHandle handle, const D3D12_RESOURCE_STATES &state, const unsigned int subresIndex);
 
+#ifdef D3D12_DEBUG
+	ResourceHandle registerResource(ComPtr<ID3D12Resource> resource, UINT subresourcesCount, D3D12_RESOURCE_STATES state, ResourceType type);
+#else
 	ResourceHandle registerResource(ComPtr<ID3D12Resource> resource, UINT subresourcesCount, D3D12_RESOURCE_STATES state);
+#endif
 
 	/// Release resource's data. All work with the resource is expected to have completed.
 	bool deregisterResource(ResourceHandle &handle);
@@ -128,8 +135,9 @@ private:
 
 	void resetCommandLists();
 
+	ResourceHandle registerResourceImpl(ComPtr<ID3D12Resource> resourcePtr, UINT subresourcesCount, D3D12_RESOURCE_STATES state);
+
 #ifdef D3D12_DEBUG
-	ResourceHandle registerResource(ComPtr<ID3D12Resource> resource, UINT subresourcesCount, D3D12_RESOURCE_STATES state, ResourceType type);
 	ResourceType getResourceType(ResourceHandle handle);
 #endif // D3D12_DEBUG
 
@@ -138,7 +146,7 @@ private:
 		SubresStates subresStates;
 		CriticalSection cs;
 #ifdef D3D12_DEBUG
-		ResourceType type;
+		ResourceType type = ResourceType::Invalid;
 #endif // D3D12_DEBUG
 	};
 

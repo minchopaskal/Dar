@@ -15,7 +15,7 @@
 do { \
   if (!SUCCEEDED((cmd))) { \
       auto err = GetLastError(); \
-      fprintf(stderr, "D3D12 Error: %s\n", (msg)); \
+      fprintf(stderr, "D3D12 Error: %s\n Last Error: %lu\n", (msg), err); \
       char error[512]; sprintf(error, "D3D12 Error: %s\n", _com_error(err).ErrorMessage()); \
       OutputDebugString(error); \
       DebugBreak(); \
@@ -27,7 +27,7 @@ do { \
 do { \
   if (!SUCCEEDED(cmd)) { \
       auto err = GetLastError(); \
-      fprintf(stderr, "D3D12 Error: %s. Last error: %lu\n", (msg), (err)); \
+      fprintf(stderr, "D3D12 Error: %s\n Last error: %lu\n", (msg), (err)); \
       return retval; \
     } \
   } \
