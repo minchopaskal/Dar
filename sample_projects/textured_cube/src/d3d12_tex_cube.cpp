@@ -182,8 +182,6 @@ void D3D12TexturedCube::render() {
 }
 
 void D3D12TexturedCube::drawUI() {
-	Super::drawUI();
-
 	ImGui::Begin("Stats");
 	ImGui::Text("FPS: %.2f", fps);
 	ImGui::End();

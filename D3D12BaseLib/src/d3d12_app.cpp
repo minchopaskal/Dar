@@ -335,21 +335,25 @@ void D3D12App::setUseImGui() {
 	useImGui = true;
 }
 
-void D3D12App::drawUI() {
-	if (useImGui) {
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-	}
-}
+//void D3D12App::drawUI() {
+//	
+//}
 
 void D3D12App::renderUI(CommandList &cmdList, D3D12_CPU_DESCRIPTOR_HANDLE &rtvHandle) {
-	if (useImGui) {
-		ImGui::Render();
-
-		cmdList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
-		cmdList->SetDescriptorHeaps(1, imguiSRVHeap.GetAddressOf());
-		ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList.get());
+	if (!useImGui) {
+		return;
 	}
+
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+
+	drawUI();
+
+	ImGui::Render();
+
+	cmdList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+	cmdList->SetDescriptorHeaps(1, imguiSRVHeap.GetAddressOf());
+	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList.get());
 }
 
 int D3D12App::getWidth() const {
@@ -426,8 +430,6 @@ int D3D12App::run() {
 		beginFrame();
 
 		update();
-
-		drawUI();
 
 		render();
 

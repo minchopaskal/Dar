@@ -173,7 +173,7 @@ void Sponza::render() {
 }
 
 void Sponza::drawUI() {
-	Super::drawUI();
+	//Super::drawUI();
 
 	ImGui::Begin("Stats");
 	ImGui::Text("FPS: %.2f", fps);

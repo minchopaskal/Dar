@@ -50,12 +50,11 @@ struct D3D12App {
 	/// Note: call before D3D12::init() in order to skip ImGui initialization.
 	void setUseImGui();
 
-	/// Optional, unless setUseImGui was called. Should call D3D12App::drawUI() at the beginning.
-	/// It is advised that all ImGui draw calls go here, unless it's inconvinient.
-	/// Called after update() and before render().
-	virtual void drawUI();
+	/// Optional. It is advised that all ImGui draw calls go here, unless it's inconvinient.
+	/// Called during renderUI().
+	virtual void drawUI() { };
 
-	/// Optional, unless setUseImGui was called. Should be called before the last transition of the RTV to PRESENT state
+	/// Optional. Should be called before the last transition of the RTV to PRESENT state
 	/// if the app wants its ImGui draw calls rendered.
 	void renderUI(CommandList &cmdList, D3D12_CPU_DESCRIPTOR_HANDLE &rtvHandle);
 

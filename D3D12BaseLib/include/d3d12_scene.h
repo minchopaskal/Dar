@@ -159,13 +159,8 @@ struct Scene {
 		return textures.size();
 	}
 
-	void draw(CommandList &cmdList) const {
-		const SizeType numNodes = nodes.size();
-		for (int i = 0; i < numNodes; ++i) {
-			drawImpl(nodes[i], cmdList, *this);
-		}
-	}
+	void draw(CommandList &cmdList) const;
 
 private:
-	void drawImpl(Node *node, CommandList &cmdList, const Scene &scene) const;
+	void drawNodeImpl(Node *node, CommandList &cmdList, const Scene &scene) const;
 };

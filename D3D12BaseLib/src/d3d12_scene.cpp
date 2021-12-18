@@ -6,15 +6,29 @@ void Model::draw(CommandList &cmdList, const Scene &scene) const {
 		const Mesh &mesh = meshes[i];
 
 		// TODO: update uniform buffers
-		cmdList->DrawIndexedInstanced(mesh.numIndices, 1, 0, 0, 0);
+		// we'll need to read the material data for the mesh's material.
+		// Materials are global and reside in the scene object.
+
+		cmdList->DrawIndexedInstanced(mesh.numIndices, 1, mesh.indexOffset, 0, 0);
 	}
 }
 
-void Scene::drawImpl(Node *node, CommandList &cmdList, const Scene &scene) const {
+void Scene::draw(CommandList &cmdList) const {
+	// TODO: any lights/cameras/other objects global to the scene
+	// that need to go as data in the shader, should go here
+	// before recursing the node tree.
+
+	const SizeType numNodes = nodes.size();
+	for (int i = 0; i < numNodes; ++i) {
+		drawNodeImpl(nodes[i], cmdList, *this);
+	}
+}
+
+void Scene::drawNodeImpl(Node *node, CommandList &cmdList, const Scene &scene) const {
 	node->draw(cmdList, scene);
 
 	const SizeType numChildren = node->children.size();
 	for (int i = 0; i < numChildren; ++i) {
-		drawImpl(nodes[node->children[i]], cmdList, scene);
+		drawNodeImpl(nodes[node->children[i]], cmdList, scene);
 	}
 }

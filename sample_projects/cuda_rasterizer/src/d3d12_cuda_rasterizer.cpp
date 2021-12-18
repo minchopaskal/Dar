@@ -204,8 +204,6 @@ void CudaRasterizer::onMouseScroll(double xOffset, double yOffset) {
 }
 
 void CudaRasterizer::drawUI() {
-	Super::drawUI();
-
 	if (drawUICb) {
 		drawUICb();
 	}
