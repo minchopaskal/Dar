@@ -140,7 +140,13 @@ void Sponza::update() {
 	Mat4 projectionMat = projectionType == ProjectionType::Perspective ? 
 		dmath::perspective(FOV, aspectRatio, 0.1f, 100.f) :
 		dmath::orthographic(-orthoDim * aspectRatio, orthoDim * aspectRatio, -orthoDim, orthoDim, 0.1f, 100.f);
-	mvp = projectionMat * viewMat * modelMat;
+	auto newMat = projectionMat * viewMat * modelMat;
+
+	if (newMat == mvp) {
+		return;
+	}
+
+	mvp = newMat;
 
 	/// Initialize the MVP constant buffer resource if needed
 	if (mvpBufferHandle[frameIndex] == INVALID_RESOURCE_HANDLE) {
@@ -256,6 +262,7 @@ bool Sponza::loadAssets() {
 		return false;
 	}
 
+	/* Create shader resource view heap which will store the handles to the textures */
 	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.NumDescriptors = scene.getNumTextures();
@@ -279,43 +286,15 @@ bool Sponza::loadAssets() {
 	psDesc.inputLayouts = inputLayouts;
 	psDesc.staticSamplerDesc = &sampler;
 	psDesc.numInputLayouts = _countof(inputLayouts);
-	psDesc.numConstantBufferViews = 1;
+	psDesc.numConstantBufferViews = 2; // One for the MVP matrix and one for the material data
 	psDesc.numTextures = scene.getNumTextures();
 	psDesc.maxVersion = rootSignatureFeatureData.HighestVersion;
 	if (!pipelineState.init(device, psDesc)) {
 		return false;
 	}
 
-	/* Create and copy data to the vertex buffer*/
-	//{
-	//	static VertexCustom cubeVertices[] = {
-	//		{ {-1.0f, -1.0f, -1.0f }, { 1.0f, 0.0f } }, // 0
-	//		{ {-1.0f,  1.0f, -1.0f }, { 1.0f, 1.0f } }, // 1
-	//		{ { 1.0f,  1.0f, -1.0f }, { 0.0f, 1.0f } }, // 2
-	//		{ { 1.0f, -1.0f, -1.0f }, { 0.0f, 0.0f } }, // 3
-	//		{ {-1.0f, -1.0f,  1.0f }, { 0.0f, 0.0f } }, // 4
-	//		{ {-1.0f,  1.0f,  1.0f }, { 0.0f, 1.0f } }, // 5
-	//		{ { 1.0f,  1.0f,  1.0f }, { 1.0f, 1.0f } }, // 6
-	//		{ { 1.0f, -1.0f,  1.0f }, { 1.0f, 0.0f } }, // 7
-	//		
-	//		{ {-1.0f,  1.0f, -1.0f }, { 1.0f, 0.0f } }, // 8
-	//		{ { 1.0f,  1.0f, -1.0f }, { 0.0f, 0.0f } }, // 9
-
-	//		{ {-1.0f, -1.0f, -1.0f }, { 0.0f, 1.0f } }, // 10
-	//		{ { 1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f } }, // 11
-	//	};
-	//	constexpr UINT vertexBufferSize = sizeof(cubeVertices);
-
-	//	static WORD cubeIndices[] = { 
-	//		0, 1, 2, 0, 2, 3,
-	//		4, 6, 5, 4, 7, 6,
-	//		4, 5, 1, 4, 1, 0,
-	//		3, 2, 6, 3, 6, 7,
-	//		8, 5, 6, 1, 6, 9,
-	//		4, 10, 11, 4, 11, 7
-	//	};
-	//	constexpr UINT indexBufferSize = sizeof(cubeIndices);
 	{
+		/* Create the vertex buffer*/
 		ResourceInitData vertData(ResourceType::DataBuffer);
 		vertData.size = scene.getVertexBufferSize();
 		vertData.name = L"VertexBuffer";
@@ -324,6 +303,7 @@ bool Sponza::loadAssets() {
 			return false;
 		}
 
+		/* Create the index buffer*/
 		ResourceInitData indexBufferData(ResourceType::DataBuffer);
 		indexBufferData.size = scene.getIndexBufferSize();
 		indexBufferData.name = L"IndexBuffer";
@@ -332,7 +312,7 @@ bool Sponza::loadAssets() {
 			return false;
 		}
 
-		/* Load the texture */
+		/* Load the texture and create buffers for them */
 		const SizeType numTextures = scene.getNumTextures();
 		textureHandles.resize(numTextures);
 
@@ -355,6 +335,7 @@ bool Sponza::loadAssets() {
 			}
 		}
 
+		/* Upload the vertex, index and texture buffers */
 		UploadHandle uploadHandle = resManager->beginNewUpload();
 
 		resManager->uploadBufferData(uploadHandle, vertexBufferHandle, scene.getVertexBuffer(), scene.getVertexBufferSize());
@@ -370,14 +351,18 @@ bool Sponza::loadAssets() {
 
 		resManager->uploadBuffers();
 
-		vertexBufferView.BufferLocation = vertexBufferHandle->GetGPUVirtualAddress();
-		vertexBufferView.SizeInBytes = scene.getVertexBufferSize();
-		vertexBufferView.StrideInBytes = sizeof(Vertex);
+		/* Create views for the vertex and index buffers */
+		{
+			vertexBufferView.BufferLocation = vertexBufferHandle->GetGPUVirtualAddress();
+			vertexBufferView.SizeInBytes = scene.getVertexBufferSize();
+			vertexBufferView.StrideInBytes = sizeof(Vertex);
 
-		indexBufferView.BufferLocation = indexBufferHandle->GetGPUVirtualAddress();
-		indexBufferView.SizeInBytes = scene.getIndexBufferSize();
-		indexBufferView.Format = DXGI_FORMAT_R16_UINT;
+			indexBufferView.BufferLocation = indexBufferHandle->GetGPUVirtualAddress();
+			indexBufferView.SizeInBytes = scene.getIndexBufferSize();
+			indexBufferView.Format = DXGI_FORMAT_R16_UINT;
+		}
 
+		/* Create SRVs for the textures so we can read them bindlessly in the shader */
 		SizeType srvHeapHandleSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 		D3D12_CPU_DESCRIPTOR_HANDLE handle = srvHeap->GetCPUDescriptorHandleForHeapStart();
 		for (int i = 0; i < numTextures; ++i) {

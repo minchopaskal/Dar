@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <type_traits>
 
 #ifdef min
 #undef min
@@ -9,6 +10,18 @@
 #ifdef max
 #undef max
 #endif
+
+template <class T>
+using ConstRefT = typename std::conditional<
+	sizeof(T) <= sizeof(void*), 
+	typename std::remove_reference_t<typename std::remove_const_t<T>>,
+	typename 
+		std::add_const_t<
+			std::remove_reference_t<
+				std::remove_const_t<T>
+			>
+		>&
+>::type;
 
 namespace dmath {
 
@@ -30,6 +43,15 @@ T max(T v1, T v2) {
 template <class T>
 T min(T v1, T v2) {
 	return v1 < v2 ? v1 : v2;
+}
+
+template <class T>
+bool areEqual(ConstRefT<T> a, ConstRefT<T> b) {
+	if constexpr (std::is_floating_point<T>::value) {
+		return std::abs(a - b) < T(1e-6);
+	} else {
+		return a == b;
+	}
 }
 
 #pragma pack(push, 1)
@@ -484,6 +506,16 @@ dmath::Packed::Vec3t<T> operator*(const dmath::Packed::Mat4t<T> &m, const dmath:
 	return dmath::Packed::Vec3t<T> {
 		m.row1.dot(v), m.row2.dot(v), m.row3.dot(v)
 	};
+}
+
+template <class T>
+bool operator==(const dmath::Packed::Vec4t<T> &v1, const dmath::Packed::Vec4t<T> &v2) {
+	return dmath::areEqual<T>(v1.x, v2.x) && dmath::areEqual<T>(v1.y, v2.y) && dmath::areEqual<T>(v1.z, v2.z) && dmath::areEqual<T>(v1.w, v2.w);
+}
+
+template <class T>
+bool operator==(const dmath::Packed::Mat4t<T> &m1, const dmath::Packed::Mat4t<T> &m2) {
+	return m1.row1 == m2.row1 && m1.row2 == m2.row2 && m1.row3 == m2.row3 && m1.row4 == m2.row4;
 }
 
 using Vec2 = dmath::Packed::Vec2t<float>;

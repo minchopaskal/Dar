@@ -100,6 +100,14 @@ struct Scene {
 	Vector<unsigned int> indices;
 	BBox sceneBox;
 
+	// TODO: add res manager ptr
+	// we would need to somehow upload
+	// materials to a constant buffer
+	// so the frag shader knows which texture ids to read.
+	// Cache material handles and before draw calls
+	// transition them to constant_view, then SetGraphicsRootConstantBufferView(1, theHandle).
+	// Should work I guess
+
 	MaterialId getNewMaterial() {
 		Material m;
 		m.id = materials.size();

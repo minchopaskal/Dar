@@ -9,6 +9,8 @@ void Model::draw(CommandList &cmdList, const Scene &scene) const {
 		// we'll need to read the material data for the mesh's material.
 		// Materials are global and reside in the scene object.
 
+
+
 		cmdList->DrawIndexedInstanced(mesh.numIndices, 1, mesh.indexOffset, 0, 0);
 	}
 }
