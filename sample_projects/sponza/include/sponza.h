@@ -20,6 +20,7 @@ struct Sponza : D3D12App {
 	void onResize(const unsigned int w, const unsigned int h) override;
 	void onKeyboardInput(int key, int action) override;
 	void onMouseScroll(double xOffset, double yOffset) override;
+	void onMouseMove(double xPos, double yPos) override;
 
 private:
 	CommandList populateCommandList();
@@ -70,7 +71,13 @@ private:
 	// Scene
 	Scene scene;
 
-	float FOV;
+	// Camera data
+	// TODO: abstract the camera
+	float FOV = 90.f;
+	Vec3 camUp = { 0.f, 1.f, 0.f };
+	Vec3 camForward = { 0.f, 0.f, 1.f };
+	Vec3 camRight = { 1.f, 0.f, 0.f };
+	Vec3 camPos = { 0.f, 0.f, 0.f };
 
 	// timing
 	double fps;

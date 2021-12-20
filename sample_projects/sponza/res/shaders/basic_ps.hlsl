@@ -10,10 +10,10 @@ struct PSInput
 };
 
 SamplerState Sampler : register(s0);
-ConstantBuffer<MaterialData> materials : register(b0);
+ConstantBuffer<MaterialData> material : register(b1);
 
 float4 main(PSInput IN) : SV_TARGET
 {
-	Texture2D<float4> tex = ResourceDescriptorHeap[0];
+	Texture2D<float4> tex = ResourceDescriptorHeap[material.diffuse];
 	return tex.Sample(Sampler, IN.uv);
 }

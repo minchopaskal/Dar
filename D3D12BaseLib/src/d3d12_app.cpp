@@ -60,6 +60,10 @@ void processKeyboardInput(GLFWwindow *window) {
 	}
 }
 
+void cursorPositionCallback(GLFWwindow* window, double xpos, double ypos) {
+	app->onMouseMove(xpos, ypos);
+}
+
 ////////////
 // D3D12App
 ////////////
@@ -164,6 +168,7 @@ int D3D12App::init() {
 	glfwSetKeyCallback(glfwWindow, keyCallback);
 	glfwSetScrollCallback(glfwWindow, scrollCallback);
 	glfwSetWindowPosCallback(glfwWindow, windowPosCallback);
+	glfwSetCursorPosCallback(glfwWindow, cursorPositionCallback);
 
 	window = glfwGetWin32Window(glfwWindow);
 

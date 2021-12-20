@@ -427,7 +427,11 @@ bool CudaRasterizer::updateRenderTargetViews() {
 		device->CreateRenderTargetView(backBuffers[i].Get(), nullptr, rtvHandle);
 
 		// Register the back buffer's resources manually since the resource manager doesn't own them, the swap chain does.
+#ifdef D3D12_DEBUG
+		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, D3D12_RESOURCE_STATE_PRESENT, ResourceType::RenderTargetView);
+#else
 		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, D3D12_RESOURCE_STATE_PRESENT);
+#endif
 
 		rtvHandle.Offset(rtvHeapHandleIncrementSize);
 	}

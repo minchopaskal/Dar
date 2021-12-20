@@ -22,7 +22,7 @@ VSOutput main(VSInput IN)
 {
 	VSOutput result;
 
-	result.position = float4(IN.position, 1.f);// mul(MVPConstBuf.MVP, float4(IN.position, 1.f));
+	result.position = mul(MVPConstBuf.MVP, float4(IN.position, 1.f));
 	result.uv = IN.uv;
 	
 	return result;

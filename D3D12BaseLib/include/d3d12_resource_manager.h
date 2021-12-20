@@ -7,7 +7,6 @@
 using SubresStates = Vector<D3D12_RESOURCE_STATES>;
 using UploadHandle = SizeType;
 
-#define INVALID_RESOURCE_HANDLE SizeType(0)
 #define INVALID_UPLOAD_HANDLE SizeType(0)
 
 enum class ResourceType : int {

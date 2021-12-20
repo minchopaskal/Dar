@@ -164,29 +164,28 @@ struct Vec3t {
 		z = other.z;
 		return *this;
 	}
-	Vec3t(Vec3t &&other) : x(other.x), y(other.y), z(other.z) { }
 
-	Vec3t operator+(const Vec3t &v) const {
+	[[nodiscard]] Vec3t operator+(const Vec3t &v) const {
 		return Vec3t{ x + v.x, y + v.y, z + v.z };
 	}
 
-	Vec3t operator-(const Vec3t &v) const {
+	[[nodiscard]] Vec3t operator-(const Vec3t &v) const {
 		return Vec3t{ x - v.x, y - v.y, z - v.z };
 	}
 
-	Vec3t operator*(T v) const {
+	[[nodiscard]] Vec3t operator*(T v) const {
 		return Vec3t{ x * v, y * v, z * v };
 	}
 
-	Vec3t operator/(T v) const {
+	[[nodiscard]] Vec3t operator/(T v) const {
 		return Vec3t{ x / v, y / v, z / v };
 	}
 
-	Vec3t operator-() const {
+	[[nodiscard]] Vec3t operator-() const {
 		return Vec3t{ -x, -y, -z };
 	}
 
-	Vec3t cross(const Vec3t &v) const {
+	[[nodiscard]] Vec3t cross(const Vec3t &v) const {
 		return Vec3t{
 			y * v.z - z * v.y,
 			z * v.x - x * v.z,
@@ -194,19 +193,19 @@ struct Vec3t {
 		};
 	}
 
-	T dot(const Vec3t &v) const {
+	[[nodiscard]] T dot(const Vec3t &v) const {
 		return x * v.x + y * v.y + z * v.z;
 	}
 
-	T lengthSqr() const {
+	[[nodiscard]] T lengthSqr() const {
 		return dot(*this);
 	}
 
-	T length() const {
+	[[nodiscard]] T length() const {
 		return sqrt(lengthSqr());
 	}
 
-	Vec3t normalized() const {
+	[[nodiscard]] Vec3t normalized() const {
 		return *this / length();
 	}
 };
@@ -251,40 +250,121 @@ struct Vec4t {
 	}
 	Vec4t(Vec4t &&other) : x(other.x), y(other.y), z(other.z), w(other.w) { }
 
-	Vec4t operator+(const Vec4t &v) const {
+	[[nodiscard]] Vec4t operator+(const Vec4t &v) const {
 		return Vec4t{ x + v.x, y + v.y, z + v.z, w + v.w };
 	}
 
-	Vec4t operator-(const Vec4t &v) const {
+	[[nodiscard]] Vec4t operator-(const Vec4t &v) const {
 		return Vec4t{ x - v.x, y - v.y, z - v.z, w - v.w };
 	}
 
-	Vec4t operator*(T v) const {
+	[[nodiscard]] Vec4t operator*(T v) const {
 		return Vec4t{ x * v, y * v, z * v, w * v };
 	}
 
-	Vec4t operator/(T v) const {
+	[[nodiscard]] Vec4t operator/(T v) const {
 		return Vec4t{ x / v, y / v, z / v, w / v };
 	}
 
-	Vec4t operator-() const {
+	[[nodiscard]] Vec4t operator-() const {
 		return Vec4t{ -x, -y, -z, -w };
 	}
 
-	T dot(const Vec4t &v) const {
+	[[nodiscard]] T dot(const Vec4t &v) const {
 		return x * v.x + y * v.y + z * v.z + w * v.w;
 	}
 
-	T lengthSqr() const {
+	[[nodiscard]] T lengthSqr() const {
 		return dot(*this);
 	}
 
-	T length() const {
+	[[nodiscard]] T length() const {
 		return sqrt(lengthSqr());
 	}
 
-	Vec4t normalized() const {
+	[[nodiscard]] Vec4t normalized() const {
 		return *this / lenght();
+	}
+};
+
+template <class T>
+struct Mat3t {
+	using VecType = Vec3t<T>;
+
+	union {
+		struct {
+			VecType row1, row2, row3;
+		};
+		T data[9];
+	};
+
+	Mat3t() : Mat3t(T(1)) { }
+
+	Mat3t(T unit) {
+		T zero = T(0);
+		row1 = VecType{ unit, zero, zero };
+		row2 = VecType{ zero, unit, zero };
+		row3 = VecType{ zero, zero, unit };
+	}
+
+	Mat3t(T data[9]) {
+		copy(data);
+	}
+
+	Mat3t(const VecType rows[3]) {
+		SizeType offset = 0;
+		for (int i = 0; i < 3; ++i) {
+			memcpy(this->data + offset, rows[i].data, sizeof(VecType));
+			offset += 3;
+		}
+	}
+
+	Mat3t(const VecType &row1, const VecType &row2, const VecType &row3) :
+		row1(row1), row2(row2), row3(row3) {
+
+	}
+
+	Mat3t(const Mat3t &other) {
+		copy(other.data);
+	}
+
+	Mat3t& operator=(const Mat3t &other) {
+		if (this != &other) {
+			copy(other.data);
+		}
+
+		return *this;
+	}
+
+	[[nodiscard]] Mat3t inverse() const {
+		// TODO:
+		return Mat3t(T(1));
+	}
+
+	[[nodiscard]] Mat3t transpose() const {
+		return Mat3t{
+			VecType { row1.x, row2.x, row3.x },
+			VecType { row1.y, row2.y, row3.y },
+			VecType { row1.z, row2.z, row3.z },
+		};
+	}
+
+	[[nodiscard]] Mat3t rotate(const Vec3t<T> &vec, T deg) {
+		// TODO:
+		return Mat3t(T(1));
+	}
+
+	[[nodiscard]] Mat3t scale(const Vec3t<T> &scalar) {
+		return Mat3t{
+			row1 * scalar.x,
+			row2 * scalar.y,
+			row3 * scalar.z
+		};
+	}
+
+private:
+	void copy(const T data[9]) {
+		memcpy(this->data, data, sizeof(Mat3t));
 	}
 };
 
@@ -326,6 +406,11 @@ struct Mat4t {
 
 	}
 
+	Mat4t(const Mat3t<T> &rotationMatrix, const VecType &translationVector) :
+		row1(rotationMatrix.row1), row2(rotationMatrix.row2), row3(rotationMatrix.row3), row4(translationVector) {
+
+	}
+
 	Mat4t(const Mat4t &other) {
 		copy(other.data);
 	}
@@ -338,12 +423,12 @@ struct Mat4t {
 		return *this;
 	}
 
-	Mat4t inverse() const {
+	[[nodiscard]] Mat4t inverse() const {
 		// TODO:
 		return Mat4t(T(1));
 	}
 
-	Mat4t transpose() const {
+	[[nodiscard]] Mat4t transpose() const {
 		return Mat4t{
 			VecType { row1.x, row2.x, row3.x, row4.x },
 			VecType { row1.y, row2.y, row3.y, row4.y },
@@ -352,7 +437,7 @@ struct Mat4t {
 		};
 	}
 
-	Mat4t translate(const Vec3t<T> &vec) {
+	[[nodiscard]] Mat4t translate(const Vec3t<T> &vec) {
 		Mat4t result = *this;
 		result.row1.w += vec.x;
 		result.row2.w += vec.y;
@@ -361,7 +446,7 @@ struct Mat4t {
 		return result;
 	}
 
-	Mat4t rotate(const Vec3t<T> &vec, T deg) {
+	[[nodiscard]] Mat4t rotate(const Vec3t<T> &vec, T deg) {
 		T rad = radians(deg);
 		T cos = std::cos(rad);
 		T sin = std::sin(rad);
@@ -388,7 +473,7 @@ struct Mat4t {
 		return result * *this;
 	}
 
-	Mat4t scale(const Vec3t<T> &scalar) {
+	[[nodiscard]] Mat4t scale(const Vec3t<T> &scalar) {
 		return Mat4t{
 			row1 * scalar.x,
 			row2 * scalar.y,
@@ -403,11 +488,77 @@ private:
 	}
 };
 
+template <class T>
+struct Quatt {
+	/// Create a quaternion from an angle in degrees and a rotation axis
+	static Quatt makeQuat(T angle, const Vec3t<T> &axis) {
+		dassert(areEqual<T>(axis.lengthSqr(), T(1))); // make sure the axis is normalized
+
+		angle = radians(angle);
+
+		const T sinTheta = sin(angle / 2);
+		const T scalarPart = cos(angle / 2);
+		const Vec3t<T> vecPart = axis * sinTheta;
+		return Quatt(vecPart, scalarPart);
+	}
+
+	Quatt(Quatt&) = default;
+	Quatt& operator=(Quatt&) = default;
+
+	[[nodiscard]] Mat3t<T> getRotationMatrix() const {
+		const T one = T(1);
+		const T two = T(2);
+		return Mat3t<T> {
+			Vec3t<T>{
+				one - two * v.y * v.y - two * v.z * v. z,
+				two * v.x * v.y - two * s * v.z,
+				two * v.x * v.z + two * s * v.y
+			},
+			Vec3t<T>{
+				two * v.x * v.y + two * s * v.z,
+				one - two * v.x * v.x - two * v.z * v.z,
+				two * v.y * v.z - two * s * v.x
+			},
+			Vec3t<T>{
+				two * v.x * v.z - two * s * v.y,
+				two * v.y * v.z + two * s * v.x,
+				one - two * v.x * v.x - two * v.y * v.y
+			}
+		};
+	}
+	
+	[[nodiscard]] Quatt operator*(const Quatt &q) const {
+		return Quatt(
+			Vec3t<T>{ q.s * v + s * q.v + v.cross(q.v) },
+			s * q.s - v.dot(q.v)
+		);
+	}
+
+	[[nodiscard]] Quatt conjugate() const {
+		return Quatt{ -v.x, -v.y, -v.z, s };
+	}
+
+	[[nodiscard]] Vec3t<T> rotate(const Vec3t<T> &v) {
+		Quatt q1 = *this * Quatt(v, T(0));
+		Quatt q2 = q1 * conjugate();
+		return q2.v;
+	}
+
+private:
+	Quatt() : v(T(0)), s(T(0)) { }
+	Quatt(T x, T y, T z, T w) : v(x, y, z), s(w) { }
+	Quatt(const Vec3t<T> &v, T s) : v(v), s(s) { }
+	
+private:
+	Vec3t<T> v;
+	T s;
+};
+
 } // namespace /*Packed*/
 #pragma pack(pop)
 
 template <class VecT>
-VecT normalized(const VecT vec) {
+[[nodiscard]] VecT normalized(const VecT vec) {
 	return vec.normalized();
 }
 
@@ -465,6 +616,16 @@ Packed::Mat4t<T> orthographic(T left, T right, T bottom, T top, T nearPlane, T f
 	result.row3.w = -nearPlane * zDivisor;
 
 	return result;
+}
+
+template <template <class> class VecType, class T>
+VecType<T> lerp(const VecType<T> &v1, const VecType<T> &q2, T t) {
+
+}
+
+template <class T>
+Packed::Quatt<T> slerp(const Packed::Quatt<T> &q1, const Packed::Quatt<T> &q2, T t) {
+
 }
 
 } // namespace dmath
@@ -526,5 +687,8 @@ using Vec2i = dmath::Packed::Vec2t<int>;
 using Vec3i = dmath::Packed::Vec3t<int>;
 using Vec4i = dmath::Packed::Vec4t<int>;
 
+using Quat = dmath::Packed::Quatt<float>;
+
 using Mat = dmath::Packed::Mat4t<float>;
+using Mat3 = dmath::Packed::Mat3t<float>;
 using Mat4 = Mat;

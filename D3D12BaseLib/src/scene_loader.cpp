@@ -38,22 +38,19 @@ TextureId loadTexture(aiMaterial *aiMat, aiTextureType aiType, TextureType matTy
 	return scene.getNewTexture(path.C_Str(), matType);
 }
 
-void readMaterialDataForMesh(aiMesh *mesh, const aiScene *sc, Mesh &resMesh, Scene &scene) {
+MaterialId readMaterialDataForMesh(aiMesh *mesh, const aiScene *sc, Scene &scene) {
 	auto matIdx = mesh->mMaterialIndex;
 	if (matIdx < 0) {
-		resMesh.mat = INVALID_MATERIAL_ID;
-		return;
+		return INVALID_MATERIAL_ID;
 	}
-
-	resMesh.mat = scene.getNewMaterial();
 
 	aiMaterial *aiMat = sc->mMaterials[matIdx];
 
-	Material &mat = scene.getMaterial(resMesh.mat);
+	TextureId diffuse = loadTexture(aiMat, aiTextureType_DIFFUSE, TextureType::Diffuse, scene);
+	TextureId specular = loadTexture(aiMat, aiTextureType_SPECULAR, TextureType::Specular, scene);
+	TextureId normals = loadTexture(aiMat, aiTextureType_NORMALS, TextureType::Normals, scene);
 
-	mat.diffuse = loadTexture(aiMat, aiTextureType_DIFFUSE, TextureType::Diffuse, scene);
-	mat.specular = loadTexture(aiMat, aiTextureType_SPECULAR, TextureType::Specular, scene);
-	mat.normals = loadTexture(aiMat, aiTextureType_NORMALS, TextureType::Normals, scene);
+	return scene.getNewMaterial(diffuse, specular, normals);
 }
 
 void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode, Scene &scene, SizeType &vertexOffset, SizeType &indexOffset) {
@@ -74,7 +71,7 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 		Mesh resMesh;
 		resMesh.indexOffset = indexOffset;
 		resMesh.numIndices = mesh->mNumFaces ? mesh->mNumFaces * mesh->mFaces[0].mNumIndices : 0;
-		readMaterialDataForMesh(mesh, aiScene, resMesh, scene);
+		resMesh.mat = readMaterialDataForMesh(mesh, aiScene, scene);
 
 		// Make sure the next mesh knows where its indices begin
 		indexOffset += resMesh.numIndices;
@@ -150,8 +147,8 @@ SceneLoaderError loadScene(const String &path, Scene &scene) {
 		return SceneLoaderError::InvalidScene;
 	}
 
-	SizeType vertexOffset;
-	SizeType indexOffset;
+	SizeType vertexOffset = 0;
+	SizeType indexOffset = 0;
 	traverseAssimpScene(assimpScene->mRootNode, assimpScene, nullptr, scene, vertexOffset, indexOffset);
 
 	return SceneLoaderError::Success;

@@ -56,7 +56,7 @@ void CommandList::transition(ResourceHandle resource, D3D12_RESOURCE_STATES stat
 	
 	if (lastStates.find(resource) != lastStates.end()) { // the resource was already transitioned once
 		SubresStates &states = lastStates[resource];
-		for (int i = 0; i < states.size(); ++i) {		// Check whether the subresource was transitioned
+		for (int i = 0; i < states.size(); ++i) {	// Check whether the subresource was transitioned
 			if (subresourceIndex != D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES && subresourceIndex != i) {
 				continue;
 			}

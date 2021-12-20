@@ -4,6 +4,7 @@
 #include "d3d12_math.h"
 
 #include "d3d12_command_list.h"
+#include "d3d12_resource_handle.h"
 
 using TextureId = SizeType;
 using MaterialId = SizeType;
@@ -75,9 +76,64 @@ struct Model : Node {
 	void draw(CommandList &cmdList, const Scene &scene) const override;
 };
 
+enum class CameraType : int {
+	Invalid = 0,
+	Perspective,
+	Orthographic,
+
+	Count
+};
+
 // TODO: implement cameras import
 struct Camera : Node {
+	static Camera&& perspectiveCamera(const Vec3 &pos, float fov, float aspectRatio, float nearPlane, float farPlane);
+	static Camera&& orthographicCamera(const Vec3 &pos, float renderRectWidth, float renderRectHeight, float nearPlane, float farPlane);
+	
+	Camera(Camera&&) = default;
+	Camera& operator=(Camera&&) = default;
+
 	void draw(CommandList&, const Scene &scene) const override { }
+
+	/// Get the world-to-camera transformation
+	Mat4 getViewMatrix() const;
+	
+	/// Get the camera-to-clip transformation
+	Mat4 getProjectionMatrix() const;
+
+	/// Add `magnitude` to the camera position
+	void move(const Vec3 &magnitude);
+
+	/// Rotate the camera around `axis` by `amount` radians
+	void rotate(const Vec3 &axis, float amount);
+
+	/// Zoom by factor
+	void zoom(float factor);
+
+private:
+	Camera() = default;
+
+private:
+	Quat orientation = Quat::makeQuat(0.f, Vec3(0.f, 1.f, 0.f));
+	Vec3 pos = Vec3(0.f, 0.f, 0.f);
+
+	// Frustum
+	// TODO: probably abstraction for the frustum?
+	union { 
+		struct /*PerspectiveData*/ {
+			float fov; ///< vertical FOV
+			float aspectRatio; ///< aspect ratio
+		};
+
+		struct /*OrthographicData*/ {
+			float width;
+			float height;
+		};
+	};
+
+	float nearPlane;
+	float farPlane;
+
+	CameraType type = CameraType::Invalid;
 };
 
 // TODO: implement lights import
@@ -95,23 +151,22 @@ struct Vertex {
 struct Scene {
 	Vector<Node*> nodes;
 	Vector<Material> materials;
+	Vector<ResourceHandle> materialHandles;
 	Vector<Texture> textures;
 	Vector<Vertex> vertices;
 	Vector<unsigned int> indices;
 	BBox sceneBox;
 
-	// TODO: add res manager ptr
-	// we would need to somehow upload
-	// materials to a constant buffer
-	// so the frag shader knows which texture ids to read.
-	// Cache material handles and before draw calls
-	// transition them to constant_view, then SetGraphicsRootConstantBufferView(1, theHandle).
-	// Should work I guess
+	Scene();
 
-	MaterialId getNewMaterial() {
+	MaterialId getNewMaterial(TextureId diffuse, TextureId specular, TextureId normals) {
 		Material m;
 		m.id = materials.size();
+		m.diffuse = diffuse;
+		m.specular = specular;
+		m.normals = normals;
 		materials.push_back(m);
+		materialHandles.push_back(INVALID_RESOURCE_HANDLE);
 		return m.id;
 	}
 
@@ -127,19 +182,9 @@ struct Scene {
 		return res.id;
 	}
 
-	Material& getMaterial(MaterialId id) {
-		dassert(id >= 0 && id < materials.size() && id != INVALID_MATERIAL_ID);
-		return materials[id];
-	}
-
 	const Material& getMaterial(MaterialId id) const {
 		dassert(id >= 0 && id < materials.size() && id != INVALID_MATERIAL_ID);
 		return materials[id];
-	}
-
-	Texture& getTexture(TextureId id) {
-		dassert(id >= 0 && id < textures.size() && id != INVALID_TEXTURE_ID);
-		return textures[id];
 	}
 
 	const Texture& getTexture(TextureId id) const {
@@ -163,9 +208,24 @@ struct Scene {
 		return indices.size() == 0 ? 0 : indices.size() * sizeof(indices[0]);
 	}
 
+	const ResourceHandle& getMaterialHandle(MaterialId id) const {
+		dassert(id >= 0 && id < materials.size() && id != INVALID_MATERIAL_ID);
+		return materialHandles[id];
+	}
+
+	const SizeType getNumNodes() const {
+		return nodes.size();
+	}
+
 	const SizeType getNumTextures() const {
 		return textures.size();
 	}
+
+	const SizeType getNumMaterials() const {
+		return materials.size();
+	}
+
+	void uploadMaterialBuffers();
 
 	void draw(CommandList &cmdList) const;
 

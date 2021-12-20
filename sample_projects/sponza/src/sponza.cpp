@@ -130,23 +130,16 @@ void Sponza::update() {
 	const auto angle = static_cast<float>(totalTime * 90.0);
 	const auto rotationAxis = Vec3(0, 1, 1);
 	auto modelMat = Mat4(1.f);
-	modelMat = modelMat.rotate(rotationAxis, angle);
-	modelMat = modelMat.translate({ 0, 0, 0 });
+	modelMat = modelMat.translate(camPos);
 
-	const auto eyePosition = Vec3(0, 0, 0);
-	const auto focusPoint  = Vec3(0, 0, 10);
-	const auto upDirection = Vec3(0, 1, 0);
+	const auto eyePosition = camPos;
+	const auto focusPoint = (camForward - camPos).normalized();
+	const auto upDirection = camUp;
 	Mat4 viewMat = dmath::lookAt(focusPoint, eyePosition, upDirection);
 	Mat4 projectionMat = projectionType == ProjectionType::Perspective ? 
 		dmath::perspective(FOV, aspectRatio, 0.1f, 100.f) :
 		dmath::orthographic(-orthoDim * aspectRatio, orthoDim * aspectRatio, -orthoDim, orthoDim, 0.1f, 100.f);
-	auto newMat = projectionMat * viewMat * modelMat;
-
-	if (newMat == mvp) {
-		return;
-	}
-
-	mvp = newMat;
+	mvp = projectionMat * viewMat * modelMat;
 
 	/// Initialize the MVP constant buffer resource if needed
 	if (mvpBufferHandle[frameIndex] == INVALID_RESOURCE_HANDLE) {
@@ -255,17 +248,24 @@ void Sponza::onMouseScroll(double xOffset, double yOffset) {
 	}
 }
 
+void Sponza::onMouseMove(double xPos, double yPos) {
+	// implement FPS movement for debugging
+}
+
 bool Sponza::loadAssets() {
 	SceneLoaderError sceneLoadErr = loadScene("res\\scenes\\Sponza\\glTF\\Sponza.gltf", scene);
 	if (sceneLoadErr != SceneLoaderError::Success) {
-		dassert(false, "Error loading Sponza.gltf scene!");
+		dassert(false);
 		return false;
 	}
+
+	scene.uploadMaterialBuffers();
+	// TODO: upload textures through the scene, also
 
 	/* Create shader resource view heap which will store the handles to the textures */
 	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	srvHeapDesc.NumDescriptors = scene.getNumTextures();
+	srvHeapDesc.NumDescriptors = static_cast<UINT>(scene.getNumTextures());
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	srvHeapDesc.NodeMask = 0;
 	RETURN_FALSE_ON_ERROR(
@@ -287,7 +287,7 @@ bool Sponza::loadAssets() {
 	psDesc.staticSamplerDesc = &sampler;
 	psDesc.numInputLayouts = _countof(inputLayouts);
 	psDesc.numConstantBufferViews = 2; // One for the MVP matrix and one for the material data
-	psDesc.numTextures = scene.getNumTextures();
+	psDesc.numTextures = static_cast<UINT>(scene.getNumTextures());
 	psDesc.maxVersion = rootSignatureFeatureData.HighestVersion;
 	if (!pipelineState.init(device, psDesc)) {
 		return false;
@@ -319,7 +319,7 @@ bool Sponza::loadAssets() {
 		Vector<ImageData> texData(numTextures);
 		Vector<ComPtr<ID3D12Resource>> stagingImageBuffers(numTextures);
 		for (int i = 0; i < numTextures; ++i) {
-			Texture &tex = scene.getTexture(i);
+			const Texture &tex = scene.getTexture(i);
 			texData[i] = loadImage(tex.path);
 			wchar_t textureName[32] = L"";
 			swprintf(textureName, 32, L"Texture[%d]", i);
@@ -354,11 +354,11 @@ bool Sponza::loadAssets() {
 		/* Create views for the vertex and index buffers */
 		{
 			vertexBufferView.BufferLocation = vertexBufferHandle->GetGPUVirtualAddress();
-			vertexBufferView.SizeInBytes = scene.getVertexBufferSize();
+			vertexBufferView.SizeInBytes = static_cast<UINT>(scene.getVertexBufferSize());
 			vertexBufferView.StrideInBytes = sizeof(Vertex);
 
 			indexBufferView.BufferLocation = indexBufferHandle->GetGPUVirtualAddress();
-			indexBufferView.SizeInBytes = scene.getIndexBufferSize();
+			indexBufferView.SizeInBytes = static_cast<UINT>(scene.getIndexBufferSize());
 			indexBufferView.Format = DXGI_FORMAT_R16_UINT;
 		}
 
@@ -424,7 +424,6 @@ CommandList Sponza::populateCommandList() {
 	commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
 	commandList->SetGraphicsRootConstantBufferView(0, mvpBufferHandle[frameIndex]->GetGPUVirtualAddress());
 
-	//commandList->DrawIndexedInstanced(36, 1, 0, 0, 0);
 	scene.draw(commandList);
 
 	renderUI(commandList, rtvHandle);

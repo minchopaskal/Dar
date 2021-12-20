@@ -68,6 +68,7 @@ struct D3D12App {
 	virtual void onResize(const unsigned int w, const unsigned int h) = 0;
 	virtual void onKeyboardInput(int key, int action) = 0;
 	virtual void onMouseScroll(double xOffset, double yOffset) = 0;
+	virtual void onMouseMove(double xOffset, double yOffset) { };
 	virtual void onWindowPosChange(int xPos, int yPos) { }
 
 public:
@@ -121,4 +122,5 @@ private:
 	friend void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
 	friend void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 	friend void windowPosCallback(GLFWwindow *window, int xpos, int ypos);
+	friend void cursorPositionCallback(GLFWwindow* window, double xpos, double ypos);
 };

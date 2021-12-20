@@ -4,7 +4,8 @@
 
 struct ID3D12Resource;
 
-static constexpr SizeType INVALID_RESOURCE_HANDLE = 0;
+#define INVALID_RESOURCE_HANDLE SizeType(0)
+
 struct ResourceHandle {
 	SizeType handle;
 
