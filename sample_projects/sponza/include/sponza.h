@@ -1,10 +1,13 @@
 #pragma once
 
 #include "d3d12_app.h"
+#include "d3d12_camera.h"
 #include "d3d12_defines.h"
 #include "d3d12_math.h"
 #include "d3d12_pipeline_state.h"
 #include "d3d12_scene.h"
+
+#include "camera_controller.h"
 
 struct Sponza : D3D12App {
 	Sponza(UINT width, UINT height, const String &windowTitle);
@@ -72,12 +75,14 @@ private:
 	Scene scene;
 
 	// Camera data
-	// TODO: add camera controller
 	float FOV = 90.f;
 	Vec3 camUp = { 0.f, 1.f, 0.f };
 	Vec3 camForward = { 0.f, 0.f, 1.f };
 	Vec3 camRight = { 1.f, 0.f, 0.f };
 	Vec3 camPos = { 0.f, 0.f, 0.f };
+
+	Camera cam;
+	FPSCameraController camControl;
 
 	// timing
 	double fps;

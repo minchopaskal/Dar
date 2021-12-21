@@ -12,17 +12,16 @@ enum class CameraType : int {
 
 // TODO: implement cameras import
 struct Camera {
-	static Camera&& perspectiveCamera(const Vec3 &pos, float fov, float aspectRatio, float nearPlane, float farPlane);
-	static Camera&& orthographicCamera(const Vec3 &pos, float renderRectWidth, float renderRectHeight, float nearPlane, float farPlane);
+	static Camera perspectiveCamera(const Vec3 &pos, float fov, float aspectRatio, float nearPlane, float farPlane);
+	static Camera orthographicCamera(const Vec3 &pos, float renderRectWidth, float renderRectHeight, float nearPlane, float farPlane);
 
-	Camera(Camera&&) = default;
-	Camera& operator=(Camera&&) = default;
+	Camera() : fov(90.f), aspectRatio(1.f) { }
 
 	/// Get the world-to-camera transformation
-	Mat4 getViewMatrix() const;
+	Mat4 getViewMatrix();
 
 	/// Get the camera-to-clip transformation
-	Mat4 getProjectionMatrix() const;
+	Mat4 getProjectionMatrix();
 
 	/// Add `magnitude` to the camera position
 	void move(const Vec3 &magnitude);
@@ -33,12 +32,63 @@ struct Camera {
 	/// Zoom by factor
 	void zoom(float factor);
 
-private:
-	Camera() : fov(90.f), aspectRatio(1.f) { }
+	void yaw(float angleDeg);
+	void pitch(float angleDeg);
+	void roll(float angleDeg);
+
+	/// Move camera along its forward vector.
+	/// Negative amount would move the camera backwards.
+	/// @param amount scaling factor for the unit forward vector.
+	void moveForward(float amount);
+
+	/// Move camera along its sideways vector.
+	/// Negative amount would move the camera in the opposite direction.
+	/// @param amount scaling factor for the unit sideways vector.
+	void moveRight(float amount);
+
+	/// Same as forward() and right()
+	void moveUp(float amount);
+
+	void setKeepXZPlane(bool keep) { keepXZ = keep; }
+
+	Vec3 getCameraZ() {
+		updateOrientation();
+		return forwardVector;
+	}
+
+	Vec3 getCameraX() {
+		updateOrientation();
+		return rightVector;
+	}
+
+	Vec3 getCameraY() {
+		updateOrientation();
+		return upVector;
+	}
+
+	Vec3 getPos() {
+		return pos;
+	}
+
+	float getFOV() { return fov; }
 
 private:
-	Quat orientation = Quat::makeQuat(0.f, Vec3(0.f, 1.f, 0.f));
+	void updateOrientation();
+	void updateViewMatrix();
+
+private:
+	Mat4 viewMatrix = Mat4(1.f);
+	Mat4 projectionMatrix = Mat4(1.f);
+
 	Vec3 pos = Vec3(0.f, 0.f, 0.f);
+	
+	struct /* Camera vectors cache */ {
+		Vec3 forwardVector = Vec3::unitZ();
+		Vec3 upVector = Vec3::unitY();
+		Vec3 rightVector = Vec3::unitX();
+	};
+
+	CameraType type = CameraType::Invalid;
 
 	// Frustum
 	// TODO: probably abstraction for the frustum?
@@ -57,5 +107,12 @@ private:
 	float nearPlane = 0.001f;
 	float farPlane = 100.f;
 
-	CameraType type = CameraType::Invalid;
+	float yawAngle = 0.f;
+	float pitchAngle = 0.f;
+	float rollAngle = 0.f;
+
+	bool keepXZ = false;
+	bool orientationValid = false;
+	bool viewMatrixValid = false;
+	bool projectionMatrixValid = false;
 };

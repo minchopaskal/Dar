@@ -54,7 +54,10 @@ while (false)
 #define RETURN_FALSE_ON_ERROR_FMT(cmd, msg, ...) RETURN_ON_ERROR_FMT((cmd), false, (msg), __VA_ARGS__)
 
 #ifdef D3D12_DEBUG
-#define dassert(exp) assert(exp)
+#define dassert(exp) \
+  if (!(exp)) { \
+    DebugBreak(); \
+  }
 #else
 #define dassert(exp) (void)0
 #endif

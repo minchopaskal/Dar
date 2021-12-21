@@ -8,8 +8,8 @@ set(SUBMODULE_DIR ${PROJECT_SOURCE_DIR}/third_party)
 set(LIB_DIR ${PROJECT_SOURCE_DIR}/lib)
 
 set(HEADERS
-	${INCLUDE_DIR}/sponza.h
 	${INCLUDE_DIR}/geometry.h
+	${INCLUDE_DIR}/sponza.h
 )
 
 set(SOURCES

@@ -4,13 +4,15 @@
 
 #include "d3d12_command_queue.h"
 
+#include "d3d12_input_query.h"
+
 #include <bitset>
 
 struct GLFWwindow;
 struct ResourceManager;
 struct CommandList;
 
-struct D3D12App {
+struct D3D12App : public IKeyboardInputQuery {
 	D3D12App(UINT width, UINT height, const char *windowTitle);
 	virtual ~D3D12App();
 
@@ -27,8 +29,9 @@ struct D3D12App {
 	/// NB doesn't flush the resource manager's copy Queue.
 	void flush();
 
-	/// Initialization work. Overrieds should at leat call D3D12App::init() in order to
-	/// initialize DirectX12 and other systems.
+	/// Initialization work. Should call D3D12App::init to initialize the
+	/// DirectX12 API.
+	/// @param initFlags flags used by D3D12App for initialization.
 	virtual int init() = 0;
 
 	/// Deinitialize the app.
@@ -63,6 +66,9 @@ struct D3D12App {
 
 	/// Return height of window
 	int getHeight() const;
+
+	// Inherited by IInputQuery
+	ButtonState query(char key) override;
 
 	// TODO: mouse callback, etc.
 	virtual void onResize(const unsigned int w, const unsigned int h) = 0;

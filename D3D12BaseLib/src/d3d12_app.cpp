@@ -170,6 +170,8 @@ int D3D12App::init() {
 	glfwSetWindowPosCallback(glfwWindow, windowPosCallback);
 	glfwSetCursorPosCallback(glfwWindow, cursorPositionCallback);
 
+	glfwSetInputMode(glfwWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
 	window = glfwGetWin32Window(glfwWindow);
 
 #if defined(D3D12_DEBUG)
@@ -363,6 +365,20 @@ int D3D12App::getWidth() const {
 
 int D3D12App::getHeight() const {
 	return height;
+}
+
+ButtonState D3D12App::query(char key) {
+	key = isalpha(key) ? toupper(key) : key;
+
+	if (key < GLFW_KEY_0 || key > GLFW_KEY_Z) {
+		return { false, false };
+	}
+
+	ButtonState res;
+	res.pressed = keyPressed[key];
+	res.repeated = keyRepeated[key];
+
+	return res;
 }
 
 void D3D12App::toggleFullscreen() {

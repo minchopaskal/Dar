@@ -1,31 +1,33 @@
 #include "d3d12_camera.h"
 #include "d3d12_defines.h"
 
-Mat4 Camera::getViewMatrix() const {
-	Mat3 rotMatrix = orientation.getRotationMatrix();
+Mat4 Camera::getViewMatrix() {
+	if (type == CameraType::Invalid) {
+		dassert(false);
+		return Mat4(1.f);
+	}
 
-	Vec3 translation = -rotMatrix * pos;
+	updateViewMatrix();
 
-	Mat4 result{ orientation.getRotationMatrix(), Vec4(0.f, 0.f, 0.f, 1.f) };
-	result.row1.w = translation.x;
-	result.row2.w = translation.y;
-	result.row3.w = translation.z;
-
-	return result;
+	return viewMatrix;
 }
 
 void Camera::move(const Vec3 &magnitude) {
 	pos = pos + magnitude;
+
+	viewMatrixValid = false;
 }
 
 void Camera::rotate(const Vec3 &axis, float angle) {
-	orientation *= Quat::makeQuat(angle, axis);
+	updateViewMatrix(); // update the view matrix if needed
+
+	viewMatrix = viewMatrix.rotate(axis, angle);
 }
 
 void Camera::zoom(float zoomFactor) {
 	switch (type) {
 	case CameraType::Perspective:
-		fov = dmath::min(dmath::max(30.f, atan(tan(fov) / zoomFactor)), 150.f);
+		fov = dmath::min(dmath::max(30.f, fov / zoomFactor), 150.f);
 		break;
 	case CameraType::Orthographic:
 		// TODO:
@@ -34,9 +36,80 @@ void Camera::zoom(float zoomFactor) {
 		dassert(false);
 		break;
 	}
+
+	projectionMatrixValid = false;
 }
 
-Camera&& Camera::perspectiveCamera(const Vec3 &pos, float fov, float aspectRatio, float nearPlane, float farPlane) {
+void Camera::yaw(float angleDeg) {
+	yawAngle -= angleDeg;
+	orientationValid = false;
+	viewMatrixValid = false;
+}
+
+void Camera::pitch(float angleDeg) {
+	pitchAngle -= angleDeg;
+	pitchAngle = dmath::min(dmath::max(-89.f, pitchAngle), 89.f);
+	orientationValid = false;
+	viewMatrixValid = false;
+}
+
+void Camera::roll(float angleDeg) {
+	rollAngle -= angleDeg;
+	orientationValid = false;
+	viewMatrixValid = false;
+}
+
+void Camera::moveForward(float amount) {
+	updateOrientation();
+	float y = pos.y;
+	move(forwardVector * amount);
+	if (keepXZ) {
+		pos.y = y;
+	}
+}
+
+void Camera::moveRight(float amount) {
+	updateOrientation();
+	float y = pos.y;
+	move(rightVector * amount);
+	if (keepXZ) {
+		pos.y = y;
+	}
+}
+
+void Camera::moveUp(float amount) {
+	updateOrientation();
+	move(upVector * amount);
+}
+
+void Camera::updateOrientation() {
+	if (orientationValid) {
+		return;
+	}
+
+	forwardVector.x = cos(dmath::radians(pitchAngle)) * cos(dmath::radians(yawAngle));
+	forwardVector.y = sin(dmath::radians(pitchAngle));
+	forwardVector.z = sin(dmath::radians(yawAngle)) * cos(dmath::radians(pitchAngle));
+	forwardVector = forwardVector.normalized();
+	rightVector = Vec3::unitY().cross(forwardVector).normalized();
+	upVector = forwardVector.cross(rightVector).normalized();
+
+	orientationValid = true;
+}
+
+void Camera::updateViewMatrix() {
+	if (viewMatrixValid) {
+		return;
+	}
+
+	updateOrientation();
+
+	viewMatrix = dmath::lookAt(pos + forwardVector, pos, Vec3::unitY());
+
+	viewMatrixValid = true;
+}
+
+Camera Camera::perspectiveCamera(const Vec3 &pos, float fov, float aspectRatio, float nearPlane, float farPlane) {
 	Camera res;
 
 	res.pos = pos;
@@ -46,10 +119,10 @@ Camera&& Camera::perspectiveCamera(const Vec3 &pos, float fov, float aspectRatio
 	res.farPlane = farPlane;
 	res.type = CameraType::Perspective;
 
-	return std::move(res);
+	return res;
 }
 
-Camera&& Camera::orthographicCamera(const Vec3 &pos, float renderRectWidth, float renderRectHeight, float nearPlane, float farPlane) {
+Camera Camera::orthographicCamera(const Vec3 &pos, float renderRectWidth, float renderRectHeight, float nearPlane, float farPlane) {
 	Camera res;
 
 	res.pos = pos;
@@ -59,17 +132,26 @@ Camera&& Camera::orthographicCamera(const Vec3 &pos, float renderRectWidth, floa
 	res.farPlane = farPlane;
 	res.type = CameraType::Orthographic;
 
-	return std::move(res);
+	return res;
 }
 
-Mat4 Camera::getProjectionMatrix() const {
+Mat4 Camera::getProjectionMatrix() {
+	if (projectionMatrixValid) {
+		return projectionMatrix;
+	}
+
 	switch (type) {
 	case CameraType::Perspective:
-		return dmath::perspective(fov, aspectRatio, nearPlane, farPlane);
+		projectionMatrix = dmath::perspective(fov, aspectRatio, nearPlane, farPlane);
+		break;
 	case CameraType::Orthographic:
-		return dmath::orthographic(-(width / 2), width / 2, -(height / 2), height / 2, nearPlane, farPlane);
+		projectionMatrix = dmath::orthographic(-(width / 2), width / 2, -(height / 2), height / 2, nearPlane, farPlane);
+		break;
 	default:
 		dassert(false);
 		return Mat4(1.f);
 	}
+
+	projectionMatrixValid = true;
+	return projectionMatrix;
 }

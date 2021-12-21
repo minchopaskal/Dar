@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <cstring>
 #include <type_traits>
 
 #ifdef min
@@ -27,12 +28,12 @@ namespace dmath {
 
 template <class T>
 T radians(T degrees) {
-	return degrees * static_cast< T >(0.01745329251994329576923690768489);
+	return degrees * static_cast<T>(0.01745329251994329576923690768489);
 }
 
 template <class T>
 T degrees(T radians) {
-	return radians * static_cast< T >(57.295779513082320876798154814105);
+	return radians * static_cast<T>(57.295779513082320876798154814105);
 }
 
 template <class T>
@@ -153,6 +154,19 @@ struct Vec3t {
 
 	Vec3t(T x, T y, T z) : x(x), y(y), z(z) { }
 
+	// Basis vectors for the coordinate system this math library uses
+	static Vec3t unitX() {
+		return Vec3t{ T(1), T(0), T(0) };
+	}
+
+	static Vec3t unitY() {
+		return Vec3t{ T(0), T(1), T(0) };
+	}
+
+	static Vec3t unitZ() {
+		return Vec3t{ T(0), T(0), T(1) };
+	}
+
 	Vec3t(const Vec3t &other) : x(other.x), y(other.y), z(other.z) { }
 	Vec3t& operator=(const Vec3t &other) {
 		if (this == &other) {
@@ -165,16 +179,44 @@ struct Vec3t {
 		return *this;
 	}
 
+	Vec3t& operator+=(const Vec3t &v) {
+		x += v.x;
+		y += v.y;
+		z += v.z;
+		return *this;
+	}
+
 	[[nodiscard]] Vec3t operator+(const Vec3t &v) const {
 		return Vec3t{ x + v.x, y + v.y, z + v.z };
+	}
+
+	Vec3t& operator-=(const Vec3t &v) {
+		x -= v.x;
+		y -= v.y;
+		z -= v.z;
+		return *this;
 	}
 
 	[[nodiscard]] Vec3t operator-(const Vec3t &v) const {
 		return Vec3t{ x - v.x, y - v.y, z - v.z };
 	}
 
+	Vec3t& operator*=(T v) {
+		x *= v;
+		y *= v;
+		z *= v;
+		return *this;
+	}
+
 	[[nodiscard]] Vec3t operator*(T v) const {
 		return Vec3t{ x * v, y * v, z * v };
+	}
+
+	Vec3t& operator/=(T v) {
+		x /= v;
+		y /= v;
+		z /= v;
+		return *this;
 	}
 
 	[[nodiscard]] Vec3t operator/(T v) const {
@@ -510,8 +552,20 @@ struct Quatt {
 		return Quatt(vecPart, scalarPart);
 	}
 
-	Quatt(Quatt&) = default;
-	Quatt& operator=(Quatt&) = default;
+	static Quatt identity() {
+		return Quatt(Vec3t<T>(T(0)), T(1));
+	}
+
+	Quatt(Quatt &o) : v(o.v), s(o.s) { }
+	
+	Quatt& operator=(Quatt &o) {
+		if (this != &o) {
+			v = o.v;
+			s = o.s;
+		}
+
+		return *this;
+	}
 
 	[[nodiscard]] Mat3t<T> getRotationMatrix() const {
 		const T one = T(1);
@@ -535,28 +589,53 @@ struct Quatt {
 		};
 	}
 
+	// Grassman product
 	Quatt& operator*=(const Quatt &q) {
 		T newS = s * q.s - v.dot(q.v);
-		v = Vec3t<T>{ q.s * v + s * q.v + v.cross(q.v) };
+		v = Vec3t<T>{ s * q.v + q.s * v + v.cross(q.v) };
 		s = newS;
 
 		return *this;
 	}
 
 	[[nodiscard]] Quatt operator*(const Quatt &q) const {
-		Quat res = *this;
+		Quat res(v, s);
 		res *= q;
 		return res;
+	}
+
+	[[nodiscard]] Vec3t<T> operator*(const Vec3t<T> &v) const {
+		Quat res(this->v, this->s);
+		res *= Quatt(v, T(0));
+		return res.v;
+	}
+
+	Quatt& rotate(const Quatt &q) {
+		return *this *= q;
+	}
+
+	[[nodiscard]] Quatt rotated(const Quatt &q) const {
+		return *this * q;
 	}
 
 	[[nodiscard]] Quatt conjugate() const {
 		return Quatt{ -v.x, -v.y, -v.z, s };
 	}
 
-	[[nodiscard]] Vec3t<T> rotate(const Vec3t<T> &v) {
+	[[nodiscard]] Vec3t<T> rotateVec(const Vec3t<T> &v) {
 		Quatt q1 = *this * Quatt(v, T(0));
 		Quatt q2 = q1 * conjugate();
 		return q2.v;
+	}
+
+	[[nodiscard]] Quatt normalized() const {
+		const T len = sqrt(v.lengthSqr() + s * s);
+		
+		Quatt res(v, s);
+		res.v /= len;
+		res.s /= len;
+
+		return res;
 	}
 
 private:
@@ -581,12 +660,12 @@ template <class T>
 Packed::Mat4t<T> lookAt(const Packed::Vec3t<T> &target, const Packed::Vec3t<T> &pos, const Packed::Vec3t<T> &upTmp) {
 	// LH view
 	const Packed::Vec3t<T> in = (target - pos).normalized();
-	const Packed::Vec3t<T> left = upTmp.cross(in).normalized();
-	const Packed::Vec3t<T> up = in.cross(left).normalized();
+	const Packed::Vec3t<T> right = upTmp.cross(in).normalized();
+	const Packed::Vec3t<T> up = in.cross(right).normalized();
 
 	using VecType = Packed::Mat4t<T>::VecType;
 	return Packed::Mat4t<T> {
-		VecType(left, -left.dot(pos)),
+		VecType(right, -right.dot(pos)),
 		VecType(up, -up.dot(pos)),
 		VecType(in, -in.dot(pos)),
 		VecType(T(0), T(0), T(0), T(1))

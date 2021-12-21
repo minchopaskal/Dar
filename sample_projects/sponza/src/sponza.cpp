@@ -54,15 +54,17 @@ Sponza::Sponza(const UINT w, const UINT h, const String &windowTitle) :
 	depthBufferHandle(INVALID_RESOURCE_HANDLE),
 	mvpBufferHandle{ INVALID_RESOURCE_HANDLE },
 	textureHandles{ INVALID_RESOURCE_HANDLE },
-	viewport{ 0.f, 0.f, static_cast<float>(w), static_cast<float>(h), 0.001f, 100.f },
+	viewport{ 0.f, 0.f, static_cast<float>(w), static_cast<float>(h), 0.001f, 100000.f },
 	scissorRect{ 0, 0, LONG_MAX, LONG_MAX }, // always render on the entire screen
 	aspectRatio(static_cast<float>(w) / static_cast<float>(h)),
 	fenceValues{ 0 },
-	FOV(45.0),
+	camControl(&cam, 100.f),
 	fps(0.0),
 	totalTime(0.0),
 	deltaTime(0.0)
-{ }
+{
+	cam = Camera::perspectiveCamera(Vec3(0.f, 0.f, 0.f), 90.f, static_cast< float >(w) / static_cast< float >(h), 0.001f, 100000.f);
+}
 
 int Sponza::init() {
 	setUseImGui();
@@ -126,19 +128,16 @@ void Sponza::deinit() {
 void Sponza::update() {
 	timeIt();
 
+	camControl.processKeyboardInput(this, deltaTime);
+
 	// Update MVP matrices
 	const auto angle = static_cast<float>(totalTime * 90.0);
 	const auto rotationAxis = Vec3(0, 1, 1);
 	auto modelMat = Mat4(1.f);
-	modelMat = modelMat.translate(camPos);
 
-	const auto eyePosition = camPos;
-	const auto focusPoint = (camForward - camPos).normalized();
-	const auto upDirection = camUp;
-	Mat4 viewMat = dmath::lookAt(focusPoint, eyePosition, upDirection);
-	Mat4 projectionMat = projectionType == ProjectionType::Perspective ? 
-		dmath::perspective(FOV, aspectRatio, 0.1f, 100.f) :
-		dmath::orthographic(-orthoDim * aspectRatio, orthoDim * aspectRatio, -orthoDim, orthoDim, 0.1f, 100.f);
+	Mat4 viewMat = cam.getViewMatrix();
+	Mat4 projectionMat = cam.getProjectionMatrix();
+
 	mvp = projectionMat * viewMat * modelMat;
 
 	/// Initialize the MVP constant buffer resource if needed
@@ -238,18 +237,11 @@ void Sponza::onKeyboardInput(int key, int action) {
 }
 
 void Sponza::onMouseScroll(double xOffset, double yOffset) {
-	const auto change = static_cast<float>(yOffset);
-	if (projectionType == ProjectionType::Perspective) {
-		FOV -= change;
-		FOV = dmath::min(dmath::max(30.f, FOV), 120.f);
-	} else {
-		orthoDim -= change;
-		orthoDim = dmath::min(dmath::max(1.f, orthoDim), 100.f);
-	}
+	camControl.onMouseScroll(xOffset, yOffset, deltaTime);
 }
 
 void Sponza::onMouseMove(double xPos, double yPos) {
-	// implement FPS movement for debugging
+	camControl.onMouseMove(xPos, yPos, deltaTime);
 }
 
 bool Sponza::loadAssets() {
