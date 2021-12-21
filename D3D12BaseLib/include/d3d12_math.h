@@ -335,6 +335,10 @@ struct Mat3t {
 
 		return *this;
 	}
+	
+	[[nodiscard]] Mat3t operator-() const {
+		return Mat3t{ -row1, -row2, -row3 };
+	}
 
 	[[nodiscard]] Mat3t inverse() const {
 		// TODO:
@@ -423,6 +427,10 @@ struct Mat4t {
 		return *this;
 	}
 
+	[[nodiscard]] Mat4t operator-() const {
+		return Mat4t{ -row1, -row2, -row3, -row4 };
+	}
+
 	[[nodiscard]] Mat4t inverse() const {
 		// TODO:
 		return Mat4t(T(1));
@@ -492,13 +500,13 @@ template <class T>
 struct Quatt {
 	/// Create a quaternion from an angle in degrees and a rotation axis
 	static Quatt makeQuat(T angle, const Vec3t<T> &axis) {
-		dassert(areEqual<T>(axis.lengthSqr(), T(1))); // make sure the axis is normalized
+		auto axisNormalised = axis.normalized();
 
 		angle = radians(angle);
 
 		const T sinTheta = sin(angle / 2);
 		const T scalarPart = cos(angle / 2);
-		const Vec3t<T> vecPart = axis * sinTheta;
+		const Vec3t<T> vecPart = axisNormalised * sinTheta;
 		return Quatt(vecPart, scalarPart);
 	}
 
@@ -526,12 +534,19 @@ struct Quatt {
 			}
 		};
 	}
-	
+
+	Quatt& operator*=(const Quatt &q) {
+		T newS = s * q.s - v.dot(q.v);
+		v = Vec3t<T>{ q.s * v + s * q.v + v.cross(q.v) };
+		s = newS;
+
+		return *this;
+	}
+
 	[[nodiscard]] Quatt operator*(const Quatt &q) const {
-		return Quatt(
-			Vec3t<T>{ q.s * v + s * q.v + v.cross(q.v) },
-			s * q.s - v.dot(q.v)
-		);
+		Quat res = *this;
+		res *= q;
+		return res;
 	}
 
 	[[nodiscard]] Quatt conjugate() const {
@@ -566,12 +581,12 @@ template <class T>
 Packed::Mat4t<T> lookAt(const Packed::Vec3t<T> &target, const Packed::Vec3t<T> &pos, const Packed::Vec3t<T> &upTmp) {
 	// LH view
 	const Packed::Vec3t<T> in = (target - pos).normalized();
-	const Packed::Vec3t<T> right = upTmp.cross(in);
-	const Packed::Vec3t<T> up = in.cross(right);
+	const Packed::Vec3t<T> left = upTmp.cross(in).normalized();
+	const Packed::Vec3t<T> up = in.cross(left).normalized();
 
 	using VecType = Packed::Mat4t<T>::VecType;
 	return Packed::Mat4t<T> {
-		VecType(right, -right.dot(pos)),
+		VecType(left, -left.dot(pos)),
 		VecType(up, -up.dot(pos)),
 		VecType(in, -in.dot(pos)),
 		VecType(T(0), T(0), T(0), T(1))
@@ -641,6 +656,18 @@ dmath::Packed::Vec3t<T> operator*(T f, dmath::Packed::Vec3t<T> v) {
 }
 
 template <class T>
+dmath::Packed::Mat3t<T> operator*(const dmath::Packed::Mat3t<T> &m1, const dmath::Packed::Mat3t<T> &m2) {
+	using VecType = dmath::Packed::Mat3t<T>::VecType;
+
+	dmath::Packed::Mat3t<T> m = m2.transpose();
+	return dmath::Packed::Mat3t<T> {
+		VecType{ m1.row1.dot(m.row1), m1.row1.dot(m.row2), m1.row1.dot(m.row3) },
+			VecType{ m1.row2.dot(m.row1), m1.row2.dot(m.row2), m1.row2.dot(m.row3) },
+			VecType{ m1.row3.dot(m.row1), m1.row3.dot(m.row2), m1.row3.dot(m.row3) },
+	};
+}
+
+template <class T>
 dmath::Packed::Mat4t<T> operator*(const dmath::Packed::Mat4t<T> &m1, const dmath::Packed::Mat4t<T> &m2) {
 	using VecType = dmath::Packed::Mat4t<T>::VecType;
 
@@ -654,19 +681,20 @@ dmath::Packed::Mat4t<T> operator*(const dmath::Packed::Mat4t<T> &m1, const dmath
 }
 
 template <class T>
+dmath::Packed::Vec3t<T> operator*(const dmath::Packed::Mat3t<T> &m, const dmath::Packed::Vec3t<T> &v) {
+	return dmath::Packed::Vec3t<T> { m.row1.dot(v), m.row2.dot(v), m.row3.dot(v) };
+}
+
+template <class T>
 dmath::Packed::Vec4t<T> operator*(const dmath::Packed::Mat4t<T> &m, const dmath::Packed::Vec4t<T> &v) {
-	return dmath::Packed::Vec4t<T> {
-		m.row1.dot(v), m.row2.dot(v), m.row3.dot(v), m.row4.dot(v)
-	};
+	return dmath::Packed::Vec4t<T> { m.row1.dot(v), m.row2.dot(v), m.row3.dot(v), m.row4.dot(v) };
 }
 
 template <class T>
 dmath::Packed::Vec3t<T> operator*(const dmath::Packed::Mat4t<T> &m, const dmath::Packed::Vec3t<T> &vec) {
 	auto v = dmath::Packed::Vec4t<T>(vec);
 	v.w = T(1);
-	return dmath::Packed::Vec3t<T> {
-		m.row1.dot(v), m.row2.dot(v), m.row3.dot(v)
-	};
+	return m * v;
 }
 
 template <class T>

@@ -72,7 +72,7 @@ private:
 	Scene scene;
 
 	// Camera data
-	// TODO: abstract the camera
+	// TODO: add camera controller
 	float FOV = 90.f;
 	Vec3 camUp = { 0.f, 1.f, 0.f };
 	Vec3 camForward = { 0.f, 0.f, 1.f };

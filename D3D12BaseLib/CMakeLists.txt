@@ -8,32 +8,34 @@ set(SUBMODULE_DIR ${PROJECT_SOURCE_DIR}/third_party)
 set(LIB_DIR ${PROJECT_SOURCE_DIR}/lib)
 
 set(HEADERS
-	${INCLUDE_DIR}/d3d12_defines.h
 	${INCLUDE_DIR}/d3d12_app.h
 	${INCLUDE_DIR}/d3d12_asset_manager.h
+	${INCLUDE_DIR}/d3d12_async.h
+	${INCLUDE_DIR}/d3d12_camera.h
+	${INCLUDE_DIR}/d3d12_command_list.h
 	${INCLUDE_DIR}/d3d12_command_queue.h
-	${INCLUDE_DIR}/d3d12_utils.h
+	${INCLUDE_DIR}/d3d12_defines.h
 	${INCLUDE_DIR}/d3d12_includes.h
 	${INCLUDE_DIR}/d3d12_math.h
 	${INCLUDE_DIR}/d3d12_pipeline_state.h
-	${INCLUDE_DIR}/d3d12_resource_manager.h
-	${INCLUDE_DIR}/d3d12_async.h
-	${INCLUDE_DIR}/d3d12_command_list.h
 	${INCLUDE_DIR}/d3d12_resource_handle.h
+	${INCLUDE_DIR}/d3d12_resource_manager.h
 	${INCLUDE_DIR}/d3d12_scene.h
+	${INCLUDE_DIR}/d3d12_utils.h
 	${INCLUDE_DIR}/scene_loader.h
 )
 
 set(SOURCES
 	${SRC_DIR}/d3d12_app.cpp
-	${SRC_DIR}/d3d12_command_queue.cpp
 	${SRC_DIR}/d3d12_asset_manager.cpp
-	${SRC_DIR}/d3d12_utils.cpp
+	${SRC_DIR}/d3d12_camera.cpp
+	${SRC_DIR}/d3d12_command_list.cpp
+	${SRC_DIR}/d3d12_command_queue.cpp
 	${SRC_DIR}/d3d12_pipeline_state.cpp
 	${SRC_DIR}/d3d12_resource_manager.cpp
-	${SRC_DIR}/d3d12_command_list.cpp
 	${SRC_DIR}/d3d12_resource_handle.cpp
 	${SRC_DIR}/d3d12_scene.cpp
+	${SRC_DIR}/d3d12_utils.cpp
 	${SRC_DIR}/scene_loader.cpp
 
 )

@@ -340,10 +340,6 @@ void D3D12App::setUseImGui() {
 	useImGui = true;
 }
 
-//void D3D12App::drawUI() {
-//	
-//}
-
 void D3D12App::renderUI(CommandList &cmdList, D3D12_CPU_DESCRIPTOR_HANDLE &rtvHandle) {
 	if (!useImGui) {
 		return;

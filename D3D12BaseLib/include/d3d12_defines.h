@@ -2,6 +2,8 @@
 
 #include <bitset>
 #include <cassert>
+#include <cmath>
+#include <memory>
 #include <vector>
 #include <queue>
 #include <string>
@@ -9,6 +11,15 @@
 #include <unordered_set>
 
 #include <comdef.h>
+
+// including comdef.h brings these abominations
+#ifdef min
+#undef min
+#endif
+
+#ifdef max
+#undef max
+#endif
 
 #ifdef D3D12_DEBUG
 #define RETURN_ON_ERROR_FMT(cmd, retval, msg, ...) \
@@ -64,6 +75,9 @@ using Map = std::unordered_map<K, V>;
 
 template <class T>
 using Set = std::unordered_set<T>;
+
+template <class T>
+using UniquePtr = std::unique_ptr<T>;
 
 using String = std::string;
 using WString = std::wstring;
