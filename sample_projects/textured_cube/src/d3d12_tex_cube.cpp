@@ -53,7 +53,7 @@ D3D12TexturedCube::D3D12TexturedCube(const UINT w, const UINT h, const String &w
 	depthBufferHandle(INVALID_RESOURCE_HANDLE),
 	mvpBufferHandle{ INVALID_RESOURCE_HANDLE },
 	texturesHandles{ INVALID_RESOURCE_HANDLE },
-	viewport{ 0.f, 0.f, static_cast<float>(w), static_cast<float>(h), 0.001f, 100.f },
+	viewport{ 0.f, 0.f, static_cast<float>(w), static_cast<float>(h), 0.f, 1.f },
 	scissorRect{ 0, 0, LONG_MAX, LONG_MAX }, // always render on the entire screen
 	aspectRatio(static_cast<float>(w) / static_cast<float>(h)),
 	fenceValues{ 0 },
@@ -143,7 +143,6 @@ void D3D12TexturedCube::update() {
 	const auto angle = static_cast<float>(totalTime * 90.0);
 	const auto rotationAxis = Vec3(0, 1, 1);
 	auto modelMat = Mat4(1.f);
-	//modelMat = modelMat.rotate(rotationAxis, angle);
 	modelMat = modelMat.translate({ 10.f, 0, 0.f });
 
 	Mat4 viewMat = cam.getViewMatrix();

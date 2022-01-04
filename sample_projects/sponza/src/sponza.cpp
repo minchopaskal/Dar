@@ -54,7 +54,7 @@ Sponza::Sponza(const UINT w, const UINT h, const String &windowTitle) :
 	depthBufferHandle(INVALID_RESOURCE_HANDLE),
 	mvpBufferHandle{ INVALID_RESOURCE_HANDLE },
 	textureHandles{ INVALID_RESOURCE_HANDLE },
-	viewport{ 0.f, 0.f, static_cast<float>(w), static_cast<float>(h), 0.001f, 100000.f },
+	viewport{ 0.f, 0.f, static_cast<float>(w), static_cast<float>(h), 0.f, 1.f },
 	scissorRect{ 0, 0, LONG_MAX, LONG_MAX }, // always render on the entire screen
 	aspectRatio(static_cast<float>(w) / static_cast<float>(h)),
 	fenceValues{ 0 },
@@ -278,6 +278,7 @@ bool Sponza::loadAssets() {
 	psDesc.inputLayouts = inputLayouts;
 	psDesc.staticSamplerDesc = &sampler;
 	psDesc.numInputLayouts = _countof(inputLayouts);
+	psDesc.depthStencilBufferFormat = DXGI_FORMAT_D32_FLOAT;
 	psDesc.numConstantBufferViews = 2; // One for the MVP matrix and one for the material data
 	psDesc.numTextures = static_cast<UINT>(scene.getNumTextures());
 	psDesc.maxVersion = rootSignatureFeatureData.HighestVersion;
@@ -403,6 +404,7 @@ CommandList Sponza::populateCommandList() {
 	//constexpr float red[] = { 1.f, 0.2f, 0.2f, 1.f };
 	const float *clearColor = blue;
 	commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+	commandList.transition(depthBufferHandle, D3D12_RESOURCE_STATE_DEPTH_WRITE);
 	commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
 	
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);

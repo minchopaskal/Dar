@@ -208,7 +208,8 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStat
 
 	stream.insert(DepthStencilFormatToken{ desc.depthStencilBufferFormat });
 
-	stream.insert(RasterizerDescToken{ CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT) });
+	D3D12_RASTERIZER_DESC rd = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	stream.insert(RasterizerDescToken{ rd });
 
 	if (desc.inputLayouts) {
 		stream.insert(InputLayoutToken(D3D12_INPUT_LAYOUT_DESC{ desc.inputLayouts, desc.numInputLayouts }));

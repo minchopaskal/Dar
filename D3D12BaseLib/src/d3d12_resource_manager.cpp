@@ -77,14 +77,14 @@ ResourceHandle ResourceManager::createBuffer(const ResourceInitData &initData) {
 		break;
 	case ResourceType::DepthStencilBuffer:
 		initialState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
-		clearValue.Format = DXGI_FORMAT_D32_FLOAT;
+		clearValue.Format = initData.textureData.format;
 		clearValue.DepthStencil = { 1.f, 0 };
 		RETURN_ON_ERROR(
 			device->CreateCommittedResource(
 				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 				initData.heapFlags,
 				&CD3DX12_RESOURCE_DESC::Tex2D(
-					DXGI_FORMAT_D32_FLOAT,
+					initData.textureData.format,
 					initData.textureData.width,
 					initData.textureData.height,
 					1, 0, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL
