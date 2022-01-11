@@ -9,7 +9,6 @@
 #include "d3d12_pipeline_state.h"
 #include "d3d12_resource_manager.h"
 #include "d3d12_utils.h"
-#include "geometry.h"
 #include "scene_loader.h"
 
 // TODO: To make things simple, child projects should not rely on third party software
@@ -59,11 +58,12 @@ Sponza::Sponza(const UINT w, const UINT h, const String &windowTitle) :
 	aspectRatio(static_cast<float>(w) / static_cast<float>(h)),
 	fenceValues{ 0 },
 	camControl(&cam, 100.f),
+	cursorHidden(true),
 	fps(0.0),
 	totalTime(0.0),
 	deltaTime(0.0)
 {
-	cam = Camera::perspectiveCamera(Vec3(0.f, 0.f, 0.f), 90.f, static_cast< float >(w) / static_cast< float >(h), 0.001f, 100000.f);
+	cam = Camera::perspectiveCamera(Vec3(0.f, 100.f, 0.f), 90.f, static_cast<float>(w) / static_cast<float>(h), 10.f, 10000.f);
 }
 
 int Sponza::init() {
@@ -72,6 +72,8 @@ int Sponza::init() {
 	if (!Super::init()) {
 		return false;
 	}
+
+	setGLFWCursorHiddenState();
 
 	D3D12_FEATURE_DATA_SHADER_MODEL shaderModel{ D3D_SHADER_MODEL_6_6 };
 	RETURN_FALSE_ON_ERROR(
@@ -138,7 +140,15 @@ void Sponza::update() {
 	Mat4 viewMat = cam.getViewMatrix();
 	Mat4 projectionMat = cam.getProjectionMatrix();
 
-	mvp = projectionMat * viewMat * modelMat;
+	struct MVPBuffer {
+		Mat4 normalMat;
+		Mat4 modelMat;
+		Mat4 viewProjectionMat;
+	} mvpBuffer;
+
+	mvpBuffer.normalMat = modelMat.inverse().transpose();
+	mvpBuffer.modelMat = modelMat;
+	mvpBuffer.viewProjectionMat = projectionMat * viewMat;
 
 	/// Initialize the MVP constant buffer resource if needed
 	if (mvpBufferHandle[frameIndex] == INVALID_RESOURCE_HANDLE) {
@@ -146,13 +156,13 @@ void Sponza::update() {
 		swprintf(frameMVPName, 32, L"MVPbuffer[%d]", frameIndex);
 
 		ResourceInitData resData(ResourceType::DataBuffer);
-		resData.size = sizeof(Mat4);
+		resData.size = sizeof(MVPBuffer);
 		resData.name = frameMVPName;
 		mvpBufferHandle[frameIndex] = resManager->createBuffer(resData);
 	}
 
 	UploadHandle uploadHandle = resManager->beginNewUpload();
-	resManager->uploadBufferData(uploadHandle, mvpBufferHandle[frameIndex], reinterpret_cast<void*>(&mvp), sizeof(Mat4));
+	resManager->uploadBufferData(uploadHandle, mvpBufferHandle[frameIndex], reinterpret_cast<void*>(&mvpBuffer), sizeof(MVPBuffer));
 	resManager->uploadBuffers();
 }
 
@@ -171,10 +181,31 @@ void Sponza::render() {
 }
 
 void Sponza::drawUI() {
-	//Super::drawUI();
+	ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
 
-	ImGui::Begin("Stats");
-	ImGui::Text("FPS: %.2f", fps);
+	ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::Text("FPS: %.2f", fps);
+		ImGui::Text("Camera FOV: %.2f", cam.getFOV());
+		ImGui::Text("Camera Speed: %.2f", camControl.getSpeed());
+		Vec3 pos = cam.getPos();
+		ImGui::Text("Camera Position: %.2f %.2f %.2f", pos.x, pos.y, pos.z);
+		ImGui::Text("Camera Vectors:");
+		Vec3 x = cam.getCameraX();
+		Vec3 y = cam.getCameraY();
+		Vec3 z = cam.getCameraZ();
+		ImGui::Text("Right: %.2f %.2f %.2f", x.x, x.y, x.z);
+		ImGui::Text("Up: %.2f %.2f %.2f", y.x, y.y, y.z);
+		ImGui::Text("Forward: %.2f %.2f %.2f", z.x, z.y, z.z);
+	ImGui::End();
+
+	ImGui::SetNextWindowPos(ImVec2(0, 170.f), ImGuiCond_FirstUseEver);
+	ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+	ImGui::Text("[mouse move] - Turn around");
+	ImGui::Text("[mouse scroll] - Zoom/unzoom");
+	ImGui::Text("[wasd] - Move forwards/left/backwards/right");
+	ImGui::Text("[qe] - Move up/down");
+	ImGui::Text("[rt] - Increase/Decrease camera speed");
+	ImGui::Text("[k] - Make/Stop camera keeping on the plane of walking");
 	ImGui::End();
 }
 
@@ -185,7 +216,7 @@ void Sponza::onResize(const unsigned int w, const unsigned int h) {
 
 	this->width = std::max(1u, w);
 	this->height = std::max(1u, h);
-	viewport = { 0.f, 0.f, static_cast<float>(width), static_cast<float>(height), 0.001f, 100.f };
+	viewport = { 0.f, 0.f, static_cast<float>(width), static_cast<float>(height), 0.f, 1.f };
 	aspectRatio = static_cast<float>(width) / static_cast<float>(height);
 
 	flush();
@@ -233,6 +264,12 @@ void Sponza::onKeyboardInput(int key, int action) {
 
 	if (keyPressed[GLFW_KEY_O] && !keyRepeated[GLFW_KEY_O]) {
 		projectionType = static_cast<ProjectionType>((static_cast<int>(projectionType) + 1) % 2);
+	}
+
+	ButtonState mState = query('m');
+	if (mState.pressed && !mState.repeated) {
+		cursorHidden = !cursorHidden;
+		setGLFWCursorHiddenState();
 	}
 }
 
@@ -352,7 +389,7 @@ bool Sponza::loadAssets() {
 
 			indexBufferView.BufferLocation = indexBufferHandle->GetGPUVirtualAddress();
 			indexBufferView.SizeInBytes = static_cast<UINT>(scene.getIndexBufferSize());
-			indexBufferView.Format = DXGI_FORMAT_R16_UINT;
+			indexBufferView.Format = DXGI_FORMAT_R32_UINT;
 		}
 
 		/* Create SRVs for the textures so we can read them bindlessly in the shader */
@@ -416,7 +453,7 @@ CommandList Sponza::populateCommandList() {
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
 	commandList->IASetIndexBuffer(&indexBufferView);
 	commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
-	commandList->SetGraphicsRootConstantBufferView(0, mvpBufferHandle[frameIndex]->GetGPUVirtualAddress());
+	commandList.setMVPBuffer(mvpBufferHandle[frameIndex]);
 
 	scene.draw(commandList);
 
@@ -473,6 +510,10 @@ bool Sponza::resizeDepthBuffer() {
 	device->CreateDepthStencilView(depthBufferHandle.get(), &dsDesc, dsvHeap->GetCPUDescriptorHandleForHeapStart());
 
 	return true;
+}
+
+void Sponza::setGLFWCursorHiddenState() {
+	glfwSetInputMode(getGLFWWindow(), GLFW_CURSOR, cursorHidden ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 }
 
 void Sponza::timeIt() {

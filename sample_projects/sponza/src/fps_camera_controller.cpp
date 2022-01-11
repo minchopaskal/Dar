@@ -1,8 +1,8 @@
-#include "camera_controller.h"
-#include "d3d12_camera.h"
+#include "fps_camera_controller.h"
+#include "d3d12_input_query.h"
 
 FPSCameraController::FPSCameraController(Camera *cam, double movementSpeed) : 
-	CameraController(cam),
+	ICameraController(cam),
 	mousePos{ 0.f, 0.f },
 	speed(movementSpeed),
 	mouseSensitivity(0.1f),
@@ -69,11 +69,19 @@ void FPSCameraController::processKeyboardInput(IKeyboardInputQuery *inputQuery, 
 		cam->moveUp(-amount);
 	}
 
-	if (inputQuery->query('r').pressed) {
-		speed -= (100.f * deltaTime);
+	if (inputQuery->query('k').pressed) {
+		cam->setKeepXZPlane(!cam->getKeepXZPlane());
 	}
 
-	if (inputQuery->query('i').pressed) {
-		speed += (100.f * deltaTime);
+	const float deltaSpeed = 2 * speed * deltaTime;
+	if (inputQuery->query('r').pressed) {
+		speed -= deltaSpeed;
 	}
+
+	if (inputQuery->query('t').pressed) {
+		speed += deltaSpeed;
+	}
+}
+
+void FPSCameraController::onDrawUI() {
 }

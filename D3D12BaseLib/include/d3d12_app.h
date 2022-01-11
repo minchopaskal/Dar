@@ -70,6 +70,8 @@ struct D3D12App : public IKeyboardInputQuery {
 	// Inherited by IInputQuery
 	ButtonState query(char key) override;
 
+	GLFWwindow* getGLFWWindow() const;
+
 	// TODO: mouse callback, etc.
 	virtual void onResize(const unsigned int w, const unsigned int h) = 0;
 	virtual void onKeyboardInput(int key, int action) = 0;

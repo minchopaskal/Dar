@@ -100,9 +100,10 @@ void GetHardwareAdapter(
 	if (SUCCEEDED(pFactory->QueryInterface(IID_PPV_ARGS(&factory6)))) {
 		for (
 				UINT adapterIndex = 0;
-				DXGI_ERROR_NOT_FOUND != factory6->EnumAdapters1(
+				DXGI_ERROR_NOT_FOUND != factory6->EnumAdapterByGpuPreference(
 					adapterIndex,
-					&adapter
+					DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE,
+					IID_PPV_ARGS(ppAdapter)
 				);
 				++adapterIndex) {
 			if (adapter == nullptr) {
@@ -169,8 +170,6 @@ int D3D12App::init() {
 	glfwSetScrollCallback(glfwWindow, scrollCallback);
 	glfwSetWindowPosCallback(glfwWindow, windowPosCallback);
 	glfwSetCursorPosCallback(glfwWindow, cursorPositionCallback);
-
-	glfwSetInputMode(glfwWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	window = glfwGetWin32Window(glfwWindow);
 
@@ -379,6 +378,10 @@ ButtonState D3D12App::query(char key) {
 	res.repeated = keyRepeated[key];
 
 	return res;
+}
+
+GLFWwindow * D3D12App::getGLFWWindow() const {
+	return glfwWindow;
 }
 
 void D3D12App::toggleFullscreen() {

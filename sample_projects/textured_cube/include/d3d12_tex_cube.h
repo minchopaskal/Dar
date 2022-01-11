@@ -6,7 +6,7 @@
 #include "d3d12_math.h"
 #include "d3d12_pipeline_state.h"
 
-#include "camera_controller.h"
+#include "fps_camera_controller.h"
 
 struct D3D12TexturedCube : D3D12App {
 	D3D12TexturedCube(UINT width, UINT height, const String &windowTitle);

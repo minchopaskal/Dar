@@ -50,6 +50,7 @@ struct Camera {
 	void moveUp(float amount);
 
 	void setKeepXZPlane(bool keep) { keepXZ = keep; }
+	bool getKeepXZPlane() const { return keepXZ; }
 
 	Vec3 getCameraZ() {
 		updateOrientation();
@@ -115,4 +116,18 @@ private:
 	bool orientationValid = false;
 	bool viewMatrixValid = false;
 	bool projectionMatrixValid = false;
+};
+
+struct IKeyboardInputQuery;
+
+struct ICameraController {
+	ICameraController(Camera *cam) : cam(cam) { }
+
+	virtual void onMouseMove(double xPos, double yPos, double deltaTime) = 0;
+	virtual void onMouseScroll(double xOffset, double yOffset, double deltaTime) = 0;
+	virtual void processKeyboardInput(IKeyboardInputQuery *inputQuery, double deltatTime) = 0;
+	virtual void onDrawUI() = 0;
+
+protected:
+	Camera *cam;
 };

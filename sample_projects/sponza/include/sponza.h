@@ -7,7 +7,7 @@
 #include "d3d12_pipeline_state.h"
 #include "d3d12_scene.h"
 
-#include "camera_controller.h"
+#include "fps_camera_controller.h"
 
 struct Sponza : D3D12App {
 	Sponza(UINT width, UINT height, const String &windowTitle);
@@ -29,6 +29,8 @@ private:
 	CommandList populateCommandList();
 	bool updateRenderTargetViews();
 	bool resizeDepthBuffer();
+
+	void setGLFWCursorHiddenState();
 
 	void timeIt();
 
@@ -55,7 +57,6 @@ private:
 	ResourceHandle depthBufferHandle;
 
 	// MVP matrix
-	Mat4 mvp;
 	ResourceHandle mvpBufferHandle[frameCount];
 
 	// Texture data
@@ -83,6 +84,8 @@ private:
 
 	Camera cam;
 	FPSCameraController camControl;
+
+	bool cursorHidden;
 
 	// timing
 	double fps;

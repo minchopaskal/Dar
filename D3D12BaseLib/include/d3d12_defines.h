@@ -82,5 +82,7 @@ using Set = std::unordered_set<T>;
 template <class T>
 using UniquePtr = std::unique_ptr<T>;
 
+using DynamicBitset = std::vector<bool>;
+
 using String = std::string;
 using WString = std::wstring;

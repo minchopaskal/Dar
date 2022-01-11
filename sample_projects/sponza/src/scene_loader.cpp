@@ -141,7 +141,8 @@ SceneLoaderError loadScene(const String &path, Scene &scene) {
 		path,
 		aiProcess_Triangulate |
 		aiProcess_OptimizeMeshes |
-		aiProcess_JoinIdenticalVertices
+		aiProcess_JoinIdenticalVertices | 
+		aiProcess_ConvertToLeftHanded
 	);
 	if (!assimpScene || assimpScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !assimpScene->mRootNode) {
 		return SceneLoaderError::InvalidScene;

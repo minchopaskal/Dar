@@ -99,6 +99,15 @@ void CommandList::transition(ResourceHandle resource, D3D12_RESOURCE_STATES stat
 	}
 }
 
+void CommandList::setMVPBuffer(ResourceHandle mvpBufferHandle) {
+	cmdList->SetGraphicsRootConstantBufferView(0, mvpBufferHandle->GetGPUVirtualAddress());
+}
+
+void CommandList::setConstantBufferView(unsigned int index, ResourceHandle constBufferHandle) {
+	dassert(index > 0);
+	cmdList->SetGraphicsRootConstantBufferView(index, constBufferHandle->GetGPUVirtualAddress());
+}
+
 void CommandList::resolveLastStates() {
 	ResourceManager &resManager = getResourceManager();
 	for (auto it = lastStates.begin(); it != lastStates.end(); ++it) {

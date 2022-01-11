@@ -1,22 +1,13 @@
 #pragma once
 
-#include "d3d12_input_query.h"
+#include "d3d12_camera.h"
 
 struct Camera;
 
-struct CameraController {
-	CameraController(Camera *cam) : cam(cam) { }
-
-	virtual void onMouseMove(double xPos, double yPos, double deltaTime) = 0;
-	virtual void onMouseScroll(double xOffset, double yOffset, double deltaTime) = 0;
-	virtual void processKeyboardInput(IKeyboardInputQuery *inputQuery, double deltatTime) = 0;
-
-protected:
-	Camera *cam;
-};
-
-struct FPSCameraController : public CameraController {
+struct FPSCameraController : public ICameraController {
 	FPSCameraController(Camera *cam, double movementSpeed);
+
+	double getSpeed() const { return speed; }
 
 	// Inherited via CameraController
 	void onMouseMove(double xPos, double yPos, double deltaTime) override;
@@ -25,7 +16,7 @@ struct FPSCameraController : public CameraController {
 
 	void processKeyboardInput(IKeyboardInputQuery *inputQuery, double deltaTime) override;
 
-	double getSpeed() const { return speed; }
+	virtual void onDrawUI() override;
 
 private:
 	struct MousePos {

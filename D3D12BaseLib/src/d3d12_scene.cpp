@@ -11,7 +11,7 @@ void Model::draw(CommandList &cmdList, const Scene &scene) const {
 		if (matId != INVALID_MATERIAL_ID) {
 			ResourceHandle matHandle = scene.getMaterialHandle(matId);
 			if (matHandle != INVALID_RESOURCE_HANDLE) {
-				cmdList->SetGraphicsRootConstantBufferView(1, matHandle->GetGPUVirtualAddress());
+				cmdList.setConstantBufferView(1, matHandle);
 			}
 		}
 
@@ -27,17 +27,24 @@ void Scene::draw(CommandList &cmdList) const {
 	// before recursing the node tree.
 
 	const SizeType numNodes = nodes.size();
+	DynamicBitset drawnNodes(numNodes);
 	for (int i = 0; i < numNodes; ++i) {
-		drawNodeImpl(nodes[i], cmdList, *this);
+		drawNodeImpl(nodes[i], cmdList, *this, drawnNodes);
 	}
 }
 
-void Scene::drawNodeImpl(Node *node, CommandList &cmdList, const Scene &scene) const {
+void Scene::drawNodeImpl(Node *node, CommandList &cmdList, const Scene &scene, DynamicBitset &drawnNodes) const {
+	if (drawnNodes[node->id]) {
+		return;
+	}
+
+	drawnNodes[node->id] = true;
+
 	node->draw(cmdList, scene);
 
 	const SizeType numChildren = node->children.size();
 	for (int i = 0; i < numChildren; ++i) {
-		drawNodeImpl(nodes[node->children[i]], cmdList, scene);
+		drawNodeImpl(nodes[node->children[i]], cmdList, scene, drawnNodes);
 	}
 }
 
@@ -47,6 +54,8 @@ struct D3D12Material {
 	unsigned int normalsIdx;
 };
 
+// TODO: this could be uploaded in one buffer only and
+// during rendering only the index of the material would be needed
 void Scene::uploadMaterialBuffers() {
 	dassert(materials.size() == materialHandles.size());
 

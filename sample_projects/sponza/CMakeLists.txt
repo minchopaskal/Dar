@@ -8,12 +8,15 @@ set(SUBMODULE_DIR ${PROJECT_SOURCE_DIR}/third_party)
 set(LIB_DIR ${PROJECT_SOURCE_DIR}/lib)
 
 set(HEADERS
-	${INCLUDE_DIR}/geometry.h
+	${INCLUDE_DIR}/fps_camera_controller.h
 	${INCLUDE_DIR}/sponza.h
+	${INCLUDE_DIR}/scene_loader.h
 )
 
 set(SOURCES
+	${SRC_DIR}/fps_camera_controller.cpp
 	${SRC_DIR}/main.cpp
+	${SRC_DIR}/scene_loader.cpp
 	${SRC_DIR}/sponza.cpp
 )
 
@@ -58,6 +61,12 @@ target_link_directories(Sponza PRIVATE ${LIB_DIR} )
 
 target_link_libraries(Sponza D3D12BaseLib "d3d12.lib" "d3dcompiler.lib" "dxgi.lib" "dxguid.lib" "glfw3.lib")
 
+target_link_libraries(
+	D3D12BaseLib
+	$<$<CONFIG:Debug>:assimpd>
+	$<$<CONFIG:Release>:assimp>
+)
+
 target_include_directories(
 	Sponza
 	PRIVATE
@@ -65,6 +74,7 @@ target_include_directories(
 	${SUBMODULE_DIR}
 	${PROJECT_SOURCE_DIR}/D3D12BaseLib/include
 	${SUBMODULE_DIR}/imgui
+	${SUBMODULE_DIR}/assimp/include
 )
 
 copyD3D12Core(Sponza)

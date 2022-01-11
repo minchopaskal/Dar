@@ -170,5 +170,5 @@ struct Scene {
 	void draw(CommandList &cmdList) const;
 
 private:
-	void drawNodeImpl(Node *node, CommandList &cmdList, const Scene &scene) const;
+	void drawNodeImpl(Node *node, CommandList &cmdList, const Scene &scene, DynamicBitset &drawnNodes) const;
 };
