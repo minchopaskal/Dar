@@ -65,12 +65,10 @@ D3D12TexturedCube::D3D12TexturedCube(const UINT w, const UINT h, const String &w
 	cam = Camera::perspectiveCamera(Vec3(0.f), 45.f, aspectRatio, 0.001f, 100.f);
 }
 
-int D3D12TexturedCube::init() {
+int D3D12TexturedCube::initImpl() {
 	setUseImGui();
 
-	if (!Super::init()) {
-		return false;
-	}
+	glfwSetInputMode(getGLFWWindow(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	D3D12_FEATURE_DATA_SHADER_MODEL shaderModel{ D3D_SHADER_MODEL_6_6 };
 	RETURN_FALSE_ON_ERROR(

@@ -19,6 +19,20 @@ struct D3D12App : public IKeyboardInputQuery {
 	/// The main loop.
 	int run();
 
+	/// Initialization work. Should be called before run().
+	/// @return 0 on failure, 1 on success
+	int init();
+
+	/// Return width of window
+	int getWidth() const;
+
+	/// Return height of window
+	int getHeight() const;
+
+	// Inherited by IInputQuery
+	ButtonState query(char key) override;
+
+protected:
 	/// Toggle between windowed/fullscreen
 	void toggleFullscreen();
 
@@ -28,11 +42,6 @@ struct D3D12App : public IKeyboardInputQuery {
 	/// Flush any command queues' work.
 	/// NB doesn't flush the resource manager's copy Queue.
 	void flush();
-
-	/// Initialization work. Should call D3D12App::init to initialize the
-	/// DirectX12 API.
-	/// @param initFlags flags used by D3D12App for initialization.
-	virtual int init() = 0;
 
 	/// Deinitialize the app.
 	virtual void deinit() = 0;
@@ -48,6 +57,10 @@ struct D3D12App : public IKeyboardInputQuery {
 
 	/// Any render work should go here.
 	virtual void render() = 0;
+	
+	/// Any initialization work should go here. Called inside init().
+	/// @return 0 on failure, 1 on success
+	virtual int initImpl() = 0;
 
 	/// Optional. Should be called during init of the derived class if one intends to draw UI via ImGui.
 	/// Note: call before D3D12::init() in order to skip ImGui initialization.
@@ -60,15 +73,6 @@ struct D3D12App : public IKeyboardInputQuery {
 	/// Optional. Should be called before the last transition of the RTV to PRESENT state
 	/// if the app wants its ImGui draw calls rendered.
 	void renderUI(CommandList &cmdList, D3D12_CPU_DESCRIPTOR_HANDLE &rtvHandle);
-
-	/// Return width of window
-	int getWidth() const;
-
-	/// Return height of window
-	int getHeight() const;
-
-	// Inherited by IInputQuery
-	ButtonState query(char key) override;
 
 	GLFWwindow* getGLFWWindow() const;
 

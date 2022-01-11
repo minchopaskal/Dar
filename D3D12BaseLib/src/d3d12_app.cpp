@@ -162,7 +162,7 @@ int D3D12App::init() {
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	glfwWindow = glfwCreateWindow(width, height, title, nullptr, nullptr);
 	if (glfwWindow == nullptr) {
-		return 1;
+		return false;
 	}
 
 	glfwSetFramebufferSizeCallback(glfwWindow, framebufferSizeCallback);
@@ -324,7 +324,7 @@ int D3D12App::init() {
 
 	imGuiShutdown = false;
 
-	return true;
+	return initImpl();
 }
 
 void D3D12App::deinit() {

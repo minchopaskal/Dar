@@ -66,12 +66,8 @@ Sponza::Sponza(const UINT w, const UINT h, const String &windowTitle) :
 	cam = Camera::perspectiveCamera(Vec3(0.f, 100.f, 0.f), 90.f, static_cast<float>(w) / static_cast<float>(h), 10.f, 10000.f);
 }
 
-int Sponza::init() {
+int Sponza::initImpl() {
 	setUseImGui();
-
-	if (!Super::init()) {
-		return false;
-	}
 
 	setGLFWCursorHiddenState();
 
@@ -206,6 +202,7 @@ void Sponza::drawUI() {
 	ImGui::Text("[qe] - Move up/down");
 	ImGui::Text("[rt] - Increase/Decrease camera speed");
 	ImGui::Text("[k] - Make/Stop camera keeping on the plane of walking");
+	ImGui::Text("[m] - Show/Hide mouse cursor");
 	ImGui::End();
 }
 

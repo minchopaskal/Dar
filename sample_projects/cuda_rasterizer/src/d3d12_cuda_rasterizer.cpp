@@ -69,11 +69,7 @@ bool CudaRasterizer::isInitialized() const {
 	return inited;
 }
 
-int CudaRasterizer::init() {
-	if (!D3D12App::init()) {
-		return false;
-	}
-
+int CudaRasterizer::initImpl() {
 	setUseImGui();
 
 	/* Create a descriptor heap for RTVs */

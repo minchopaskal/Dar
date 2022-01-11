@@ -30,11 +30,7 @@ D3D12HelloTriangle::D3D12HelloTriangle(UINT width, UINT height, const String &wi
 	totalTime(0.0)
 { }
 
-int D3D12HelloTriangle::init() {
-	if (!D3D12App::init()) {
-		return false;
-	}
-
+int D3D12HelloTriangle::initImpl() {
 	/* Create a descriptor heap for RTVs */
 	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = { };
 	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
