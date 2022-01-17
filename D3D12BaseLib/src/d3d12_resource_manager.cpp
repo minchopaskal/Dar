@@ -7,7 +7,7 @@
 #define CHECK_RESOURCE_HANDLE(handle) \
 do { \
 	if (handle == INVALID_RESOURCE_HANDLE || handle >= resources.size() || resources[handle].res == nullptr) { \
-		return INVALID_RESOURCE_HANDLE; \
+		return false; \
 	} \
 } while (false)
 
@@ -216,7 +216,6 @@ bool ResourceManager::flush() {
 unsigned int ResourceManager::getSubresourcesCount(ResourceHandle handle) {
 	CHECK_RESOURCE_HANDLE(handle);
 
-
 	return (unsigned int)(resources[handle].subresStates.size());
 }
 
@@ -340,13 +339,7 @@ void ResourceManager::endFrame() {
 }
 
 void ResourceManager::resetCommandLists() {
-	if (cmdLists.empty()) {
-		cmdLists.emplace_back();
-		return;
-	}
-
-	// Leave the first element to be our invalid upload handle.
-	cmdLists.erase(cmdLists.begin() + 1, cmdLists.end());
+	cmdLists.clear();
 }
 
 #ifdef D3D12_DEBUG

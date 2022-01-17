@@ -1,25 +1,70 @@
 #include "d3d12_scene.h"
 
-#include "d3d12_resource_manager.h"
+struct MeshData {
+	Mat4 modelMatrix;
+	Mat4 normalMatrix;
+	unsigned int materialId;
+};
+
+void Mesh::uploadMeshData(UploadHandle uploadHandle) const {
+	// Only upload the data if needed
+	if (modelMatrix == cache && meshDataHandle != INVALID_RESOURCE_HANDLE) {
+		return;
+	}
+
+	MeshData md = { modelMatrix, modelMatrix.inverse().transpose(), static_cast<unsigned int>(mat) };
+	
+	ResourceManager &resManager = getResourceManager();
+	if (meshDataHandle != INVALID_RESOURCE_HANDLE) {
+		resManager.deregisterResource(meshDataHandle);
+		meshDataHandle = INVALID_RESOURCE_HANDLE;
+	}
+
+	ResourceInitData resInit(ResourceType::DataBuffer);
+	resInit.size = sizeof(MeshData);
+	meshDataHandle = resManager.createBuffer(resInit);
+	resManager.uploadBufferData(uploadHandle, meshDataHandle, &md, sizeof(MeshData));
+
+	// update the cache for future uploads
+	cache = modelMatrix;
+}
+
+void Model::updateMeshDataHandles() const {
+	ResourceManager &resManager = getResourceManager();
+	UploadHandle handle = resManager.beginNewUpload();
+
+	for (int i = 0; i < meshes.size(); ++i) {
+		meshes[i].uploadMeshData(handle);
+	}
+
+	resManager.uploadBuffers();
+}
 
 void Model::draw(CommandList &cmdList, const Scene &scene) const {
 	const SizeType numMeshes = meshes.size();
+
+	updateMeshDataHandles();
+
 	for (int i = 0; i < numMeshes; ++i) {
 		const Mesh &mesh = meshes[i];
 
-		MaterialId matId = mesh.mat;
-		if (matId != INVALID_MATERIAL_ID) {
-			ResourceHandle matHandle = scene.getMaterialHandle(matId);
-			if (matHandle != INVALID_RESOURCE_HANDLE) {
-				cmdList.setConstantBufferView(1, matHandle);
-			}
-		}
-
+		cmdList.transition(mesh.meshDataHandle, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+		cmdList.setConstantBufferView(static_cast<unsigned int>(ConstantBufferView::MaterialId), static_cast<unsigned int>(mesh.meshDataHandle));
 		cmdList->DrawIndexedInstanced(static_cast<UINT>(mesh.numIndices), 1, static_cast<UINT>(mesh.indexOffset), 0, 0);
 	}
 }
 
-Scene::Scene() : sceneBox(BBox::invalidBBox()) { }
+Scene::Scene() : sceneBox(BBox::invalidBBox()), materialsHandle(INVALID_RESOURCE_HANDLE), lightsHandle(INVALID_RESOURCE_HANDLE) { }
+
+void Scene::uploadSceneData() {
+	ResourceManager &resManager = getResourceManager();
+	UploadHandle handle = resManager.beginNewUpload();
+
+	uploadLightData(handle);
+	uploadMaterialData(handle);
+
+	resManager.uploadBuffers();
+}
 
 void Scene::draw(CommandList &cmdList) const {
 	// TODO: any lights/cameras/other objects global to the scene
@@ -48,39 +93,75 @@ void Scene::drawNodeImpl(Node *node, CommandList &cmdList, const Scene &scene, D
 	}
 }
 
-struct D3D12Material {
-	unsigned int diffuseIdx;
-	unsigned int specularIdx;
-	unsigned int normalsIdx;
-};
-
-// TODO: this could be uploaded in one buffer only and
-// during rendering only the index of the material would be needed
-void Scene::uploadMaterialBuffers() {
-	dassert(materials.size() == materialHandles.size());
-
-	// Set-up step to upload any materials, which were not yet
-	// intialized on the GPU
-	ResourceManager &resManager = getResourceManager();
-
-	UploadHandle uploadHandle = resManager.beginNewUpload();
-	const SizeType numMaterials = getNumMaterials();
-	for (unsigned int i = 0; i < numMaterials; ++i) {
-		const Material &m = getMaterial(i);
-		if (materialHandles[i] != INVALID_RESOURCE_HANDLE) {
-			continue;
-		}
-		
-		D3D12Material d12Mat = { static_cast<UINT>(m.diffuse), static_cast<UINT>(m.specular), static_cast<UINT>(m.normals) };
-		wchar_t materialName[32] = L"";
-		swprintf(materialName, 32, L"Material[%u]", i);
-
-		ResourceInitData resData(ResourceType::DataBuffer);
-		resData.size = sizeof(D3D12Material);
-		resData.name = materialName;
-		materialHandles[i] = resManager.createBuffer(resData);
-		resManager.uploadBufferData(uploadHandle, materialHandles[i], reinterpret_cast<void*>(&d12Mat), sizeof(D3D12Material));
+void Scene::uploadLightData(UploadHandle uploadHandle) {
+	SizeType numLights = getNumLights();
+	if (numLights == 0) {
+		return;
 	}
 
-	resManager.uploadBuffers();
+	SizeType lightsDataSize = numLights * sizeof(GPULight);
+	Byte *lightsMemory = (Byte*)malloc(lightsDataSize);
+	if (lightsMemory == nullptr) {
+		return;
+	}
+
+	for (int i = 0; i < numLights; ++i) {
+		LightId currLightIdx = lightIndices[i];
+		Light *light = dynamic_cast<Light*>(nodes[currLightIdx]);
+		dassert(light != nullptr);
+		if (light) {
+			GPULight gpuLight = {};
+			gpuLight.ambient = light->ambient;
+			gpuLight.attenuation = light->attenuation;
+			gpuLight.diffuse = light->diffuse;
+			gpuLight.direction = light->direction;
+			gpuLight.innerAngleCutoff = light->innerAngleCutoff;
+			gpuLight.outerAngleCutoff = light->outerAngleCutoff;
+			gpuLight.position = light->position;
+			gpuLight.specular = light->specular;
+			gpuLight.type = static_cast<int>(light->type);
+			memcpy(lightsMemory + i * sizeof(GPULight), &gpuLight, sizeof(GPULight));
+		}
+	}
+
+	ResourceManager &resManager = getResourceManager();
+
+	ResourceInitData resData(ResourceType::DataBuffer);
+	resData.size = lightsDataSize;
+	resData.name = L"LightsData";
+	lightsHandle = resManager.createBuffer(resData);
+
+	resManager.uploadBufferData(uploadHandle, lightsHandle, lightsMemory, lightsDataSize);
+
+	free(lightsMemory);
+}
+
+void Scene::uploadMaterialData(UploadHandle uploadHandle) {
+	SizeType numMaterials = getNumMaterials();
+	if (numMaterials == 0) {
+		return;
+	}
+
+	SizeType materialsDataSize = numMaterials * sizeof(GPUMaterial);
+	Byte *materialsMemory = ( Byte* )malloc(materialsDataSize);
+	if (materialsMemory == nullptr) {
+		return;
+	}
+
+	for (int i = 0; i < numMaterials; ++i) {
+		const Material &m = getMaterial(i);
+		GPUMaterial gpuM = { m.diffuse, m.specular, m.normals };
+		memcpy(materialsMemory + i * sizeof(GPUMaterial), &gpuM, sizeof(GPUMaterial));
+	}
+
+	ResourceManager &resManager = getResourceManager();
+
+	ResourceInitData resData(ResourceType::DataBuffer);
+	resData.size = materialsDataSize;
+	resData.name = L"MaterialsData";
+	materialsHandle = resManager.createBuffer(resData);
+
+	resManager.uploadBufferData(uploadHandle, materialsHandle, materialsMemory, materialsDataSize);
+
+	free(materialsMemory);
 }

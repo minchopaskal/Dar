@@ -7,9 +7,9 @@
 using SubresStates = Vector<D3D12_RESOURCE_STATES>;
 using UploadHandle = SizeType;
 
-#define INVALID_UPLOAD_HANDLE SizeType(0)
+#define INVALID_UPLOAD_HANDLE SizeType(-1)
 
-enum class ResourceType : int {
+enum class ResourceType : unsigned int {
 	Invalid = 0,
 	DataBuffer,
 	StagingBuffer,
@@ -38,13 +38,13 @@ struct ResourceInitData {
 	union {
 		SizeType size; ///< Size used when DataBuffer is created
 		TextureData textureData; ///< Used when creating Texture/DepthStencil Buffer
-		StagingData stagingData; ///< Used when creating stating buffer
+		StagingData stagingData; ///< Used when creating staging buffer
 	};
 	D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COPY_DEST; ///< Used only when creating Data/Texture Buffer resource
 	WString name = L""; ///< Empty name will result in setting default name corresponding to the type of the resource
 	D3D12_HEAP_FLAGS heapFlags = D3D12_HEAP_FLAG_NONE;
 
-	ResourceInitData(ResourceType type) : type(type) {
+	ResourceInitData(ResourceType type) : type(type), size(0) {
 		switch (type) {
 		case ResourceType::DataBuffer:
 			size = 0;
@@ -93,6 +93,7 @@ struct ResourceManager {
 	/// @param startSubresourceIndex Index of the first subresource we wish to upload.
 	bool uploadTextureData(UploadHandle uploadHandle, ResourceHandle destResource, D3D12_SUBRESOURCE_DATA *subresData, UINT numSubresources, UINT startSubresourceIndex);
 	
+	/// NOTE!!! Not thread safe!
 	/// Should be called after all calls to upload*Data to actually submit the data to the GPU.
 	/// Submits all command lists created for each upload handle
 	/// Currently waits for the copying to finish.

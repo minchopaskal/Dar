@@ -1,11 +1,15 @@
-struct ModelViewProjection
-{
-	row_major matrix normalMatrix;
-	row_major matrix model;
+struct SceneMatrices {
 	row_major matrix viewProjection;
 };
+
+struct MeshData {
+	row_major matrix modelMatrix;
+	row_major matrix normalMatrix;
+	uint materialId;
+};
  
-ConstantBuffer<ModelViewProjection> MVPConstBuf : register(b0);
+ConstantBuffer<SceneMatrices> sceneMatrices : register(b0);
+ConstantBuffer<MeshData> meshData : register(b2);
 
 struct VSInput
 {
@@ -26,9 +30,9 @@ VSOutput main(VSInput IN)
 {
 	VSOutput result;
 
-	result.fragPos = mul(MVPConstBuf.model, float4(IN.position, 1.f));
-	result.position = mul(MVPConstBuf.viewProjection, result.fragPos);
-	result.normal = mul(MVPConstBuf.normalMatrix, float4(IN.normal, 1.f)).xyz; // model is orthogonal matrix
+	result.fragPos = mul(meshData.modelMatrix, float4(IN.position, 1.f));
+	result.position = mul(sceneMatrices.viewProjection, result.fragPos);
+	result.normal = mul(meshData.normalMatrix, float4(IN.normal, 1.f)).xyz;
 	result.uv = IN.uv;
 	
 	return result;

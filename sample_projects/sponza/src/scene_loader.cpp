@@ -53,6 +53,14 @@ MaterialId readMaterialDataForMesh(aiMesh *mesh, const aiScene *sc, Scene &scene
 	return scene.getNewMaterial(diffuse, specular, normals);
 }
 
+Vec3 aiVector3DToVec3(const aiVector3D &aiVec) {
+	return Vec3{ aiVec.x, aiVec.y, aiVec.z };
+};
+
+Vec3 aiVector3DToVec3(const aiColor3D &aiVec) {
+	return Vec3{ aiVec.r, aiVec.g, aiVec.b };
+};
+
 void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode, Scene &scene, SizeType &vertexOffset, SizeType &indexOffset) {
 	dassert(node != nullptr);
 	dassert(aiScene != nullptr);
@@ -61,6 +69,21 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 		dassert(node->mNumMeshes != 0);
 
 		// TODO: This is a proper place to import cameras and lights
+		for (int i = 0; i < aiScene->mNumLights; ++i) {
+			aiLight *aiL = aiScene->mLights[i];
+			Light *light = new Light;
+			light->position = aiVector3DToVec3(aiL->mPosition);
+			light->diffuse = aiVector3DToVec3(aiL->mColorDiffuse);
+			light->specular = aiVector3DToVec3(aiL->mColorSpecular);
+			light->ambient = aiVector3DToVec3(aiL->mColorAmbient);
+			light->direction = aiVector3DToVec3(aiL->mDirection);
+			light->attenuation = Vec3{aiL->mAttenuationConstant, aiL->mAttenuationLinear, aiL->mAttenuationQuadratic};
+			light->innerAngleCutoff = aiL->mAngleInnerCone;
+			light->outerAngleCutoff = aiL->mAngleOuterCone;
+			
+			scene.nodes.push_back(light);
+			scene.lightIndices.push_back(scene.nodes.back()->id);
+		}
 	}
 
 	Model *model = new Model;

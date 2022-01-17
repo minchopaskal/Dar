@@ -51,7 +51,7 @@ Sponza::Sponza(const UINT w, const UINT h, const String &windowTitle) :
 	vertexBufferView{},
 	indexBufferView{},
 	depthBufferHandle(INVALID_RESOURCE_HANDLE),
-	mvpBufferHandle{ INVALID_RESOURCE_HANDLE },
+	sceneMatricesHandles{ INVALID_RESOURCE_HANDLE, INVALID_RESOURCE_HANDLE },
 	textureHandles{ INVALID_RESOURCE_HANDLE },
 	viewport{ 0.f, 0.f, static_cast<float>(w), static_cast<float>(h), 0.f, 1.f },
 	scissorRect{ 0, 0, LONG_MAX, LONG_MAX }, // always render on the entire screen
@@ -128,37 +128,29 @@ void Sponza::update() {
 
 	camControl.processKeyboardInput(this, deltaTime);
 
-	// Update MVP matrices
-	const auto angle = static_cast<float>(totalTime * 90.0);
-	const auto rotationAxis = Vec3(0, 1, 1);
-	auto modelMat = Mat4(1.f);
-
+	// Update VP matrices
 	Mat4 viewMat = cam.getViewMatrix();
 	Mat4 projectionMat = cam.getProjectionMatrix();
 
-	struct MVPBuffer {
-		Mat4 normalMat;
-		Mat4 modelMat;
+	struct SceneMatrices {
 		Mat4 viewProjectionMat;
-	} mvpBuffer;
+	} sceneMatrices;
 
-	mvpBuffer.normalMat = modelMat.inverse().transpose();
-	mvpBuffer.modelMat = modelMat;
-	mvpBuffer.viewProjectionMat = projectionMat * viewMat;
+	sceneMatrices.viewProjectionMat = projectionMat * viewMat;
 
 	/// Initialize the MVP constant buffer resource if needed
-	if (mvpBufferHandle[frameIndex] == INVALID_RESOURCE_HANDLE) {
+	if (sceneMatricesHandles[frameIndex] == INVALID_RESOURCE_HANDLE) {
 		wchar_t frameMVPName[32] = L"";
-		swprintf(frameMVPName, 32, L"MVPbuffer[%d]", frameIndex);
+		swprintf(frameMVPName, 32, L"SceneMatrices[%d]", frameIndex);
 
 		ResourceInitData resData(ResourceType::DataBuffer);
-		resData.size = sizeof(MVPBuffer);
+		resData.size = sizeof(SceneMatrices);
 		resData.name = frameMVPName;
-		mvpBufferHandle[frameIndex] = resManager->createBuffer(resData);
+		sceneMatricesHandles[frameIndex] = resManager->createBuffer(resData);
 	}
 
 	UploadHandle uploadHandle = resManager->beginNewUpload();
-	resManager->uploadBufferData(uploadHandle, mvpBufferHandle[frameIndex], reinterpret_cast<void*>(&mvpBuffer), sizeof(MVPBuffer));
+	resManager->uploadBufferData(uploadHandle, sceneMatricesHandles[frameIndex], reinterpret_cast<void*>(&sceneMatrices), sizeof(SceneMatrices));
 	resManager->uploadBuffers();
 }
 
@@ -285,13 +277,13 @@ bool Sponza::loadAssets() {
 		return false;
 	}
 
-	scene.uploadMaterialBuffers();
+	scene.uploadSceneData();
 	// TODO: upload textures through the scene, also
 
 	/* Create shader resource view heap which will store the handles to the textures */
 	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	srvHeapDesc.NumDescriptors = static_cast<UINT>(scene.getNumTextures());
+	srvHeapDesc.NumDescriptors = static_cast<UINT>(scene.getNumTextures()) + 2;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	srvHeapDesc.NodeMask = 0;
 	RETURN_FALSE_ON_ERROR(
@@ -313,7 +305,7 @@ bool Sponza::loadAssets() {
 	psDesc.staticSamplerDesc = &sampler;
 	psDesc.numInputLayouts = _countof(inputLayouts);
 	psDesc.depthStencilBufferFormat = DXGI_FORMAT_D32_FLOAT;
-	psDesc.numConstantBufferViews = 2; // One for the MVP matrix and one for the material data
+	psDesc.numConstantBufferViews = static_cast<unsigned int>(ConstantBufferView::Count);
 	psDesc.numTextures = static_cast<UINT>(scene.getNumTextures());
 	psDesc.maxVersion = rootSignatureFeatureData.HighestVersion;
 	if (!pipelineState.init(device, psDesc)) {
@@ -389,9 +381,38 @@ bool Sponza::loadAssets() {
 			indexBufferView.Format = DXGI_FORMAT_R32_UINT;
 		}
 
-		/* Create SRVs for the textures so we can read them bindlessly in the shader */
 		SizeType srvHeapHandleSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		D3D12_CPU_DESCRIPTOR_HANDLE handle = srvHeap->GetCPUDescriptorHandleForHeapStart();
+		D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle = srvHeap->GetCPUDescriptorHandleForHeapStart();
+
+		// Create SRV for the lights
+		if (scene.getNumLights() > 0) {
+			D3D12_SHADER_RESOURCE_VIEW_DESC lightsSrvDesc = {};
+			lightsSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
+			lightsSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+			lightsSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+			lightsSrvDesc.Buffer = {};
+			lightsSrvDesc.Buffer.FirstElement = 0;
+			lightsSrvDesc.Buffer.NumElements = scene.getNumLights();
+			lightsSrvDesc.Buffer.StructureByteStride = sizeof(Light);
+			device->CreateShaderResourceView(scene.lightsHandle.get(), &lightsSrvDesc, descriptorHandle);
+		}
+		descriptorHandle.ptr += srvHeapHandleSize;
+
+		// Create SRV for the materials
+		if (scene.getNumMaterials() > 0) {
+			D3D12_SHADER_RESOURCE_VIEW_DESC materialsSrvDesc = {};
+			materialsSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
+			materialsSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+			materialsSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+			materialsSrvDesc.Buffer = {};
+			materialsSrvDesc.Buffer.FirstElement = 0;
+			materialsSrvDesc.Buffer.NumElements = scene.getNumMaterials();
+			materialsSrvDesc.Buffer.StructureByteStride = sizeof(GPUMaterial);
+			device->CreateShaderResourceView(scene.materialsHandle.get(), &materialsSrvDesc, descriptorHandle);
+		}
+		descriptorHandle.ptr += srvHeapHandleSize;
+
+		/* Create SRVs for the textures so we can read them bindlessly in the shader */
 		for (int i = 0; i < numTextures; ++i) {
 			dassert(texData[i].ncomp == 4);
 
@@ -401,8 +422,8 @@ bool Sponza::loadAssets() {
 			srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 			srvDesc.Texture2D.MipLevels = 1;
 
-			device->CreateShaderResourceView(textureHandles[i].get(), &srvDesc, handle);
-			handle.ptr += srvHeapHandleSize;
+			device->CreateShaderResourceView(textureHandles[i].get(), &srvDesc, descriptorHandle);
+			descriptorHandle.ptr += srvHeapHandleSize;
 		}
 	}
 
@@ -418,6 +439,8 @@ CommandList Sponza::populateCommandList() {
 
 	commandList->SetPipelineState(pipelineState.getPipelineState());
 
+	commandList.transition(scene.lightsHandle, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	commandList.transition(scene.materialsHandle, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	const SizeType numTextures = textureHandles.size();
 	for (int i = 0; i < numTextures; ++i) {
 		commandList.transition(textureHandles[i], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
@@ -445,12 +468,12 @@ CommandList Sponza::populateCommandList() {
 
 	commandList.transition(vertexBufferHandle, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 	commandList.transition(indexBufferHandle, D3D12_RESOURCE_STATE_INDEX_BUFFER);
-	commandList.transition(mvpBufferHandle[frameIndex], D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+	commandList.transition(sceneMatricesHandles[frameIndex], D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
 	commandList->IASetIndexBuffer(&indexBufferView);
 	commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
-	commandList.setMVPBuffer(mvpBufferHandle[frameIndex]);
+	commandList.setMVPBuffer(sceneMatricesHandles[frameIndex]);
 
 	scene.draw(commandList);
 

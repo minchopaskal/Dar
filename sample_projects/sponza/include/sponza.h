@@ -58,7 +58,7 @@ private:
 	ResourceHandle depthBufferHandle;
 
 	// MVP matrix
-	ResourceHandle mvpBufferHandle[frameCount];
+	ResourceHandle sceneMatricesHandles[frameCount];
 
 	// Texture data
 	Vector<ResourceHandle> textureHandles;

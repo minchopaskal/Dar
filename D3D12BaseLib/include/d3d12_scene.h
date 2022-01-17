@@ -4,15 +4,25 @@
 #include "d3d12_math.h"
 
 #include "d3d12_command_list.h"
-#include "d3d12_resource_handle.h"
+#include "d3d12_resource_manager.h"
 
 using TextureId = SizeType;
 using MaterialId = SizeType;
 using NodeId = SizeType;
+using LightId = SizeType;
 
 #define INVALID_MATERIAL_ID SizeType(-1)
 #define INVALID_TEXTURE_ID SizeType(-1)
 #define INVALID_NODE_ID SizeType(-1)
+#define INVALID_LIGHT_ID SizeType(-1)
+
+enum class ConstantBufferView : unsigned int {
+	MVPBuffer = 0,
+	LightsBuffer = 1,
+	MaterialId = 2,
+
+	Count
+};
 
 struct BBox {
 	Vec3 pmin = BBox::invalidMinPoint();
@@ -32,6 +42,12 @@ struct BBox {
 };
 
 // TODO: make pbr ofc
+struct GPUMaterial {
+	unsigned int diffuse;
+	unsigned int specular;
+	unsigned int normals;
+};
+
 struct Material {
 	MaterialId id = INVALID_MATERIAL_ID;
 	TextureId diffuse = INVALID_TEXTURE_ID;
@@ -39,8 +55,8 @@ struct Material {
 	TextureId normals = INVALID_TEXTURE_ID;
 };
 
-enum class TextureType : int {
-	Invalid,
+enum class TextureType : unsigned int {
+	Invalid = 0,
 
 	Diffuse,
 	Specular,
@@ -56,9 +72,16 @@ struct Texture {
 };
 
 struct Mesh {
+	Mat4 modelMatrix = Mat4(1.f);
+	mutable ResourceHandle meshDataHandle = INVALID_RESOURCE_HANDLE;
 	MaterialId mat = INVALID_MATERIAL_ID;
 	SizeType indexOffset;
 	SizeType numIndices;
+
+	void uploadMeshData(UploadHandle uploadHandle) const;
+
+private:
+	mutable Mat4 cache = Mat4(1.f);
 };
 
 struct Scene;
@@ -67,6 +90,8 @@ struct Node {
 	Vector<NodeId> children;
 	NodeId id = INVALID_NODE_ID;
 
+	virtual ~Node() {}
+
 	virtual void draw(CommandList &cmdList, const Scene &scene) const = 0;
 };
 
@@ -74,11 +99,49 @@ struct Model : Node {
 	Vector<Mesh> meshes;
 
 	void draw(CommandList &cmdList, const Scene &scene) const override;
+
+private:
+	void updateMeshDataHandles() const;
+};
+
+enum class LightType : unsigned int {
+	Point = 0,
+	Directional,
+	Spot,
+
+	Count
+};
+
+struct GPULight {
+	Vec3 position;
+	Vec3 diffuse;
+	Vec3 ambient;
+	Vec3 specular;
+	Vec3 attenuation;
+	Vec3 direction;
+	float innerAngleCutoff;
+	float outerAngleCutoff;
+	int type;
 };
 
 // TODO: implement lights import
 struct Light : Node {
-	void draw(CommandList&, const Scene &scene) const override { }
+	Vec3 position;
+	Vec3 diffuse;
+	Vec3 ambient;
+	Vec3 specular;
+	Vec3 attenuation;
+	Vec3 direction;
+	float innerAngleCutoff;
+	float outerAngleCutoff;
+	LightType type;
+
+	virtual ~Light() {}
+
+	virtual void draw(CommandList&, const Scene &scene) const {
+		// TODO: debug draw point lights
+		// IDEA: debug draw dir lights by giving them position
+	}
 };
 
 struct Vertex {
@@ -89,15 +152,22 @@ struct Vertex {
 
 // TODO: encapsulate members
 struct Scene {
-	Vector<Node*> nodes;
-	Vector<Material> materials;
-	Vector<ResourceHandle> materialHandles;
-	Vector<Texture> textures;
-	Vector<Vertex> vertices;
-	Vector<unsigned int> indices;
+	Vector<Node*> nodes; ///< Vector with pointers to all nodes in the scene
+	Vector<LightId> lightIndices; ///< Indices of the lights in the nodes vector
+	Vector<Material> materials; ///< Vector with all materials in the scene
+	Vector<Texture> textures; ///< Vector with all textures in the scene. Meshes could share texture ids.
+	Vector<Vertex> vertices; ///< All vertices in the scene.
+	Vector<unsigned int> indices; ///< All indices for all meshes, indexing in the vertices array.
+	ResourceHandle materialsHandle; ///< Handle to the GPU buffer holding all materials' data.
+	ResourceHandle lightsHandle; ///< Handle to the GPU buffer holding all lights' data.
 	BBox sceneBox;
+	// TODO: AABBs
 
 	Scene();
+
+	SizeType getNumLights() const {
+		return lightIndices.size();
+	}
 
 	MaterialId getNewMaterial(TextureId diffuse, TextureId specular, TextureId normals) {
 		Material m;
@@ -106,7 +176,6 @@ struct Scene {
 		m.specular = specular;
 		m.normals = normals;
 		materials.push_back(m);
-		materialHandles.push_back(INVALID_RESOURCE_HANDLE);
 		return m.id;
 	}
 
@@ -148,11 +217,6 @@ struct Scene {
 		return indices.size() == 0 ? 0 : indices.size() * sizeof(indices[0]);
 	}
 
-	const ResourceHandle& getMaterialHandle(MaterialId id) const {
-		dassert(id >= 0 && id < materials.size() && id != INVALID_MATERIAL_ID);
-		return materialHandles[id];
-	}
-
 	const SizeType getNumNodes() const {
 		return nodes.size();
 	}
@@ -165,10 +229,13 @@ struct Scene {
 		return materials.size();
 	}
 
-	void uploadMaterialBuffers();
+	void uploadSceneData();
 
 	void draw(CommandList &cmdList) const;
 
 private:
+	void uploadLightData(UploadHandle uploadHandle);
+	void uploadMaterialData(UploadHandle uploadHandle);
+
 	void drawNodeImpl(Node *node, CommandList &cmdList, const Scene &scene, DynamicBitset &drawnNodes) const;
 };

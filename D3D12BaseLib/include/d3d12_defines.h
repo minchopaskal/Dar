@@ -3,6 +3,7 @@
 #include <bitset>
 #include <cassert>
 #include <cmath>
+#include <cstddef>
 #include <memory>
 #include <vector>
 #include <queue>
@@ -63,6 +64,8 @@ while (false)
 #endif
 
 using SizeType = size_t;
+
+using Byte = std::byte;
 
 template <class T>
 using Vector = std::vector<T>;
