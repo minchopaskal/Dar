@@ -229,6 +229,7 @@ struct Scene {
 		return materials.size();
 	}
 
+	// TODO: this is shit. Find a better way.
 	void uploadSceneData();
 
 	void draw(CommandList &cmdList) const;

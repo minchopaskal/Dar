@@ -6,7 +6,6 @@
 
 #include "d3dx12.h"
 
-#include <glfw/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <glfw/glfw3native.h>
 
@@ -35,11 +34,8 @@ void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
 }
 
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
-	if (key < GLFW_KEY_0 || key > GLFW_KEY_Z) {
-		return;
-	}
-	
-	app->keyPressed[key] = !(action == GLFW_RELEASE);
+	app->keyPressed[key] = (action == GLFW_PRESS);
+	app->keyReleased[key] = (action == GLFW_RELEASE);
 	app->keyRepeated[key] = (action == GLFW_REPEAT);
 
 	// TODO: mapping keys to engine actions
@@ -366,16 +362,12 @@ int D3D12App::getHeight() const {
 	return height;
 }
 
-ButtonState D3D12App::query(char key) {
-	key = isalpha(key) ? toupper(key) : key;
-
-	if (key < GLFW_KEY_0 || key > GLFW_KEY_Z) {
-		return { false, false };
-	}
-
+ButtonState D3D12App::query(int key) {
 	ButtonState res;
-	res.pressed = keyPressed[key];
+	res.pressed = keyPressed[key] || keyRepeated[key];
 	res.repeated = keyRepeated[key];
+	res.released = keyReleased[key];
+	res.justPressed = keyPressed[key];
 
 	return res;
 }
@@ -427,7 +419,6 @@ void D3D12App::toggleFullscreen() {
 		app->onResize(width, height);
 		::ShowWindow(hWnd, SW_NORMAL);
 	}
-
 }
 
 HWND D3D12App::getWindow() const {

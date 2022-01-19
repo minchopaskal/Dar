@@ -9,12 +9,14 @@ set(LIB_DIR ${PROJECT_SOURCE_DIR}/lib)
 
 set(HEADERS
 	${INCLUDE_DIR}/fps_camera_controller.h
+	${INCLUDE_DIR}/fps_edit_camera_controller.h
 	${INCLUDE_DIR}/sponza.h
 	${INCLUDE_DIR}/scene_loader.h
 )
 
 set(SOURCES
 	${SRC_DIR}/fps_camera_controller.cpp
+	${SRC_DIR}/fps_edit_camera_controller.cpp
 	${SRC_DIR}/main.cpp
 	${SRC_DIR}/scene_loader.cpp
 	${SRC_DIR}/sponza.cpp

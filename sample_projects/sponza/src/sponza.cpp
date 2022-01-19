@@ -57,13 +57,16 @@ Sponza::Sponza(const UINT w, const UINT h, const String &windowTitle) :
 	scissorRect{ 0, 0, LONG_MAX, LONG_MAX }, // always render on the entire screen
 	aspectRatio(static_cast<float>(w) / static_cast<float>(h)),
 	fenceValues{ 0 },
-	camControl(&cam, 100.f),
+	camControl(nullptr),
+	fpsModeControl(&cam, 200.f),
+	editModeControl(&cam, 200.f),
 	cursorHidden(true),
 	fps(0.0),
 	totalTime(0.0),
 	deltaTime(0.0)
 {
 	cam = Camera::perspectiveCamera(Vec3(0.f, 100.f, 0.f), 90.f, static_cast<float>(w) / static_cast<float>(h), 10.f, 10000.f);
+	camControl = &fpsModeControl;
 }
 
 int Sponza::initImpl() {
@@ -126,7 +129,7 @@ void Sponza::deinit() {
 void Sponza::update() {
 	timeIt();
 
-	camControl.processKeyboardInput(this, deltaTime);
+	camControl->processKeyboardInput(this, deltaTime);
 
 	// Update VP matrices
 	Mat4 viewMat = cam.getViewMatrix();
@@ -174,7 +177,7 @@ void Sponza::drawUI() {
 	ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 		ImGui::Text("FPS: %.2f", fps);
 		ImGui::Text("Camera FOV: %.2f", cam.getFOV());
-		ImGui::Text("Camera Speed: %.2f", camControl.getSpeed());
+		ImGui::Text("Camera Speed: %.2f", camControl->getSpeed());
 		Vec3 pos = cam.getPos();
 		ImGui::Text("Camera Position: %.2f %.2f %.2f", pos.x, pos.y, pos.z);
 		ImGui::Text("Camera Vectors:");
@@ -186,16 +189,7 @@ void Sponza::drawUI() {
 		ImGui::Text("Forward: %.2f %.2f %.2f", z.x, z.y, z.z);
 	ImGui::End();
 
-	ImGui::SetNextWindowPos(ImVec2(0, 170.f), ImGuiCond_FirstUseEver);
-	ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-	ImGui::Text("[mouse move] - Turn around");
-	ImGui::Text("[mouse scroll] - Zoom/unzoom");
-	ImGui::Text("[wasd] - Move forwards/left/backwards/right");
-	ImGui::Text("[qe] - Move up/down");
-	ImGui::Text("[rt] - Increase/Decrease camera speed");
-	ImGui::Text("[k] - Make/Stop camera keeping on the plane of walking");
-	ImGui::Text("[m] - Show/Hide mouse cursor");
-	ImGui::End();
+	camControl->onDrawUI();
 }
 
 void Sponza::onResize(const unsigned int w, const unsigned int h) {
@@ -255,19 +249,20 @@ void Sponza::onKeyboardInput(int key, int action) {
 		projectionType = static_cast<ProjectionType>((static_cast<int>(projectionType) + 1) % 2);
 	}
 
-	ButtonState mState = query('m');
+	ButtonState mState = query(GLFW_KEY_M);
 	if (mState.pressed && !mState.repeated) {
 		cursorHidden = !cursorHidden;
 		setGLFWCursorHiddenState();
+		camControl = cursorHidden ? &fpsModeControl : &editModeControl;
 	}
 }
 
 void Sponza::onMouseScroll(double xOffset, double yOffset) {
-	camControl.onMouseScroll(xOffset, yOffset, deltaTime);
+	camControl->onMouseScroll(xOffset, yOffset, deltaTime);
 }
 
 void Sponza::onMouseMove(double xPos, double yPos) {
-	camControl.onMouseMove(xPos, yPos, deltaTime);
+	camControl->onMouseMove(xPos, yPos, deltaTime);
 }
 
 bool Sponza::loadAssets() {

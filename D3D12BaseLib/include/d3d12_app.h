@@ -6,8 +6,6 @@
 
 #include "d3d12_input_query.h"
 
-#include <bitset>
-
 struct GLFWwindow;
 struct ResourceManager;
 struct CommandList;
@@ -30,7 +28,7 @@ struct D3D12App : public IKeyboardInputQuery {
 	int getHeight() const;
 
 	// Inherited by IInputQuery
-	ButtonState query(char key) override;
+	ButtonState query(int key) override;
 
 protected:
 	/// Toggle between windowed/fullscreen
@@ -92,9 +90,10 @@ protected:
 	
 	// TODO: get this out of here
 	// Input
-	static const int keysCount = 90; // see GLFW_KEY_Z
+	static const int keysCount = GLFW_KEY_LAST;
 	Bitset<keysCount> keyPressed;
 	Bitset<keysCount> keyRepeated;
+	Bitset<keysCount> keyReleased;
 
 	// TODO: maybe abstract it or somehow make it global.
 	ComPtr<ID3D12Device8> device; ///< DX12 device used across all the classes

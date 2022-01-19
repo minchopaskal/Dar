@@ -8,6 +8,7 @@
 #include "d3d12_scene.h"
 
 #include "fps_camera_controller.h"
+#include "fps_edit_camera_controller.h"
 
 struct Sponza : D3D12App {
 	Sponza(UINT width, UINT height, const String &windowTitle);
@@ -84,7 +85,9 @@ private:
 	Vec3 camPos = { 0.f, 0.f, 0.f };
 
 	Camera cam;
-	FPSCameraController camControl;
+	FPSCameraController *camControl;
+	FPSCameraController fpsModeControl;
+	FPSEditModeCameraController editModeControl;
 
 	bool cursorHidden;
 

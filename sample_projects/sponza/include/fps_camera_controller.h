@@ -10,15 +10,15 @@ struct FPSCameraController : public ICameraController {
 	double getSpeed() const { return speed; }
 
 	// Inherited via CameraController
-	void onMouseMove(double xPos, double yPos, double deltaTime) override;
+	virtual void onMouseMove(double xPos, double yPos, double deltaTime) override;
 
-	void onMouseScroll(double xOffset, double yOffset, double deltaTime) override;
+	virtual void onMouseScroll(double xOffset, double yOffset, double deltaTime) override;
 
-	void processKeyboardInput(IKeyboardInputQuery *inputQuery, double deltaTime) override;
+	virtual void processKeyboardInput(IKeyboardInputQuery *inputQuery, double deltaTime) override;
 
 	virtual void onDrawUI() override;
 
-private:
+protected:
 	struct MousePos {
 		double x;
 		double y;
