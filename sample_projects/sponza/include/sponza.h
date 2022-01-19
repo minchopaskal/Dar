@@ -32,8 +32,6 @@ private:
 	bool updateRenderTargetViews();
 	bool resizeDepthBuffer();
 
-	void setGLFWCursorHiddenState();
-
 	void timeIt();
 
 private:
@@ -59,7 +57,7 @@ private:
 	ResourceHandle depthBufferHandle;
 
 	// MVP matrix
-	ResourceHandle sceneMatricesHandles[frameCount];
+	ResourceHandle sceneDataHandle[frameCount];
 
 	// Texture data
 	Vector<ResourceHandle> textureHandles;
@@ -77,19 +75,12 @@ private:
 	// Scene
 	Scene scene;
 
-	// Camera data
-	float FOV = 90.f;
-	Vec3 camUp = { 0.f, 1.f, 0.f };
-	Vec3 camForward = { 0.f, 0.f, 1.f };
-	Vec3 camRight = { 1.f, 0.f, 0.f };
-	Vec3 camPos = { 0.f, 0.f, 0.f };
-
 	Camera cam;
 	FPSCameraController *camControl;
 	FPSCameraController fpsModeControl;
 	FPSEditModeCameraController editModeControl;
 
-	bool cursorHidden;
+	bool editMode;
 
 	// timing
 	double fps;

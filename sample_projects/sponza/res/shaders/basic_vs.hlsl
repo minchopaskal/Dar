@@ -1,5 +1,6 @@
-struct SceneMatrices {
+struct SceneData {
 	row_major matrix viewProjection;
+	float3 cameraPosition; // world-space
 };
 
 struct MeshData {
@@ -8,7 +9,7 @@ struct MeshData {
 	uint materialId;
 };
  
-ConstantBuffer<SceneMatrices> sceneMatrices : register(b0);
+ConstantBuffer<SceneData> sceneData : register(b0);
 ConstantBuffer<MeshData> meshData : register(b2);
 
 struct VSInput
@@ -23,6 +24,7 @@ struct VSOutput
 	float2 uv : TEXCOORD;
 	float3 normal : NORMAL;
 	float4 fragPos : POSITION0;
+	float3 cameraPos : POSITION1;
 	float4 position : SV_Position;
 };
 
@@ -30,10 +32,11 @@ VSOutput main(VSInput IN)
 {
 	VSOutput result;
 
-	result.fragPos = mul(meshData.modelMatrix, float4(IN.position, 1.f));
-	result.position = mul(sceneMatrices.viewProjection, result.fragPos);
-	result.normal = mul(meshData.normalMatrix, float4(IN.normal, 1.f)).xyz;
 	result.uv = IN.uv;
+	result.normal = mul(meshData.normalMatrix, float4(IN.normal, 1.f)).xyz;
+	result.fragPos = mul(meshData.modelMatrix, float4(IN.position, 1.f));
+	result.cameraPos = sceneData.cameraPosition;
+	result.position = mul(sceneData.viewProjection, result.fragPos);
 	
 	return result;
 }

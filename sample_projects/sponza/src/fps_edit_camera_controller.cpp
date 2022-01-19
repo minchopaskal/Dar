@@ -3,7 +3,10 @@
 
 #include "imgui.h"
 
-FPSEditModeCameraController::FPSEditModeCameraController(Camera *cam, double movementSpeed) : FPSCameraController(cam, movementSpeed), flyMode(false) { }
+FPSEditModeCameraController::FPSEditModeCameraController(Camera *cam, double movementSpeed) : 
+	FPSCameraController(cam, movementSpeed),
+	flyMode(false) 
+{ }
 
 void FPSEditModeCameraController::onMouseMove(double xPos, double yPos, double deltaTime) {
 	if (!mousePosValid) {
@@ -24,6 +27,8 @@ void FPSEditModeCameraController::onMouseMove(double xPos, double yPos, double d
 	}
 }
 
+void setGLFWCursorHiddenState(GLFWwindow *window, bool show);
+
 void FPSEditModeCameraController::processKeyboardInput(IKeyboardInputQuery *inputQuery, double deltaTime) {
 	if (inputQuery == nullptr) {
 		return;
@@ -35,6 +40,7 @@ void FPSEditModeCameraController::processKeyboardInput(IKeyboardInputQuery *inpu
 	if (leftAltPressed != leftAltState.pressed) {
 		leftAltPressed = !leftAltPressed;
 		flyMode = leftAltPressed;
+		setGLFWCursorHiddenState(window, flyMode == false);
 	}
 
 	if (flyMode) {

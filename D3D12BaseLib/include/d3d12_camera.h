@@ -16,6 +16,13 @@ struct Camera {
 	static Camera orthographicCamera(const Vec3 &pos, float renderRectWidth, float renderRectHeight, float nearPlane, float farPlane);
 
 	Camera() : fov(90.f), aspectRatio(1.f) { }
+	Camera(Vec3 forward, Vec3 up, Vec3 right) : 
+		fov(90.f),
+		aspectRatio(1.f),
+		forwardVector(forward), 
+		upVector(up),
+		rightVector(right)
+	{ }
 
 	/// Get the world-to-camera transformation
 	Mat4 getViewMatrix();

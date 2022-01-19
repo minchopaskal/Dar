@@ -2,9 +2,11 @@
 #include "d3d12_input_query.h"
 
 #include "imgui.h"
+#include "GLFW/glfw3.h"
 
-FPSCameraController::FPSCameraController(Camera *cam, double movementSpeed) : 
+FPSCameraController::FPSCameraController(Camera *cam, double movementSpeed) :
 	ICameraController(cam),
+	window(nullptr),
 	mousePos{ 0.f, 0.f },
 	speed(movementSpeed),
 	mouseSensitivity(0.1f),
@@ -72,13 +74,26 @@ void FPSCameraController::processKeyboardInput(IKeyboardInputQuery *inputQuery, 
 		cam->setKeepXZPlane(!cam->getKeepXZPlane());
 	}
 
-	const float deltaSpeed = 2 * speed * deltaTime;
-	if (inputQuery->query(GLFW_KEY_T).pressed) {
-		speed -= deltaSpeed;
+	ButtonState shiftState = inputQuery->query(GLFW_KEY_LEFT_SHIFT);
+	if (shiftState.pressed && !shiftPressed) {
+		shiftPressed = true;
+		speed *= 2;
 	}
 
-	if (inputQuery->query(GLFW_KEY_R).pressed) {
-		speed += deltaSpeed;
+	if (shiftState.released && shiftPressed) {
+		shiftPressed = false;
+		speed /= 2;
+	}
+
+	if (!shiftPressed) {
+		const float deltaSpeed = 2 * speed * deltaTime;
+		if (inputQuery->query(GLFW_KEY_T).pressed) {
+			speed -= deltaSpeed;
+		}
+
+		if (inputQuery->query(GLFW_KEY_R).pressed) {
+			speed += deltaSpeed;
+		}
 	}
 }
 

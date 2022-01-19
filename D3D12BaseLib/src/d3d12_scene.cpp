@@ -29,7 +29,7 @@ void Mesh::uploadMeshData(UploadHandle uploadHandle) const {
 	cache = modelMatrix;
 }
 
-void Model::updateMeshDataHandles() const {
+void ModelNode::updateMeshDataHandles() const {
 	ResourceManager &resManager = getResourceManager();
 	UploadHandle handle = resManager.beginNewUpload();
 
@@ -40,7 +40,7 @@ void Model::updateMeshDataHandles() const {
 	resManager.uploadBuffers();
 }
 
-void Model::draw(CommandList &cmdList, const Scene &scene) const {
+void ModelNode::draw(CommandList &cmdList, const Scene &scene) const {
 	const SizeType numMeshes = meshes.size();
 
 	updateMeshDataHandles();
@@ -49,19 +49,34 @@ void Model::draw(CommandList &cmdList, const Scene &scene) const {
 		const Mesh &mesh = meshes[i];
 
 		cmdList.transition(mesh.meshDataHandle, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-		cmdList.setConstantBufferView(static_cast<unsigned int>(ConstantBufferView::MaterialId), static_cast<unsigned int>(mesh.meshDataHandle));
+		cmdList.setConstantBufferView(static_cast<unsigned int>(ConstantBufferView::MeshData), static_cast<unsigned int>(mesh.meshDataHandle));
 		cmdList->DrawIndexedInstanced(static_cast<UINT>(mesh.numIndices), 1, static_cast<UINT>(mesh.indexOffset), 0, 0);
 	}
 }
 
-Scene::Scene() : sceneBox(BBox::invalidBBox()), materialsHandle(INVALID_RESOURCE_HANDLE), lightsHandle(INVALID_RESOURCE_HANDLE) { }
+Scene::Scene() : 
+	sceneBox(BBox::invalidBBox()),
+	materialsHandle(INVALID_RESOURCE_HANDLE),
+	lightsHandle(INVALID_RESOURCE_HANDLE),
+	lightsNeedUpdate(true),
+	materialsNeedUpdate(true)
+{ }
 
 void Scene::uploadSceneData() {
+	if (!lightsNeedUpdate && !materialsNeedUpdate) {
+		return;
+	}
+
 	ResourceManager &resManager = getResourceManager();
 	UploadHandle handle = resManager.beginNewUpload();
 
-	uploadLightData(handle);
-	uploadMaterialData(handle);
+	if (lightsNeedUpdate) {
+		uploadLightData(handle);
+	}
+
+	if (materialsNeedUpdate) {
+		uploadMaterialData(handle);
+	}
 
 	resManager.uploadBuffers();
 }
@@ -107,8 +122,9 @@ void Scene::uploadLightData(UploadHandle uploadHandle) {
 
 	for (int i = 0; i < numLights; ++i) {
 		LightId currLightIdx = lightIndices[i];
-		Light *light = dynamic_cast<Light*>(nodes[currLightIdx]);
-		dassert(light != nullptr);
+		dassert(nodes[currLightIdx]->getNodeType() == NodeType::Light);
+
+		LightNode *light = dynamic_cast<LightNode*>(nodes[currLightIdx]);
 		if (light) {
 			GPULight gpuLight = {};
 			gpuLight.ambient = light->ambient;

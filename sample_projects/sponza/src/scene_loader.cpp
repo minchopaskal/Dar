@@ -65,13 +65,20 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 	dassert(node != nullptr);
 	dassert(aiScene != nullptr);
 
+	if (node == nullptr || aiScene == nullptr) {
+		return;
+	}
+
 	if (node == aiScene->mRootNode) {
 		dassert(node->mNumMeshes != 0);
 
-		// TODO: This is a proper place to import cameras and lights
 		for (int i = 0; i < aiScene->mNumLights; ++i) {
 			aiLight *aiL = aiScene->mLights[i];
-			Light *light = new Light;
+			if (aiL == nullptr) {
+				continue;
+			}
+
+			LightNode *light = new LightNode;
 			light->position = aiVector3DToVec3(aiL->mPosition);
 			light->diffuse = aiVector3DToVec3(aiL->mColorDiffuse);
 			light->specular = aiVector3DToVec3(aiL->mColorSpecular);
@@ -81,12 +88,42 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 			light->innerAngleCutoff = aiL->mAngleInnerCone;
 			light->outerAngleCutoff = aiL->mAngleOuterCone;
 			
-			scene.nodes.push_back(light);
-			scene.lightIndices.push_back(scene.nodes.back()->id);
+			scene.addNewLight(light);
+		}
+
+		for (int i = 0; i < aiScene->mNumCameras; ++i) {
+			aiCamera *aiCam = aiScene->mCameras[i];
+			if (aiCam == nullptr) {
+				continue;
+			}
+
+			Camera cam;
+
+			if (std::fabs(aiCam->mOrthographicWidth) < 1e-6f) {
+				cam = Camera::perspectiveCamera(
+					aiVector3DToVec3(aiCam->mPosition),
+					aiCam->mHorizontalFOV,
+					aiCam->mAspect,
+					aiCam->mClipPlaneNear,
+					aiCam->mClipPlaneFar
+				);
+			} else {
+				cam = Camera::orthographicCamera(
+					aiVector3DToVec3(aiCam->mPosition),
+					2 * aiCam->mOrthographicWidth,
+					2 * aiCam->mOrthographicWidth / aiCam->mAspect,
+					aiCam->mClipPlaneNear,
+					aiCam->mClipPlaneFar
+				);
+			}
+
+			CameraNode *camNode = new CameraNode(std::move(cam));
+
+			scene.addNewCamera(camNode);
 		}
 	}
 
-	Model *model = new Model;
+	ModelNode *model = new ModelNode;
 	for (int i = 0; i < node->mNumMeshes; ++i) {
 		aiMesh *mesh = aiScene->mMeshes[node->mMeshes[i]];
 		

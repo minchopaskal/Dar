@@ -3,6 +3,7 @@
 #include "d3d12_camera.h"
 
 struct Camera;
+struct GLFWwindow;
 
 struct FPSCameraController : public ICameraController {
 	FPSCameraController(Camera *cam, double movementSpeed);
@@ -18,6 +19,9 @@ struct FPSCameraController : public ICameraController {
 
 	virtual void onDrawUI() override;
 
+public:
+	GLFWwindow *window;
+
 protected:
 	struct MousePos {
 		double x;
@@ -27,4 +31,6 @@ protected:
 	double speed;
 	double mouseSensitivity;
 	bool mousePosValid;
+	bool shiftPressed = false;
+	bool altPressed = false;
 };

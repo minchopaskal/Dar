@@ -51,7 +51,7 @@ Sponza::Sponza(const UINT w, const UINT h, const String &windowTitle) :
 	vertexBufferView{},
 	indexBufferView{},
 	depthBufferHandle(INVALID_RESOURCE_HANDLE),
-	sceneMatricesHandles{ INVALID_RESOURCE_HANDLE, INVALID_RESOURCE_HANDLE },
+	sceneDataHandle{ INVALID_RESOURCE_HANDLE, INVALID_RESOURCE_HANDLE },
 	textureHandles{ INVALID_RESOURCE_HANDLE },
 	viewport{ 0.f, 0.f, static_cast<float>(w), static_cast<float>(h), 0.f, 1.f },
 	scissorRect{ 0, 0, LONG_MAX, LONG_MAX }, // always render on the entire screen
@@ -60,7 +60,7 @@ Sponza::Sponza(const UINT w, const UINT h, const String &windowTitle) :
 	camControl(nullptr),
 	fpsModeControl(&cam, 200.f),
 	editModeControl(&cam, 200.f),
-	cursorHidden(true),
+	editMode(false),
 	fps(0.0),
 	totalTime(0.0),
 	deltaTime(0.0)
@@ -69,10 +69,16 @@ Sponza::Sponza(const UINT w, const UINT h, const String &windowTitle) :
 	camControl = &fpsModeControl;
 }
 
+void setGLFWCursorHiddenState(GLFWwindow *window, bool show) {
+	glfwSetInputMode(window, GLFW_CURSOR, show ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
+}
+
 int Sponza::initImpl() {
 	setUseImGui();
 
-	setGLFWCursorHiddenState();
+	fpsModeControl.window = editModeControl.window = getGLFWWindow();
+
+	setGLFWCursorHiddenState(getGLFWWindow(), editMode == true);
 
 	D3D12_FEATURE_DATA_SHADER_MODEL shaderModel{ D3D_SHADER_MODEL_6_6 };
 	RETURN_FALSE_ON_ERROR(
@@ -135,25 +141,27 @@ void Sponza::update() {
 	Mat4 viewMat = cam.getViewMatrix();
 	Mat4 projectionMat = cam.getProjectionMatrix();
 
-	struct SceneMatrices {
+	struct SceneData {
 		Mat4 viewProjectionMat;
-	} sceneMatrices;
+		Vec3 cameraPosition;
+	} sceneData;
 
-	sceneMatrices.viewProjectionMat = projectionMat * viewMat;
+	sceneData.viewProjectionMat = projectionMat * viewMat;
+	sceneData.cameraPosition = cam.getPos();
 
 	/// Initialize the MVP constant buffer resource if needed
-	if (sceneMatricesHandles[frameIndex] == INVALID_RESOURCE_HANDLE) {
+	if (sceneDataHandle[frameIndex] == INVALID_RESOURCE_HANDLE) {
 		wchar_t frameMVPName[32] = L"";
-		swprintf(frameMVPName, 32, L"SceneMatrices[%d]", frameIndex);
+		swprintf(frameMVPName, 32, L"SceneData[%d]", frameIndex);
 
 		ResourceInitData resData(ResourceType::DataBuffer);
-		resData.size = sizeof(SceneMatrices);
+		resData.size = sizeof(SceneData);
 		resData.name = frameMVPName;
-		sceneMatricesHandles[frameIndex] = resManager->createBuffer(resData);
+		sceneDataHandle[frameIndex] = resManager->createBuffer(resData);
 	}
 
 	UploadHandle uploadHandle = resManager->beginNewUpload();
-	resManager->uploadBufferData(uploadHandle, sceneMatricesHandles[frameIndex], reinterpret_cast<void*>(&sceneMatrices), sizeof(SceneMatrices));
+	resManager->uploadBufferData(uploadHandle, sceneDataHandle[frameIndex], reinterpret_cast<void*>(&sceneData), sizeof(SceneData));
 	resManager->uploadBuffers();
 }
 
@@ -190,6 +198,12 @@ void Sponza::drawUI() {
 	ImGui::End();
 
 	camControl->onDrawUI();
+
+	if (editMode) {
+		ImGui::Begin("Edit mode", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::Text("You are in edit mode!");
+		ImGui::End();
+	}
 }
 
 void Sponza::onResize(const unsigned int w, const unsigned int h) {
@@ -251,9 +265,9 @@ void Sponza::onKeyboardInput(int key, int action) {
 
 	ButtonState mState = query(GLFW_KEY_M);
 	if (mState.pressed && !mState.repeated) {
-		cursorHidden = !cursorHidden;
-		setGLFWCursorHiddenState();
-		camControl = cursorHidden ? &fpsModeControl : &editModeControl;
+		editMode = !editMode;
+		setGLFWCursorHiddenState(getGLFWWindow(), editMode == true);
+		camControl = editMode ? &editModeControl : &fpsModeControl;
 	}
 }
 
@@ -271,6 +285,31 @@ bool Sponza::loadAssets() {
 		dassert(false);
 		return false;
 	}
+
+	// TODO: hard-coded for debugging. Add lights through scene editor/use scene lights
+	LightNode *lDir = new LightNode;
+	lDir->type = LightType::Directional;
+	lDir->direction = Vec3(-1.f, 1.f, 0.f);
+	lDir->diffuse = Vec3(.3f, .3f, .3f);
+	lDir->ambient = Vec3(.1f, .1f, .1f);
+	lDir->specular = Vec3(1.f, 1.f, 1.f);
+	scene.addNewLight(lDir);
+
+	LightNode *lPoint = new LightNode;
+	lPoint->type = LightType::Point;
+	lPoint->position = (100.f, 0.f, 0.f);
+	lPoint->diffuse = Vec3(.7f, .0f, .0f);
+	lPoint->ambient = Vec3(.1f, .1f, .1f);
+	lPoint->specular = Vec3(1.f, 0.f, 0.f);
+	scene.addNewLight(lPoint);
+
+	LightNode *lSpot = new LightNode;
+	lSpot->type = LightType::Spot;
+	lSpot->position = (100.f, 0.f, 0.f);
+	lSpot->diffuse = Vec3(.9f, .9f, .9f);
+	lSpot->ambient = Vec3(.1f, .1f, .1f);
+	lSpot->specular = Vec3(1.f, 1.f, 1.f);
+	scene.addNewLight(lSpot);
 
 	scene.uploadSceneData();
 	// TODO: upload textures through the scene, also
@@ -388,7 +427,7 @@ bool Sponza::loadAssets() {
 			lightsSrvDesc.Buffer = {};
 			lightsSrvDesc.Buffer.FirstElement = 0;
 			lightsSrvDesc.Buffer.NumElements = scene.getNumLights();
-			lightsSrvDesc.Buffer.StructureByteStride = sizeof(Light);
+			lightsSrvDesc.Buffer.StructureByteStride = sizeof(GPULight);
 			device->CreateShaderResourceView(scene.lightsHandle.get(), &lightsSrvDesc, descriptorHandle);
 		}
 		descriptorHandle.ptr += srvHeapHandleSize;
@@ -463,12 +502,12 @@ CommandList Sponza::populateCommandList() {
 
 	commandList.transition(vertexBufferHandle, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 	commandList.transition(indexBufferHandle, D3D12_RESOURCE_STATE_INDEX_BUFFER);
-	commandList.transition(sceneMatricesHandles[frameIndex], D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+	commandList.transition(sceneDataHandle[frameIndex], D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
 	commandList->IASetIndexBuffer(&indexBufferView);
 	commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
-	commandList.setMVPBuffer(sceneMatricesHandles[frameIndex]);
+	commandList.setMVPBuffer(sceneDataHandle[frameIndex]);
 
 	scene.draw(commandList);
 
@@ -525,10 +564,6 @@ bool Sponza::resizeDepthBuffer() {
 	device->CreateDepthStencilView(depthBufferHandle.get(), &dsDesc, dsvHeap->GetCPUDescriptorHandleForHeapStart());
 
 	return true;
-}
-
-void Sponza::setGLFWCursorHiddenState() {
-	glfwSetInputMode(getGLFWWindow(), GLFW_CURSOR, cursorHidden ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 }
 
 void Sponza::timeIt() {
