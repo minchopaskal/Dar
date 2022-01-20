@@ -75,7 +75,6 @@ private:
 	// Scene
 	Scene scene;
 
-	Camera cam;
 	FPSCameraController *camControl;
 	FPSCameraController fpsModeControl;
 	FPSEditModeCameraController editModeControl;

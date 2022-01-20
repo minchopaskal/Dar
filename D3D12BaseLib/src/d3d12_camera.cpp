@@ -1,7 +1,7 @@
 #include "d3d12_camera.h"
 #include "d3d12_defines.h"
 
-Mat4 Camera::getViewMatrix() {
+Mat4 Camera::getViewMatrix() const {
 	if (type == CameraType::Invalid) {
 		dassert(false);
 		return Mat4(1.f);
@@ -82,7 +82,7 @@ void Camera::moveUp(float amount) {
 	move(upVector * amount);
 }
 
-void Camera::updateOrientation() {
+void Camera::updateOrientation() const {
 	if (orientationValid) {
 		return;
 	}
@@ -97,7 +97,7 @@ void Camera::updateOrientation() {
 	orientationValid = true;
 }
 
-void Camera::updateViewMatrix() {
+void Camera::updateViewMatrix() const {
 	if (viewMatrixValid) {
 		return;
 	}
@@ -135,7 +135,7 @@ Camera Camera::orthographicCamera(const Vec3 &pos, float renderRectWidth, float 
 	return res;
 }
 
-Mat4 Camera::getProjectionMatrix() {
+Mat4 Camera::getProjectionMatrix() const {
 	if (projectionMatrixValid) {
 		return projectionMatrix;
 	}

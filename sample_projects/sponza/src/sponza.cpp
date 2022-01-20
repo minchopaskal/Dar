@@ -58,14 +58,13 @@ Sponza::Sponza(const UINT w, const UINT h, const String &windowTitle) :
 	aspectRatio(static_cast<float>(w) / static_cast<float>(h)),
 	fenceValues{ 0 },
 	camControl(nullptr),
-	fpsModeControl(&cam, 200.f),
-	editModeControl(&cam, 200.f),
+	fpsModeControl(nullptr, 200.f),
+	editModeControl(nullptr, 200.f),
 	editMode(false),
 	fps(0.0),
 	totalTime(0.0),
 	deltaTime(0.0)
 {
-	cam = Camera::perspectiveCamera(Vec3(0.f, 100.f, 0.f), 90.f, static_cast<float>(w) / static_cast<float>(h), 10.f, 10000.f);
 	camControl = &fpsModeControl;
 }
 
@@ -137,17 +136,21 @@ void Sponza::update() {
 
 	camControl->processKeyboardInput(this, deltaTime);
 
+	const Camera &cam = camControl->getCamera();
+
 	// Update VP matrices
 	Mat4 viewMat = cam.getViewMatrix();
 	Mat4 projectionMat = cam.getProjectionMatrix();
 
 	struct SceneData {
 		Mat4 viewProjectionMat;
-		Vec3 cameraPosition;
+		Vec4 cameraPosition;
+		Vec4 cameraDir;
 	} sceneData;
 
 	sceneData.viewProjectionMat = projectionMat * viewMat;
-	sceneData.cameraPosition = cam.getPos();
+	sceneData.cameraPosition = Vec4{ cam.getPos(), 1.f };
+	sceneData.cameraDir = Vec4{ dmath::normalized(cam.getCameraZ()), 1.f };
 
 	/// Initialize the MVP constant buffer resource if needed
 	if (sceneDataHandle[frameIndex] == INVALID_RESOURCE_HANDLE) {
@@ -181,6 +184,8 @@ void Sponza::render() {
 
 void Sponza::drawUI() {
 	ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
+
+	const Camera &cam = camControl->getCamera();
 
 	ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 		ImGui::Text("FPS: %.2f", fps);
@@ -289,31 +294,48 @@ bool Sponza::loadAssets() {
 	// TODO: hard-coded for debugging. Add lights through scene editor/use scene lights
 	LightNode *lDir = new LightNode;
 	lDir->type = LightType::Directional;
-	lDir->direction = Vec3(-1.f, 1.f, 0.f);
-	lDir->diffuse = Vec3(.3f, .3f, .3f);
-	lDir->ambient = Vec3(.1f, .1f, .1f);
-	lDir->specular = Vec3(1.f, 1.f, 1.f);
+	lDir->direction = Vec3{ -1.f, -1.f, 0.f };
+	lDir->diffuse   = Vec3{ .3f, .3f, .3f };
+	lDir->ambient   = Vec3{ .1f, .1f, .1f };
+	lDir->specular  = Vec3{ 1.f, 1.f, 1.f };
 	scene.addNewLight(lDir);
 
 	LightNode *lPoint = new LightNode;
 	lPoint->type = LightType::Point;
-	lPoint->position = (100.f, 0.f, 0.f);
-	lPoint->diffuse = Vec3(.7f, .0f, .0f);
-	lPoint->ambient = Vec3(.1f, .1f, .1f);
-	lPoint->specular = Vec3(1.f, 0.f, 0.f);
+	lPoint->position = Vec3{ -400.f, 200.f, 0.f };
+	lPoint->diffuse = Vec3{ .7f, .0f, .0f };
+	lPoint->ambient = Vec3{ .1f, .1f, .1f };
+	lPoint->specular = Vec3{ 1.f, 0.f, 0.f };
+	lPoint->attenuation = Vec3{ 1.f, 0.0014f, 0.000007f };
 	scene.addNewLight(lPoint);
 
 	LightNode *lSpot = new LightNode;
 	lSpot->type = LightType::Spot;
-	lSpot->position = (100.f, 0.f, 0.f);
-	lSpot->diffuse = Vec3(.9f, .9f, .9f);
-	lSpot->ambient = Vec3(.1f, .1f, .1f);
-	lSpot->specular = Vec3(1.f, 1.f, 1.f);
+	lSpot->position = Vec3{ 0.f, 100.f, 0.f };
+	lSpot->direction = Vec3{ 0.f, 0.f, 1.f };
+	lSpot->diffuse  = Vec3{ .9f, .9f, .9f };
+	lSpot->ambient  = Vec3{ .1f, .1f, .1f };
+	lSpot->specular = Vec3{ 1.f, 1.f, 1.0f };
+	lSpot->innerAngleCutoff = dmath::radians(12.5f);
+	lSpot->outerAngleCutoff = dmath::radians(40.f);
 	scene.addNewLight(lSpot);
 
-	scene.uploadSceneData();
-	// TODO: upload textures through the scene, also
+	Camera cam = Camera::perspectiveCamera(Vec3(0.f, 100.f, 0.f), 90.f, getWidth() / static_cast<float>(getHeight()), 10.f, 10000.f);
+	CameraNode *camNode = new CameraNode(std::move(cam));
+	scene.addNewCamera(camNode);
 
+	scene.uploadSceneData();
+
+	bool setCamRes = scene.setCameraForCameraController(fpsModeControl);
+	if (!setCamRes) {
+		return false;
+	}
+	setCamRes = scene.setCameraForCameraController(editModeControl);
+	if (!setCamRes) {
+		return false;
+	}
+
+	// TODO: upload textures through the scene, also
 	/* Create shader resource view heap which will store the handles to the textures */
 	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;

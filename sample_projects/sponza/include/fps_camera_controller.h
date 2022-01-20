@@ -10,6 +10,10 @@ struct FPSCameraController : public ICameraController {
 
 	double getSpeed() const { return speed; }
 
+	const Camera& getCamera() const {
+		return *cam;
+	}
+
 	// Inherited via CameraController
 	virtual void onMouseMove(double xPos, double yPos, double deltaTime) override;
 

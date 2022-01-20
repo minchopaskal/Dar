@@ -44,39 +44,7 @@ void FPSEditModeCameraController::processKeyboardInput(IKeyboardInputQuery *inpu
 	}
 
 	if (flyMode) {
-		double amount = speed * deltaTime;
-		if (inputQuery->query(GLFW_KEY_W).pressed) {
-			cam->moveForward(amount);
-		}
-
-		if (inputQuery->query(GLFW_KEY_S).pressed) {
-			cam->moveForward(-amount);
-		}
-
-		if (inputQuery->query(GLFW_KEY_D).pressed) {
-			cam->moveRight(amount);
-		}
-
-		if (inputQuery->query(GLFW_KEY_A).pressed) {
-			cam->moveRight(-amount);
-		}
-
-		if (inputQuery->query(GLFW_KEY_E).pressed) {
-			cam->moveUp(amount);
-		}
-
-		if (inputQuery->query(GLFW_KEY_Q).pressed) {
-			cam->moveUp(-amount);
-		}
-
-		const float deltaSpeed = 2 * speed * deltaTime;
-		if (inputQuery->query(GLFW_KEY_T).pressed) {
-			speed -= deltaSpeed;
-		}
-
-		if (inputQuery->query(GLFW_KEY_R).pressed) {
-			speed += deltaSpeed;
-		}
+		FPSCameraController::processKeyboardInput(inputQuery, deltaTime);
 	}
 }
 
@@ -84,9 +52,6 @@ void FPSEditModeCameraController::onDrawUI() {
 	ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 	ImGui::Text("[alt] - Hold for movement and rotation of camera");
 	ImGui::Text("[mouse scroll] - Zoom/unzoom");
-	ImGui::Text("[alt + wasd] - Move forwards/left/backwards/right");
-	ImGui::Text("[alt + qe] - Move up/down");
-	ImGui::Text("[alt + rt] - Increase/Decrease camera speed");
-	ImGui::Text("[m] - Switch to FPS mode"); // TODO: change controller here. When mouse is shown enter edit mode.
+	ImGui::Text("[m] - Switch to FPS mode");
 	ImGui::End();
 }

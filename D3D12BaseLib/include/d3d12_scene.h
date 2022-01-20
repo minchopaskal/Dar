@@ -7,14 +7,14 @@
 #include "d3d12_command_list.h"
 #include "d3d12_resource_manager.h"
 
-using TextureId = SizeType;
+using TextureId = unsigned int;
 using MaterialId = SizeType;
 using NodeId = SizeType;
 using LightId = SizeType;
 using CameraId = SizeType;
 
+#define INVALID_TEXTURE_ID (unsigned int)(-1)
 #define INVALID_MATERIAL_ID SizeType(-1)
-#define INVALID_TEXTURE_ID SizeType(-1)
 #define INVALID_NODE_ID SizeType(-1)
 #define INVALID_LIGHT_ID SizeType(-1)
 #define INVALID_CAMERA_ID SizeType(-1)
@@ -131,6 +131,9 @@ private:
 enum class LightType : int {
 	Invalid = -1,
 
+	// TODO: lights just as cameras should be attached to nodes
+	// This doesn't matter for the directional type, but the other two's
+	// positions(and for the Spot - direction) might depend on another node.
 	Point = 0,
 	Directional,
 	Spot,
@@ -157,8 +160,8 @@ struct LightNode : Node {
 	Vec3 specular;
 	Vec3 attenuation;
 	Vec3 direction;
-	float innerAngleCutoff;
-	float outerAngleCutoff;
+	float innerAngleCutoff; ///< Angle cutoff in radians of the inner "circle"
+	float outerAngleCutoff; ///< Angle cutoff in radians of the outer "circle"
 	LightType type;
 
 	LightNode() : innerAngleCutoff(0.f), outerAngleCutoff(0.f), type(LightType::Invalid) {
@@ -171,13 +174,18 @@ struct LightNode : Node {
 	}
 };
 
+// TODO: camera node should be able to be attached to a parent node, controlling it's position
 struct CameraNode : Node {
 	CameraNode(Camera &&camera) {
 		nodeType = NodeType::Camera;
-		camera = std::move(camera); // TODO: check move constructor
+		this->camera = std::move(camera);
 	}
 	
 	virtual void draw(CommandList &, const Scene&) const override final { }
+
+	Camera* getCamera() {
+		return &camera;
+	}
 
 private:
 	Camera camera;
@@ -204,6 +212,23 @@ struct Scene {
 	CameraId renderCamera = 0; ///< Id of the camera used for rendering
 
 	Scene();
+	~Scene();
+
+	bool setCameraForCameraController(ICameraController &controller) {
+		static const int activeCameraIdx = 0; // TODO: this should not be hardcoded
+
+		if (cameraIndices.empty()) {
+			return false;
+		}
+
+		CameraNode *camNode = dynamic_cast<CameraNode*>(nodes[cameraIndices[activeCameraIdx]]);
+		if (camNode == nullptr) {
+			return false;
+		}
+
+		controller.setCamera(camNode->getCamera());
+		return true;
+	}
 
 	SizeType getNumLights() const {
 		return lightIndices.size();
@@ -226,7 +251,7 @@ struct Scene {
 
 		cam->id = id;
 		nodes.push_back(cam);
-		lightIndices.push_back(id);
+		cameraIndices.push_back(id);
 
 		return id;
 	}

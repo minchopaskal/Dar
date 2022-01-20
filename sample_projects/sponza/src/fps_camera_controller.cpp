@@ -105,6 +105,7 @@ void FPSCameraController::onDrawUI() {
 	ImGui::Text("[qe] - Move up/down");
 	ImGui::Text("[rt] - Increase/Decrease camera speed");
 	ImGui::Text("[k] - Make/Stop camera keeping on the plane of walking");
-	ImGui::Text("[m] - Switch to edit mode"); // TODO: change controller here. When mouse is shown enter edit mode.
+	ImGui::Text("[m] - Switch to edit mode");
+	ImGui::Text("[shift] - Hold to move twice as fast.");
 	ImGui::End();
 }

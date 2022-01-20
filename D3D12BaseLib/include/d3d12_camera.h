@@ -25,10 +25,10 @@ struct Camera {
 	{ }
 
 	/// Get the world-to-camera transformation
-	Mat4 getViewMatrix();
+	Mat4 getViewMatrix() const;
 
 	/// Get the camera-to-clip transformation
-	Mat4 getProjectionMatrix();
+	Mat4 getProjectionMatrix() const;
 
 	/// Add `magnitude` to the camera position
 	void move(const Vec3 &magnitude);
@@ -59,42 +59,43 @@ struct Camera {
 	void setKeepXZPlane(bool keep) { keepXZ = keep; }
 	bool getKeepXZPlane() const { return keepXZ; }
 
-	Vec3 getCameraZ() {
+	// getCameraX/Y/Z() returns the coordinate system of the camera in world-space coordinates
+	Vec3 getCameraZ() const {
 		updateOrientation();
 		return forwardVector;
 	}
 
-	Vec3 getCameraX() {
+	Vec3 getCameraX() const {
 		updateOrientation();
 		return rightVector;
 	}
 
-	Vec3 getCameraY() {
+	Vec3 getCameraY() const {
 		updateOrientation();
 		return upVector;
 	}
 
-	Vec3 getPos() {
+	Vec3 getPos() const {
 		return pos;
 	}
 
-	float getFOV() { return fov; }
+	float getFOV() const {
+		return fov;
+	}
 
 private:
-	void updateOrientation();
-	void updateViewMatrix();
+	void updateOrientation() const;
+	void updateViewMatrix() const;
 
 private:
-	Mat4 viewMatrix = Mat4(1.f);
-	Mat4 projectionMatrix = Mat4(1.f);
+	mutable Mat4 viewMatrix = Mat4(1.f);
+	mutable Mat4 projectionMatrix = Mat4(1.f);
 
 	Vec3 pos = Vec3(0.f, 0.f, 0.f);
 	
-	struct /* Camera vectors cache */ {
-		Vec3 forwardVector = Vec3::unitZ();
-		Vec3 upVector = Vec3::unitY();
-		Vec3 rightVector = Vec3::unitX();
-	};
+	mutable Vec3 forwardVector = Vec3::unitZ();
+	mutable Vec3 upVector = Vec3::unitY();
+	mutable Vec3 rightVector = Vec3::unitX();
 
 	CameraType type = CameraType::Invalid;
 
@@ -120,15 +121,19 @@ private:
 	float rollAngle = 0.f;
 
 	bool keepXZ = false;
-	bool orientationValid = false;
-	bool viewMatrixValid = false;
-	bool projectionMatrixValid = false;
+	mutable bool orientationValid = false;
+	mutable bool viewMatrixValid = false;
+	mutable bool projectionMatrixValid = false;
 };
 
 struct IKeyboardInputQuery;
 
 struct ICameraController {
 	ICameraController(Camera *cam) : cam(cam) { }
+
+	void setCamera(Camera *cam) {
+		this->cam = cam;
+	}
 
 	virtual void onMouseMove(double xPos, double yPos, double deltaTime) = 0;
 	virtual void onMouseScroll(double xOffset, double yOffset, double deltaTime) = 0;

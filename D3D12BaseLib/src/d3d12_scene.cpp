@@ -62,6 +62,14 @@ Scene::Scene() :
 	materialsNeedUpdate(true)
 { }
 
+Scene::~Scene() {
+	for (int i = 0; i < nodes.size(); ++i) {
+		delete nodes[i];
+	}
+
+	nodes.clear();
+}
+
 void Scene::uploadSceneData() {
 	if (!lightsNeedUpdate && !materialsNeedUpdate) {
 		return;
@@ -126,13 +134,14 @@ void Scene::uploadLightData(UploadHandle uploadHandle) {
 
 		LightNode *light = dynamic_cast<LightNode*>(nodes[currLightIdx]);
 		if (light) {
+			// Do as much preprocessing as possible
 			GPULight gpuLight = {};
 			gpuLight.ambient = light->ambient;
 			gpuLight.attenuation = light->attenuation;
 			gpuLight.diffuse = light->diffuse;
-			gpuLight.direction = light->direction;
-			gpuLight.innerAngleCutoff = light->innerAngleCutoff;
-			gpuLight.outerAngleCutoff = light->outerAngleCutoff;
+			gpuLight.direction = dmath::normalized(light->direction);
+			gpuLight.innerAngleCutoff = cos(light->innerAngleCutoff);
+			gpuLight.outerAngleCutoff = cos(light->outerAngleCutoff);
 			gpuLight.position = light->position;
 			gpuLight.specular = light->specular;
 			gpuLight.type = static_cast<int>(light->type);
