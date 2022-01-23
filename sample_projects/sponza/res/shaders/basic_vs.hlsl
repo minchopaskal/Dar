@@ -14,7 +14,7 @@ ConstantBuffer<SceneData> sceneData : register(b0);
 ConstantBuffer<MeshData> meshData : register(b2);
 
 struct VSInput
-{
+{  
 	float3 position : POSITION0;
 	float3 normal: NORMAL;
 	float2 uv : TEXCOORD;
@@ -31,7 +31,7 @@ struct VSOutput
 VSOutput main(VSInput IN)
 {
 	VSOutput result;
-
+	
 	result.uv = IN.uv;
 	result.normal = mul(meshData.normalMatrix, float4(IN.normal, 1.f)).xyz;
 	result.fragPos = mul(meshData.modelMatrix, float4(IN.position, 1.f));

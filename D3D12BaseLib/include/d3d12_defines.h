@@ -13,6 +13,8 @@
 
 #include <comdef.h>
 
+#include "d3d12_logger.h"
+
 // including comdef.h brings these abominations
 #ifdef min
 #undef min
@@ -27,8 +29,9 @@
 do { \
   if (!SUCCEEDED((cmd))) { \
       auto err = GetLastError(); \
-      fprintf(stderr, "D3D12 Error: %s\n Last Error: %lu\n", (msg), err); \
-      char error[512]; sprintf(error, "D3D12 Error: %s\n", _com_error(err).ErrorMessage()); \
+      D3D12::Logger::log(D3D12::LogLevel::Error, "D3D12 Error: %s\n Last Error: %lu\n", (msg), err); \
+      char error[512]; \
+      sprintf(error, "D3D12 Error: %s\n", _com_error(err).ErrorMessage()); \
       OutputDebugString(error); \
       DebugBreak(); \
       return retval; \
@@ -39,7 +42,7 @@ do { \
 do { \
   if (!SUCCEEDED(cmd)) { \
       auto err = GetLastError(); \
-      fprintf(stderr, "D3D12 Error: %s\n Last error: %lu\n", (msg), (err)); \
+      Logger::log(LogLevel::Error, "D3D12 Error: %s\n Last Error: %lu\n", (msg), err); \
       return retval; \
     } \
   } \
@@ -53,6 +56,19 @@ while (false)
 #define RETURN_NULL_ON_ERROR(cmd, msg) RETURN_FALSE_ON_ERROR((cmd), (msg))
 
 #define RETURN_FALSE_ON_ERROR_FMT(cmd, msg, ...) RETURN_ON_ERROR_FMT((cmd), false, (msg), __VA_ARGS__)
+
+#define RETURN_ERROR_FMT(retval, msg, ...) RETURN_ON_ERROR_FMT(FACILITY_NT_BIT, retval, (msg), __VA_ARGS__)
+
+#define RETURN_ERROR_IF_FMT(cond, retval, msg, ...) \
+do { \
+if (cond) { \
+  RETURN_ERROR_FMT(FACILITY_NT_BIT, retval, (msg), __VA_ARGS__); \
+} \
+} while (false)
+
+#define RETURN_ERROR(retval, msg) RETURN_ERROR_FMT(FACILITY_NT_BIT, retval, (msg), )
+
+#define RETURN_ERROR_IF(cond, retval, msg) RETURN_ERROR_IF_FMT((cond), retval, (msg), )
 
 #ifdef D3D12_DEBUG
 #define dassert(exp) \

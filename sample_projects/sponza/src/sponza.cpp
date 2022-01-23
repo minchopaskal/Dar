@@ -85,10 +85,7 @@ int Sponza::initImpl() {
 		"Device does not support shader model 6.6!"
 	);
 
-	if (shaderModel.HighestShaderModel != D3D_SHADER_MODEL_6_6) {
-		fprintf(stderr, "Shader model 6.6 not supported!");
-		return false;
-	}
+	RETURN_ERROR_IF(shaderModel.HighestShaderModel != D3D_SHADER_MODEL_6_6, false, "Shader model 6.6 not supported!");
 
 	/* Create a descriptor heap for RTVs */
 	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = { };
@@ -314,9 +311,9 @@ bool Sponza::loadAssets() {
 	lSpot->position = Vec3{ 0.f, 100.f, 0.f };
 	lSpot->direction = Vec3{ 0.f, 0.f, 1.f };
 	lSpot->diffuse  = Vec3{ .9f, .9f, .9f };
-	lSpot->ambient  = Vec3{ .1f, .1f, .1f };
+	lSpot->ambient  = Vec3{ .05f, .05f, .05f };
 	lSpot->specular = Vec3{ 1.f, 1.f, 1.0f };
-	lSpot->innerAngleCutoff = dmath::radians(12.5f);
+	lSpot->innerAngleCutoff = dmath::radians(35.5f);
 	lSpot->outerAngleCutoff = dmath::radians(40.f);
 	scene.addNewLight(lSpot);
 

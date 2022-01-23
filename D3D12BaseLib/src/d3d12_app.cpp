@@ -34,6 +34,11 @@ void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
 }
 
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
+	if (key == GLFW_KEY_UNKNOWN) {
+		D3D12::Logger::log(D3D12::LogLevel::Warning, "Unknown key pressed!");
+		return;
+	}
+
 	app->keyPressed[key] = (action == GLFW_PRESS);
 	app->keyReleased[key] = (action == GLFW_RELEASE);
 	app->keyRepeated[key] = (action == GLFW_REPEAT);

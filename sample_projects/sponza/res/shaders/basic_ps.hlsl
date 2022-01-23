@@ -100,6 +100,10 @@ float4 main(PSInput IN) : SV_TARGET
 	const MaterialData material = materials[meshData.materialId];
 
 	colors.diffuse = getColorFromTex(material.diffuse, IN.uv, float4(0.f, 0.f, 0.f, 1.f));
+	if (colors.diffuse.w < 1e-6) {
+		discard;
+	}
+
 	colors.specular = getColorFromTex(material.specular, IN.uv, float4(.5f, .5f, .5f, 1.f));
 	colors.normal = getColorFromTex(material.normal, IN.uv, float4(IN.normal, 1.f));
 
@@ -112,8 +116,8 @@ float4 main(PSInput IN) : SV_TARGET
 	};
 
 	for (int i = 0; i < numLights; ++i) {
-		const LightData light = lights[i];
-		const float lightWeight = 1.f / numLights;
+		const LightData light = lights[2];
+		const float lightWeight = 1.f;// / numLights;
 		
 		if (light.type == Point) {
 			const float3 lightDir = normalize(IN.fragPos.xyz - light.position);
@@ -153,7 +157,7 @@ float4 main(PSInput IN) : SV_TARGET
 				LightColors spotLight = getLightValues(light, lightDir, colors, IN);
 
 				if (theta < light.innerCutoff) {
-					const float spotEdgeIntensity = clamp((theta - light.outerCutoff) / (light.innerCutoff - light.outerCutoff), 0.f, 1.f);
+					const float spotEdgeIntensity = (theta - light.outerCutoff) / (light.innerCutoff - light.outerCutoff);
 
 					spotLight.diffuse *= spotEdgeIntensity;
 					spotLight.specular *= spotEdgeIntensity;

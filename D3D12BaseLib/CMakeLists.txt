@@ -17,6 +17,7 @@ set(HEADERS
 	${INCLUDE_DIR}/d3d12_defines.h
 	${INCLUDE_DIR}/d3d12_includes.h
 	${INCLUDE_DIR}/d3d12_input_query.h
+	${INCLUDE_DIR}/d3d12_logger.h
 	${INCLUDE_DIR}/d3d12_math.h
 	${INCLUDE_DIR}/d3d12_pipeline_state.h
 	${INCLUDE_DIR}/d3d12_resource_handle.h
@@ -31,6 +32,7 @@ set(SOURCES
 	${SRC_DIR}/d3d12_camera.cpp
 	${SRC_DIR}/d3d12_command_list.cpp
 	${SRC_DIR}/d3d12_command_queue.cpp
+	${SRC_DIR}/d3d12_logger.cpp
 	${SRC_DIR}/d3d12_pipeline_state.cpp
 	${SRC_DIR}/d3d12_resource_manager.cpp
 	${SRC_DIR}/d3d12_resource_handle.cpp
