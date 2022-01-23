@@ -80,13 +80,13 @@ private:
 };
 
 enum ShaderInfoFlags : UINT8 {
-	sif_useGeometry = (1<<0),
-	sif_useDomain = (1<<1),
-	sif_useHull = (1<<2),
-	sif_useCompute = (1<<3),
-	sif_useMesh = (1<<4),
-	sif_useAmplification = (1<<5),
-	sif_useVertex = (1<<6) // TODO: depricate by using bindless buffers
+	shaderInfoFlags_useGeometry = (1<<0),
+	shaderInfoFlags_useDomain = (1<<1),
+	shaderInfoFlags_useHull = (1<<2),
+	shaderInfoFlags_useCompute = (1<<3),
+	shaderInfoFlags_useMesh = (1<<4),
+	shaderInfoFlags_useAmplification = (1<<5),
+	shaderInfoFlags_useVertex = (1<<6) // TODO: depricate by using bindless buffers
 };
 
 struct PipelineStateDesc {
@@ -99,7 +99,7 @@ struct PipelineStateDesc {
 	UINT numInputLayouts = 0; ///< Number of input layouts.
 	UINT numTextures = 0; ///< Number of textures in the texture descriptor table.
 	UINT numConstantBufferViews = 0; ///< Number of constant buffer views. Used for root signature creation.
-	UINT8 shadersMask = 0; ///< Mask indicating which types of shaders will be used.
+	UINT8 shadersMask = 0; ///< Mask indicating which types of shaders will be used. Only the fragment shader is ON by default.
 };
 
 struct PipelineState {

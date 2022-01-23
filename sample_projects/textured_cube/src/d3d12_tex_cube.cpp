@@ -53,22 +53,22 @@ D3D12TexturedCube::D3D12TexturedCube(const UINT w, const UINT h, const String &w
 	depthBufferHandle(INVALID_RESOURCE_HANDLE),
 	mvpBufferHandle{ INVALID_RESOURCE_HANDLE },
 	texturesHandles{ INVALID_RESOURCE_HANDLE },
-	viewport{ 0.f, 0.f, static_cast<float>(w), static_cast<float>(h), 0.001f, 100.f },
+	viewport{ 0.f, 0.f, static_cast<float>(w), static_cast<float>(h), 0.f, 1.f },
 	scissorRect{ 0, 0, LONG_MAX, LONG_MAX }, // always render on the entire screen
 	aspectRatio(static_cast<float>(w) / static_cast<float>(h)),
 	fenceValues{ 0 },
-	FOV(45.0),
+	camControl { &cam, 10.f },
 	fps(0.0),
 	totalTime(0.0),
 	deltaTime(0.0)
-{ }
+{
+	cam = Camera::perspectiveCamera(Vec3(0.f), 45.f, aspectRatio, 0.001f, 100.f);
+}
 
-int D3D12TexturedCube::init() {
+int D3D12TexturedCube::initImpl() {
 	setUseImGui();
 
-	if (!Super::init()) {
-		return false;
-	}
+	glfwSetInputMode(getGLFWWindow(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	D3D12_FEATURE_DATA_SHADER_MODEL shaderModel{ D3D_SHADER_MODEL_6_6 };
 	RETURN_FALSE_ON_ERROR(
@@ -135,20 +135,17 @@ void D3D12TexturedCube::deinit() {
 void D3D12TexturedCube::update() {
 	timeIt();
 
+	camControl.processKeyboardInput(this, deltaTime);
+
 	// Update MVP matrices
 	const auto angle = static_cast<float>(totalTime * 90.0);
 	const auto rotationAxis = Vec3(0, 1, 1);
 	auto modelMat = Mat4(1.f);
-	modelMat = modelMat.rotate(rotationAxis, angle);
-	modelMat = modelMat.translate({ 0, 0, 0 });
+	modelMat = modelMat.translate({ 10.f, 0, 0.f });
 
-	const auto eyePosition = Vec3(0, 0, -10);
-	const auto focusPoint  = Vec3(0, 0, 0);
-	const auto upDirection = Vec3(0, 1, 0);
-	Mat4 viewMat = dmath::lookAt(focusPoint, eyePosition, upDirection);
-	Mat4 projectionMat = projectionType == ProjectionType::Perspective ? 
-		dmath::perspective(FOV, aspectRatio, 0.1f, 100.f) :
-		dmath::orthographic(-orthoDim * aspectRatio, orthoDim * aspectRatio, -orthoDim, orthoDim, 0.1f, 100.f);
+	Mat4 viewMat = cam.getViewMatrix();
+	Mat4 projectionMat = cam.getProjectionMatrix();
+
 	mvp = projectionMat * viewMat * modelMat;
 
 	/// Initialize the MVP constant buffer resource if needed
@@ -182,10 +179,19 @@ void D3D12TexturedCube::render() {
 }
 
 void D3D12TexturedCube::drawUI() {
-	Super::drawUI();
-
 	ImGui::Begin("Stats");
 	ImGui::Text("FPS: %.2f", fps);
+	ImGui::Text("Camera FOV: %.2f", cam.getFOV());
+	ImGui::Text("Camera speed: %.2f", camControl.getSpeed());
+	Vec3 pos = cam.getPos();
+	ImGui::Text("X: %.2f %.2f %.2f", pos.x, pos.y, pos.z);
+	ImGui::Text("Camera Vectors:");
+	Vec3 x = cam.getCameraX();
+	Vec3 y = cam.getCameraY();
+	Vec3 z = cam.getCameraZ();
+	ImGui::Text("X: %.2f %.2f %.2f", x.x, x.y, x.z);
+	ImGui::Text("Y: %.2f %.2f %.2f", y.x, y.y, y.z);
+	ImGui::Text("Z: %.2f %.2f %.2f", z.x, z.y, z.z);
 	ImGui::End();
 }
 
@@ -248,14 +254,11 @@ void D3D12TexturedCube::onKeyboardInput(int key, int action) {
 }
 
 void D3D12TexturedCube::onMouseScroll(double xOffset, double yOffset) {
-	const auto change = static_cast<float>(yOffset);
-	if (projectionType == ProjectionType::Perspective) {
-		FOV -= change;
-		FOV = dmath::min(dmath::max(30.f, FOV), 120.f);
-	} else {
-		orthoDim -= change;
-		orthoDim = dmath::min(dmath::max(1.f, orthoDim), 100.f);
-	}
+	camControl.onMouseScroll(xOffset, yOffset, deltaTime);
+}
+
+void D3D12TexturedCube::onMouseMove(double xPos, double yPos) {
+	camControl.onMouseMove(xPos, yPos, deltaTime);
 }
 
 int D3D12TexturedCube::loadAssets() {
@@ -267,7 +270,7 @@ int D3D12TexturedCube::loadAssets() {
 	CD3DX12_STATIC_SAMPLER_DESC sampler{ D3D12_FILTER_MIN_MAG_MIP_POINT };
 	PipelineStateDesc psDesc = {};
 	psDesc.shaderName = L"basic";
-	psDesc.shadersMask = sif_useVertex;
+	psDesc.shadersMask = shaderInfoFlags_useVertex;
 	psDesc.inputLayouts = inputLayouts;
 	psDesc.staticSamplerDesc = &sampler;
 	psDesc.numInputLayouts = _countof(inputLayouts);
@@ -295,6 +298,12 @@ int D3D12TexturedCube::loadAssets() {
 
 			{ {-1.0f, -1.0f, -1.0f }, { 0.0f, 1.0f } }, // 10
 			{ { 1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f } }, // 11
+
+			// plane below cube
+			{ {-10.0f, -2.0f, -10.0f }, { 0.0f, 0.0f } }, // 12
+			{ {-10.0f, -2.0f,  10.0f }, { 0.0f, 1.0f } }, // 13
+			{ { 10.0f, -2.0f, -10.0f }, { 1.0f, 0.0f } }, // 14
+			{ { 10.0f, -2.0f,  10.0f }, { 1.0f, 1.0f } }, // 15
 		};
 		constexpr UINT vertexBufferSize = sizeof(cubeVertices);
 
@@ -304,7 +313,10 @@ int D3D12TexturedCube::loadAssets() {
 			4, 5, 1, 4, 1, 0,
 			3, 2, 6, 3, 6, 7,
 			8, 5, 6, 1, 6, 9,
-			4, 10, 11, 4, 11, 7
+			4, 10, 11, 4, 11, 7,
+
+			// plane
+			12, 13, 15, 12, 15, 14
 		};
 		constexpr UINT indexBufferSize = sizeof(cubeIndices);
 
@@ -441,7 +453,11 @@ bool D3D12TexturedCube::updateRenderTargetViews() {
 		rtvHandle.Offset(static_cast<int>(rtvHeapHandleIncrementSize));
 
 		// Register the back buffer's resources manually since the resource manager doesn't own them, the swap chain does.
+#ifdef D3D12_DEBUG
+		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, D3D12_RESOURCE_STATE_PRESENT, ResourceType::RenderTargetView);
+#else
 		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, D3D12_RESOURCE_STATE_PRESENT);
+#endif
 
 		wchar_t backBufferName[32];
 		swprintf(backBufferName, 32, L"BackBuffer[%u]", i);

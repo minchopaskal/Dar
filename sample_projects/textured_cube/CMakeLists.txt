@@ -8,11 +8,13 @@ set(SUBMODULE_DIR ${PROJECT_SOURCE_DIR}/third_party)
 set(LIB_DIR ${PROJECT_SOURCE_DIR}/lib)
 
 set(HEADERS
+	${INCLUDE_DIR}/fps_camera_controller.h
 	${INCLUDE_DIR}/d3d12_tex_cube.h
 	${INCLUDE_DIR}/geometry.h
 )
 
 set(SOURCES
+	${SRC_DIR}/fps_camera_controller.cpp
 	${SRC_DIR}/main.cpp
 	${SRC_DIR}/d3d12_tex_cube.cpp
 )

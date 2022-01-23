@@ -7,7 +7,7 @@
 #define CHECK_RESOURCE_HANDLE(handle) \
 do { \
 	if (handle == INVALID_RESOURCE_HANDLE || handle >= resources.size() || resources[handle].res == nullptr) { \
-		return INVALID_RESOURCE_HANDLE; \
+		return false; \
 	} \
 } while (false)
 
@@ -72,19 +72,19 @@ ResourceHandle ResourceManager::createBuffer(const ResourceInitData &initData) {
 				IID_PPV_ARGS(resource.GetAddressOf())
 			),
 			INVALID_RESOURCE_HANDLE,
-			"Failed to create DataBuffer!"
+			"Failed to create TextureBuffer!"
 		);
 		break;
 	case ResourceType::DepthStencilBuffer:
 		initialState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
-		clearValue.Format = DXGI_FORMAT_D32_FLOAT;
+		clearValue.Format = initData.textureData.format;
 		clearValue.DepthStencil = { 1.f, 0 };
 		RETURN_ON_ERROR(
 			device->CreateCommittedResource(
 				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 				initData.heapFlags,
 				&CD3DX12_RESOURCE_DESC::Tex2D(
-					DXGI_FORMAT_D32_FLOAT,
+					initData.textureData.format,
 					initData.textureData.width,
 					initData.textureData.height,
 					1, 0, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL
@@ -146,7 +146,7 @@ UploadHandle ResourceManager::beginNewUpload() {
 	return cmdLists.size() - 1;
 }
 
-bool ResourceManager::uploadBufferData(UploadHandle uploadHandle, ResourceHandle destResourceHandle, void *data, SizeType size) {
+bool ResourceManager::uploadBufferData(UploadHandle uploadHandle, ResourceHandle destResourceHandle, const void *data, SizeType size) {
 	CHECK_RESOURCE_HANDLE(destResourceHandle);
 
 	ResourceInitData resData(ResourceType::StagingBuffer);
@@ -216,7 +216,6 @@ bool ResourceManager::flush() {
 unsigned int ResourceManager::getSubresourcesCount(ResourceHandle handle) {
 	CHECK_RESOURCE_HANDLE(handle);
 
-
 	return (unsigned int)(resources[handle].subresStates.size());
 }
 
@@ -272,7 +271,7 @@ bool ResourceManager::setGlobalStateForSubres(ResourceHandle handle, const D3D12
 	return true;
 }
 
-ResourceHandle ResourceManager::registerResource(ComPtr<ID3D12Resource> resourcePtr, UINT subresourcesCount, D3D12_RESOURCE_STATES state) {
+ResourceHandle ResourceManager::registerResourceImpl(ComPtr<ID3D12Resource> resourcePtr, UINT subresourcesCount, D3D12_RESOURCE_STATES state) {
 	ResourceHandle handle;
 	auto lock = resourcesCS.lock();
 	if (!resourcePool.empty()) {
@@ -282,7 +281,7 @@ ResourceHandle ResourceManager::registerResource(ComPtr<ID3D12Resource> resource
 		resources[handle].res = resourcePtr;
 		resources[handle].subresStates = SubresStates{ subresourcesCount, state };
 	} else {
-		resources.emplace_back(Resource{ resourcePtr, SubresStates(subresourcesCount, state), {} });
+		resources.push_back(Resource{ resourcePtr, SubresStates(subresourcesCount, state), {} });
 		handle = resources.size() - 1;
 		if (numThreads > 1) {
 			resources[handle].cs.init();
@@ -292,6 +291,18 @@ ResourceHandle ResourceManager::registerResource(ComPtr<ID3D12Resource> resource
 	return handle;
 }
 
+#ifdef D3D12_DEBUG
+ResourceHandle ResourceManager::registerResource(ComPtr<ID3D12Resource> resourcePtr, UINT subresourcesCount, D3D12_RESOURCE_STATES state, ResourceType type) {
+	ResourceHandle handle = registerResourceImpl(resourcePtr, subresourcesCount, state);
+	resources[handle].type = type;
+	return handle;
+}
+#else
+ResourceHandle ResourceManager::registerResource(ComPtr<ID3D12Resource> resourcePtr, UINT subresourcesCount, D3D12_RESOURCE_STATES state) {
+	return registerResourceImpl(resourcePtr, subresourcesCount, state);
+}
+#endif // D3D12_DEBUG
+
 bool ResourceManager::deregisterResource(ResourceHandle &handle) {
 	CHECK_RESOURCE_HANDLE(handle);
 
@@ -299,6 +310,7 @@ bool ResourceManager::deregisterResource(ResourceHandle &handle) {
 
 #ifdef D3D12_DEBUG
 	ResourceType type = getResourceType(handle);
+	dassert(type != ResourceType::Invalid);
 	if (type == ResourceType::StagingBuffer) {
 		dassert(refCount == 0);
 	}
@@ -323,29 +335,16 @@ void ResourceManager::endFrame() {
 	// Destroy any staging resources
 	for (int i = 0; i < stagingBuffers.size(); ++i) {
 		deregisterResource(stagingBuffers[i]);
-		
 	}
 }
 
 void ResourceManager::resetCommandLists() {
-	if (cmdLists.empty()) {
-		cmdLists.emplace_back();
-		return;
-	}
-
-	// Leave the first element to be our invalid upload handle.
-	cmdLists.erase(cmdLists.begin() + 1, cmdLists.end());
+	cmdLists.clear();
 }
 
 #ifdef D3D12_DEBUG
-ResourceHandle ResourceManager::registerResource(ComPtr<ID3D12Resource> resource, UINT subresourcesCount, D3D12_RESOURCE_STATES state, ResourceType type) {
-	ResourceHandle handle = registerResource(resource, subresourcesCount, state);
-	resources[handle].type = type;
-	return handle;
-}
-
 ResourceType ResourceManager::getResourceType(ResourceHandle handle) {
-	return ResourceType();
+	return resources[handle].type;
 }
 #endif // D3D12_DEBUG
 

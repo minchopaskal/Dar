@@ -9,6 +9,8 @@ set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Configs" FORCE)
 
 # Enable parallel compilation for MSVC by defult.
 add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
+add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/we4834>) # ignoring result of nodiscard function
+#add_compile_options($<$<CONFIG:Debug>:/WX>)
 
 set(D3D12_COMPILE_SAMPLE_PROJECTS CACHE BOOL "Compile sample projects")
 
@@ -31,6 +33,11 @@ macro(compile_shaders TRG SHADERS_FOLDER SHADER_VERSION)
 	add_custom_command(TARGET ${TRG} PRE_BUILD
 		COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${TRG}>/res/shaders/
 	)
+
+	if (TARGET CompileShaders)
+	else()
+		add_custom_target(CompileShaders ALL)
+	endif()
 
 	FILE(GLOB SHADER_FILES "${SHADERS_FOLDER}/*.hlsl")
 
@@ -71,7 +78,15 @@ macro(compile_shaders TRG SHADERS_FOLDER SHADER_VERSION)
 		# exclude hlsl files from build since VS would try to compile them with fxc
 		set_source_files_properties(${SHADER_FILE} PROPERTIES VS_SETTINGS "ExcludedFromBuild=True")
 
-		add_custom_command(TARGET ${TRG} PRE_BUILD
+		if (TARGET ${TRG}_CompileShaders)
+		else()
+			add_custom_target(${TRG}_CompileShaders DEPENDS ${SHADER_FILE})
+			add_dependencies(CompileShaders ${TRG}_CompileShaders)
+		endif()
+		
+		set_target_properties(${TRG}_CompileShaders PROPERTIES FOLDER ShaderCompilerCommands)
+
+		add_custom_command(TARGET ${TRG}_CompileShaders PRE_BUILD
 			COMMAND ${SUBMODULE_DIR}/dxc_1.6/dxc.exe
 			-E main # shader entry point. Only main is valid. Each different type of shader must be in its own file.
 			-T ${SHADER_TYPE} # target profile

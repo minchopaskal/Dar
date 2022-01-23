@@ -38,10 +38,10 @@ struct CudaRasterizer : D3D12App {
 
 private:
 	int loadAssets();
-	int init() final;
 	void deinit() final;
-
+	
 	// Inherited via D3D12App
+	int initImpl() final;
 	void update() override;
 	void render() override;
 	virtual void onResize(const unsigned int w, const unsigned int h) override;

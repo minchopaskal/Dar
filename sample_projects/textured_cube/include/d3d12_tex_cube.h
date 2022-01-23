@@ -1,17 +1,21 @@
 #pragma once
 
 #include "d3d12_app.h"
+#include "d3d12_camera.h"
 #include "d3d12_defines.h"
 #include "d3d12_math.h"
 #include "d3d12_pipeline_state.h"
+
+#include "fps_camera_controller.h"
 
 struct D3D12TexturedCube : D3D12App {
 	D3D12TexturedCube(UINT width, UINT height, const String &windowTitle);
 
 	int loadAssets();
 
+private:
 	// Inherited via D3D12App
-	int init() override;
+	int initImpl() override;
 	void deinit() override;
 	void update() override;
 	void render() override;
@@ -19,6 +23,7 @@ struct D3D12TexturedCube : D3D12App {
 	void onResize(const unsigned int w, const unsigned int h) override;
 	void onKeyboardInput(int key, int action) override;
 	void onMouseScroll(double xOffset, double yOffset) override;
+	void onMouseMove(double xPos, double yPos) override;
 
 private:
 	CommandList populateCommandList();
@@ -67,7 +72,9 @@ private:
 	// Keeping track of fence values for double/triple buffering
 	UINT64 fenceValues[frameCount];
 
-	float FOV;
+	// Camera
+	Camera cam;
+	FPSCameraController camControl;
 
 	// timing
 	double fps;

@@ -10,8 +10,9 @@ struct D3D12HelloTriangle : D3D12App {
 
 	int loadAssets();
 
+private:
 	// Inherited via D3D12App
-	int init() override;
+	int initImpl() override;
 	void deinit() override;
 	void update() override;
 	void render() override;

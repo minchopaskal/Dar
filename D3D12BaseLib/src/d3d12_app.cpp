@@ -6,7 +6,6 @@
 
 #include "d3dx12.h"
 
-#include <glfw/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <glfw/glfw3native.h>
 
@@ -35,11 +34,13 @@ void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
 }
 
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
-	if (key < GLFW_KEY_0 || key > GLFW_KEY_Z) {
+	if (key == GLFW_KEY_UNKNOWN) {
+		D3D12::Logger::log(D3D12::LogLevel::Warning, "Unknown key pressed!");
 		return;
 	}
-	
-	app->keyPressed[key] = !(action == GLFW_RELEASE);
+
+	app->keyPressed[key] = (action == GLFW_PRESS);
+	app->keyReleased[key] = (action == GLFW_RELEASE);
 	app->keyRepeated[key] = (action == GLFW_REPEAT);
 
 	// TODO: mapping keys to engine actions
@@ -58,6 +59,10 @@ void processKeyboardInput(GLFWwindow *window) {
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
 		glfwSetWindowShouldClose(window, 1);
 	}
+}
+
+void cursorPositionCallback(GLFWwindow* window, double xpos, double ypos) {
+	app->onMouseMove(xpos, ypos);
 }
 
 ////////////
@@ -96,9 +101,10 @@ void GetHardwareAdapter(
 	if (SUCCEEDED(pFactory->QueryInterface(IID_PPV_ARGS(&factory6)))) {
 		for (
 				UINT adapterIndex = 0;
-				DXGI_ERROR_NOT_FOUND != factory6->EnumAdapters1(
+				DXGI_ERROR_NOT_FOUND != factory6->EnumAdapterByGpuPreference(
 					adapterIndex,
-					&adapter
+					DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE,
+					IID_PPV_ARGS(ppAdapter)
 				);
 				++adapterIndex) {
 			if (adapter == nullptr) {
@@ -157,13 +163,14 @@ int D3D12App::init() {
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	glfwWindow = glfwCreateWindow(width, height, title, nullptr, nullptr);
 	if (glfwWindow == nullptr) {
-		return 1;
+		return false;
 	}
 
 	glfwSetFramebufferSizeCallback(glfwWindow, framebufferSizeCallback);
 	glfwSetKeyCallback(glfwWindow, keyCallback);
 	glfwSetScrollCallback(glfwWindow, scrollCallback);
 	glfwSetWindowPosCallback(glfwWindow, windowPosCallback);
+	glfwSetCursorPosCallback(glfwWindow, cursorPositionCallback);
 
 	window = glfwGetWin32Window(glfwWindow);
 
@@ -318,7 +325,7 @@ int D3D12App::init() {
 
 	imGuiShutdown = false;
 
-	return true;
+	return initImpl();
 }
 
 void D3D12App::deinit() {
@@ -335,21 +342,21 @@ void D3D12App::setUseImGui() {
 	useImGui = true;
 }
 
-void D3D12App::drawUI() {
-	if (useImGui) {
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-	}
-}
-
 void D3D12App::renderUI(CommandList &cmdList, D3D12_CPU_DESCRIPTOR_HANDLE &rtvHandle) {
-	if (useImGui) {
-		ImGui::Render();
-
-		cmdList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
-		cmdList->SetDescriptorHeaps(1, imguiSRVHeap.GetAddressOf());
-		ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList.get());
+	if (!useImGui) {
+		return;
 	}
+
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+
+	drawUI();
+
+	ImGui::Render();
+
+	cmdList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+	cmdList->SetDescriptorHeaps(1, imguiSRVHeap.GetAddressOf());
+	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList.get());
 }
 
 int D3D12App::getWidth() const {
@@ -358,6 +365,20 @@ int D3D12App::getWidth() const {
 
 int D3D12App::getHeight() const {
 	return height;
+}
+
+ButtonState D3D12App::query(int key) {
+	ButtonState res;
+	res.pressed = keyPressed[key] || keyRepeated[key];
+	res.repeated = keyRepeated[key];
+	res.released = keyReleased[key];
+	res.justPressed = keyPressed[key];
+
+	return res;
+}
+
+GLFWwindow * D3D12App::getGLFWWindow() const {
+	return glfwWindow;
 }
 
 void D3D12App::toggleFullscreen() {
@@ -403,7 +424,6 @@ void D3D12App::toggleFullscreen() {
 		app->onResize(width, height);
 		::ShowWindow(hWnd, SW_NORMAL);
 	}
-
 }
 
 HWND D3D12App::getWindow() const {
@@ -426,8 +446,6 @@ int D3D12App::run() {
 		beginFrame();
 
 		update();
-
-		drawUI();
 
 		render();
 

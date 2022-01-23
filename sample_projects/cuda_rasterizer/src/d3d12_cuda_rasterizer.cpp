@@ -69,11 +69,7 @@ bool CudaRasterizer::isInitialized() const {
 	return inited;
 }
 
-int CudaRasterizer::init() {
-	if (!D3D12App::init()) {
-		return false;
-	}
-
+int CudaRasterizer::initImpl() {
 	setUseImGui();
 
 	/* Create a descriptor heap for RTVs */
@@ -204,8 +200,6 @@ void CudaRasterizer::onMouseScroll(double xOffset, double yOffset) {
 }
 
 void CudaRasterizer::drawUI() {
-	Super::drawUI();
-
 	if (drawUICb) {
 		drawUICb();
 	}
@@ -362,7 +356,7 @@ int CudaRasterizer::loadAssets() {
 	PipelineStateDesc desc;
 	desc.staticSamplerDesc = &CD3DX12_STATIC_SAMPLER_DESC(0);
 	desc.shaderName = L"screen_quad";
-	desc.shadersMask = sif_useVertex;
+	desc.shadersMask = shaderInfoFlags_useVertex;
 	desc.numTextures = 1;
 	pipelineState.init(device, desc);
 
@@ -429,7 +423,11 @@ bool CudaRasterizer::updateRenderTargetViews() {
 		device->CreateRenderTargetView(backBuffers[i].Get(), nullptr, rtvHandle);
 
 		// Register the back buffer's resources manually since the resource manager doesn't own them, the swap chain does.
+#ifdef D3D12_DEBUG
+		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, D3D12_RESOURCE_STATE_PRESENT, ResourceType::RenderTargetView);
+#else
 		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, D3D12_RESOURCE_STATE_PRESENT);
+#endif
 
 		rtvHandle.Offset(rtvHeapHandleIncrementSize);
 	}

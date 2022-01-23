@@ -83,7 +83,7 @@ void CommandQueue::addCommandListForExecution(CommandList &&commandList) {
 	}
 
 	auto lock = pendingCommandListsCS.lock();
-	pendingCommandListsQueue.push_back(commandList);
+	pendingCommandListsQueue.push_back(std::move(commandList));
 }
 
 UINT64 CommandQueue::executeCommandLists() {
