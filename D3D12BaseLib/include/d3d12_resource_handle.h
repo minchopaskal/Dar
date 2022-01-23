@@ -9,7 +9,7 @@ struct ID3D12Resource;
 struct ResourceHandle {
 	SizeType handle;
 
-	ResourceHandle() = default;
+	ResourceHandle() : handle(INVALID_RESOURCE_HANDLE) { };
 	ResourceHandle(SizeType handle) : handle(handle) { }
 	ResourceHandle operator=(const SizeType &handle) {
 		this->handle = handle;

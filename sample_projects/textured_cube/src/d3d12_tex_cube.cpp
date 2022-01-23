@@ -270,7 +270,7 @@ int D3D12TexturedCube::loadAssets() {
 	CD3DX12_STATIC_SAMPLER_DESC sampler{ D3D12_FILTER_MIN_MAG_MIP_POINT };
 	PipelineStateDesc psDesc = {};
 	psDesc.shaderName = L"basic";
-	psDesc.shadersMask = sif_useVertex;
+	psDesc.shadersMask = shaderInfoFlags_useVertex;
 	psDesc.inputLayouts = inputLayouts;
 	psDesc.staticSamplerDesc = &sampler;
 	psDesc.numInputLayouts = _countof(inputLayouts);

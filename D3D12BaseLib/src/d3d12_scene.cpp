@@ -1,5 +1,35 @@
 #include "d3d12_scene.h"
 
+#include "d3d12_asset_manager.h"
+
+#include "d3d12_logger.h"
+
+// For loading the texture image
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_WINDOWS_UTF8
+#include "stb_image.h"
+
+struct ImageData {
+	void *data = nullptr;
+	int width = 0;
+	int height = 0;
+	int ncomp = 0;
+};
+
+ImageData loadImage(const String &imgPath) {
+	WString imgPathWStr(imgPath.begin(), imgPath.end());
+	const WString fullPathWStr = getAssetFullPath(imgPathWStr.c_str(), AssetType::Texture);
+	const SizeType bufferLen = fullPathWStr.size() * sizeof(wchar_t) + 1;
+	char *path = new char[bufferLen];
+	stbi_convert_wchar_to_utf8(path, bufferLen, fullPathWStr.c_str());
+
+	ImageData result = {};
+	result.data = stbi_load(path, &result.width, &result.height, nullptr, 4);
+	result.ncomp = 4;
+
+	return result;
+}
+
 struct MeshData {
 	Mat4 modelMatrix;
 	Mat4 normalMatrix;
@@ -54,10 +84,10 @@ void ModelNode::draw(CommandList &cmdList, const Scene &scene) const {
 	}
 }
 
-Scene::Scene() : 
+Scene::Scene(ComPtr<ID3D12Device8> &device) :
 	sceneBox(BBox::invalidBBox()),
-	materialsHandle(INVALID_RESOURCE_HANDLE),
-	lightsHandle(INVALID_RESOURCE_HANDLE),
+	device(device),
+	texturesNeedUpdate(true),
 	lightsNeedUpdate(true),
 	materialsNeedUpdate(true)
 { }
@@ -70,23 +100,100 @@ Scene::~Scene() {
 	nodes.clear();
 }
 
-void Scene::uploadSceneData() {
-	if (!lightsNeedUpdate && !materialsNeedUpdate) {
-		return;
+ID3D12DescriptorHeap* const* Scene::getSrvHeap() {
+	return srvHeap.GetAddressOf();
+}
+
+bool Scene::uploadSceneData() {
+	if (!lightsNeedUpdate && !materialsNeedUpdate && !texturesNeedUpdate) {
+		return true;
 	}
 
 	ResourceManager &resManager = getResourceManager();
 	UploadHandle handle = resManager.beginNewUpload();
 
+	// TODO: try using placed resources for lights and materials OR small textures
+	if (texturesNeedUpdate) {
+		if (!uploadTextureData(handle)) {
+			LOG(Error, "Failed to upload texture data!");
+			return false;
+		}
+	}
+
 	if (lightsNeedUpdate) {
-		uploadLightData(handle);
+		if (!uploadLightData(handle)) {
+			LOG(Error, "Failed to upload light data!");
+			return false;
+		}
 	}
 
 	if (materialsNeedUpdate) {
-		uploadMaterialData(handle);
+		if (!uploadMaterialData(handle)) {
+			LOG(Error, "Failed to upload material data!");
+			return false;
+		}
 	}
 
+	texturesNeedUpdate = lightsNeedUpdate = materialsNeedUpdate = false;
+
 	resManager.uploadBuffers();
+
+	/* Create shader resource view heap which will store the handles to the textures */
+	srvHeap.Reset();
+
+	const UINT numTextures = static_cast<UINT>(getNumTextures());
+	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
+	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	srvHeapDesc.NumDescriptors = numTextures + 2;
+	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	srvHeapDesc.NodeMask = 0;
+	RETURN_FALSE_ON_ERROR(
+		device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&srvHeap)),
+		"Failed to create DSV descriptor heap!"
+	);
+
+	SizeType srvHeapHandleSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle = srvHeap->GetCPUDescriptorHandleForHeapStart();
+
+	// Create SRV for the lights
+	if (getNumLights() > 0) {
+		D3D12_SHADER_RESOURCE_VIEW_DESC lightsSrvDesc = {};
+		lightsSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
+		lightsSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+		lightsSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		lightsSrvDesc.Buffer = {};
+		lightsSrvDesc.Buffer.FirstElement = 0;
+		lightsSrvDesc.Buffer.NumElements = getNumLights();
+		lightsSrvDesc.Buffer.StructureByteStride = sizeof(GPULight);
+		device->CreateShaderResourceView(lightsHandle.get(), &lightsSrvDesc, descriptorHandle);
+	}
+	descriptorHandle.ptr += srvHeapHandleSize;
+
+	// Create SRV for the materials
+	if (getNumMaterials() > 0) {
+		D3D12_SHADER_RESOURCE_VIEW_DESC materialsSrvDesc = {};
+		materialsSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
+		materialsSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+		materialsSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		materialsSrvDesc.Buffer = {};
+		materialsSrvDesc.Buffer.FirstElement = 0;
+		materialsSrvDesc.Buffer.NumElements = getNumMaterials();
+		materialsSrvDesc.Buffer.StructureByteStride = sizeof(GPUMaterial);
+		device->CreateShaderResourceView(materialsHandle.get(), &materialsSrvDesc, descriptorHandle);
+	}
+	descriptorHandle.ptr += srvHeapHandleSize;
+
+	/* Create SRVs for the textures so we can read them bindlessly in the shader */
+	for (int i = 0; i < numTextures; ++i) {
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		srvDesc.Format = getTexture(i).format == TextureFormat::RGBA_8BIT ? DXGI_FORMAT_R8G8B8A8_UNORM : DXGI_FORMAT_UNKNOWN;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Texture2D.MipLevels = 1;
+
+		device->CreateShaderResourceView(textureHandles[i].get(), &srvDesc, descriptorHandle);
+		descriptorHandle.ptr += srvHeapHandleSize;
+	}
 }
 
 void Scene::draw(CommandList &cmdList) const {
@@ -116,16 +223,16 @@ void Scene::drawNodeImpl(Node *node, CommandList &cmdList, const Scene &scene, D
 	}
 }
 
-void Scene::uploadLightData(UploadHandle uploadHandle) {
+bool Scene::uploadLightData(UploadHandle uploadHandle) {
 	SizeType numLights = getNumLights();
 	if (numLights == 0) {
-		return;
+		return true;
 	}
 
 	SizeType lightsDataSize = numLights * sizeof(GPULight);
 	Byte *lightsMemory = (Byte*)malloc(lightsDataSize);
 	if (lightsMemory == nullptr) {
-		return;
+		return false;
 	}
 
 	for (int i = 0; i < numLights; ++i) {
@@ -156,21 +263,25 @@ void Scene::uploadLightData(UploadHandle uploadHandle) {
 	resData.name = L"LightsData";
 	lightsHandle = resManager.createBuffer(resData);
 
-	resManager.uploadBufferData(uploadHandle, lightsHandle, lightsMemory, lightsDataSize);
+	if (!resManager.uploadBufferData(uploadHandle, lightsHandle, lightsMemory, lightsDataSize)) {
+		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to upload lights data!");
+		return false;
+	}
 
 	free(lightsMemory);
+	return true;
 }
 
-void Scene::uploadMaterialData(UploadHandle uploadHandle) {
+bool Scene::uploadMaterialData(UploadHandle uploadHandle) {
 	SizeType numMaterials = getNumMaterials();
 	if (numMaterials == 0) {
-		return;
+		return true;
 	}
 
 	SizeType materialsDataSize = numMaterials * sizeof(GPUMaterial);
 	Byte *materialsMemory = ( Byte* )malloc(materialsDataSize);
 	if (materialsMemory == nullptr) {
-		return;
+		return false;
 	}
 
 	for (int i = 0; i < numMaterials; ++i) {
@@ -186,7 +297,52 @@ void Scene::uploadMaterialData(UploadHandle uploadHandle) {
 	resData.name = L"MaterialsData";
 	materialsHandle = resManager.createBuffer(resData);
 
-	resManager.uploadBufferData(uploadHandle, materialsHandle, materialsMemory, materialsDataSize);
+	if (!resManager.uploadBufferData(uploadHandle, materialsHandle, materialsMemory, materialsDataSize)) {
+		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to material lights data!");
+		return false;
+	}
 
 	free(materialsMemory);
+
+	return true;
+}
+
+bool Scene::uploadTextureData(UploadHandle uploadHandle) {
+	srvHeap.Reset();
+
+	ResourceManager &resManager = getResourceManager();
+
+	SizeType numTextures = getNumTextures();
+
+	Vector<ImageData> texData(numTextures);
+	Vector<ComPtr<ID3D12Resource>> stagingImageBuffers(numTextures);
+	for (int i = 0; i < numTextures; ++i) {
+		if (textureHandles[i] != INVALID_RESOURCE_HANDLE) {
+			continue;
+		}
+
+		Texture &tex = textures[i];
+		texData[i] = loadImage(tex.path);
+		tex.format = texData[i].ncomp == 4 ? TextureFormat::RGBA_8BIT : TextureFormat::Invalid;
+		wchar_t textureName[32] = L"";
+		swprintf(textureName, 32, L"Texture[%d]", i);
+
+		ResourceInitData texInitData(ResourceType::TextureBuffer);
+		texInitData.textureData.width = texData[i].width;
+		texInitData.textureData.height = texData[i].height;
+		texInitData.textureData.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		texInitData.name = textureName;
+		textureHandles[i] = resManager.createBuffer(texInitData);
+		if (textureHandles[i] == INVALID_RESOURCE_HANDLE) {
+			return false;
+		}
+	}
+
+	for (int i = 0; i < numTextures; ++i) {
+		D3D12_SUBRESOURCE_DATA textureSubresources = {};
+		textureSubresources.pData = texData[i].data;
+		textureSubresources.RowPitch = static_cast< UINT64 >(texData[i].width) * static_cast< UINT64 >(texData[i].ncomp);
+		textureSubresources.SlicePitch = textureSubresources.RowPitch * texData[i].height;
+		resManager.uploadTextureData(uploadHandle, textureHandles[i], &textureSubresources, 1, 0);
+	}
 }

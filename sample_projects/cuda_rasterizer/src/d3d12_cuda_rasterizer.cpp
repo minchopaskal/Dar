@@ -356,7 +356,7 @@ int CudaRasterizer::loadAssets() {
 	PipelineStateDesc desc;
 	desc.staticSamplerDesc = &CD3DX12_STATIC_SAMPLER_DESC(0);
 	desc.shaderName = L"screen_quad";
-	desc.shadersMask = sif_useVertex;
+	desc.shadersMask = shaderInfoFlags_useVertex;
 	desc.numTextures = 1;
 	pipelineState.init(device, desc);
 

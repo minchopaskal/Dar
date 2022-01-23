@@ -32,6 +32,9 @@ private:
 	bool updateRenderTargetViews();
 	bool resizeDepthBuffer();
 
+	bool loadPipelines();
+	bool loadVertexIndexBuffers();
+
 	void timeIt();
 
 private:
@@ -58,10 +61,6 @@ private:
 
 	// MVP matrix
 	ResourceHandle sceneDataHandle[frameCount];
-
-	// Texture data
-	Vector<ResourceHandle> textureHandles;
-	ComPtr<ID3D12DescriptorHeap> srvHeap;
 
 	// viewport
 	D3D12_VIEWPORT viewport;

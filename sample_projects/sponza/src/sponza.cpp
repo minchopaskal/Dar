@@ -15,33 +15,7 @@
 // Expose some input controller interface or something like that.
 #include "GLFW/glfw3.h" // keyboard input
 
-// For loading the texture image
-#define STB_IMAGE_IMPLEMENTATION
-#define STBI_WINDOWS_UTF8
-#include "stb_image.h"
-
 #include "imgui.h"
-
-struct ImageData {
-	void *data = nullptr;
-	int width = 0;
-	int height = 0;
-	int ncomp = 0;
-};
-
-ImageData loadImage(const String &imgPath) {
-	WString imgPathWStr(imgPath.begin(), imgPath.end());
-	const WString fullPathWStr = getAssetFullPath(imgPathWStr.c_str(), AssetType::Texture);
-	const SizeType bufferLen = fullPathWStr.size() * sizeof(wchar_t) + 1;
-	char *path = new char[bufferLen];
-	stbi_convert_wchar_to_utf8(path, bufferLen, fullPathWStr.c_str());
-
-	ImageData result = {};
-	result.data = stbi_load(path, &result.width, &result.height, nullptr, 4);
-	result.ncomp = 4;
-
-	return result;
-}
 
 Sponza::Sponza(const UINT w, const UINT h, const String &windowTitle) :
 	D3D12App(w, h, windowTitle.c_str()),
@@ -52,11 +26,11 @@ Sponza::Sponza(const UINT w, const UINT h, const String &windowTitle) :
 	indexBufferView{},
 	depthBufferHandle(INVALID_RESOURCE_HANDLE),
 	sceneDataHandle{ INVALID_RESOURCE_HANDLE, INVALID_RESOURCE_HANDLE },
-	textureHandles{ INVALID_RESOURCE_HANDLE },
 	viewport{ 0.f, 0.f, static_cast<float>(w), static_cast<float>(h), 0.f, 1.f },
 	scissorRect{ 0, 0, LONG_MAX, LONG_MAX }, // always render on the entire screen
 	aspectRatio(static_cast<float>(w) / static_cast<float>(h)),
 	fenceValues{ 0 },
+	scene(device),
 	camControl(nullptr),
 	fpsModeControl(nullptr, 200.f),
 	editModeControl(nullptr, 200.f),
@@ -282,9 +256,13 @@ void Sponza::onMouseMove(double xPos, double yPos) {
 }
 
 bool Sponza::loadAssets() {
+	if (!loadPipelines()) {
+		return false;
+	}
+
 	SceneLoaderError sceneLoadErr = loadScene("res\\scenes\\Sponza\\glTF\\Sponza.gltf", scene);
 	if (sceneLoadErr != SceneLoaderError::Success) {
-		dassert(false);
+		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to load scene!");
 		return false;
 	}
 
@@ -332,152 +310,8 @@ bool Sponza::loadAssets() {
 		return false;
 	}
 
-	// TODO: upload textures through the scene, also
-	/* Create shader resource view heap which will store the handles to the textures */
-	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	srvHeapDesc.NumDescriptors = static_cast<UINT>(scene.getNumTextures()) + 2;
-	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	srvHeapDesc.NodeMask = 0;
-	RETURN_FALSE_ON_ERROR(
-		device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&srvHeap)),
-		"Failed to create DSV descriptor heap!"
-	);
-
-	D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-	};
-
-	CD3DX12_STATIC_SAMPLER_DESC sampler{ D3D12_FILTER_MIN_MAG_MIP_POINT };
-	PipelineStateDesc psDesc = {};
-	psDesc.shaderName = L"basic";
-	psDesc.shadersMask = sif_useVertex;
-	psDesc.inputLayouts = inputLayouts;
-	psDesc.staticSamplerDesc = &sampler;
-	psDesc.numInputLayouts = _countof(inputLayouts);
-	psDesc.depthStencilBufferFormat = DXGI_FORMAT_D32_FLOAT;
-	psDesc.numConstantBufferViews = static_cast<unsigned int>(ConstantBufferView::Count);
-	psDesc.numTextures = static_cast<UINT>(scene.getNumTextures());
-	psDesc.maxVersion = rootSignatureFeatureData.HighestVersion;
-	if (!pipelineState.init(device, psDesc)) {
+	if (!loadVertexIndexBuffers()) {
 		return false;
-	}
-
-	{
-		/* Create the vertex buffer*/
-		ResourceInitData vertData(ResourceType::DataBuffer);
-		vertData.size = scene.getVertexBufferSize();
-		vertData.name = L"VertexBuffer";
-		vertexBufferHandle = resManager->createBuffer(vertData);
-		if (vertexBufferHandle == INVALID_RESOURCE_HANDLE) {
-			return false;
-		}
-
-		/* Create the index buffer*/
-		ResourceInitData indexBufferData(ResourceType::DataBuffer);
-		indexBufferData.size = scene.getIndexBufferSize();
-		indexBufferData.name = L"IndexBuffer";
-		indexBufferHandle = resManager->createBuffer(indexBufferData);
-		if (indexBufferHandle == INVALID_RESOURCE_HANDLE) {
-			return false;
-		}
-
-		/* Load the texture and create buffers for them */
-		const SizeType numTextures = scene.getNumTextures();
-		textureHandles.resize(numTextures);
-
-		Vector<ImageData> texData(numTextures);
-		Vector<ComPtr<ID3D12Resource>> stagingImageBuffers(numTextures);
-		for (int i = 0; i < numTextures; ++i) {
-			const Texture &tex = scene.getTexture(i);
-			texData[i] = loadImage(tex.path);
-			wchar_t textureName[32] = L"";
-			swprintf(textureName, 32, L"Texture[%d]", i);
-
-			ResourceInitData texInitData(ResourceType::TextureBuffer);
-			texInitData.textureData.width = texData[i].width;
-			texInitData.textureData.height = texData[i].height;
-			texInitData.textureData.format = DXGI_FORMAT_R8G8B8A8_UNORM;
-			texInitData.name = textureName;
-			textureHandles[i] = resManager->createBuffer(texInitData);
-			if (textureHandles[i] == INVALID_RESOURCE_HANDLE) {
-				return false;
-			}
-		}
-
-		/* Upload the vertex, index and texture buffers */
-		UploadHandle uploadHandle = resManager->beginNewUpload();
-
-		resManager->uploadBufferData(uploadHandle, vertexBufferHandle, scene.getVertexBuffer(), scene.getVertexBufferSize());
-		resManager->uploadBufferData(uploadHandle, indexBufferHandle, scene.getIndexBuffer(), scene.getIndexBufferSize());
-
-		for (int i = 0; i < numTextures; ++i) {
-			D3D12_SUBRESOURCE_DATA textureSubresources = {};
-			textureSubresources.pData = texData[i].data;
-			textureSubresources.RowPitch = static_cast<UINT64>(texData[i].width) * static_cast<UINT64>(texData[i].ncomp);
-			textureSubresources.SlicePitch = textureSubresources.RowPitch * texData[i].height;
-			resManager->uploadTextureData(uploadHandle, textureHandles[i], &textureSubresources, 1, 0);
-		}
-
-		resManager->uploadBuffers();
-
-		/* Create views for the vertex and index buffers */
-		{
-			vertexBufferView.BufferLocation = vertexBufferHandle->GetGPUVirtualAddress();
-			vertexBufferView.SizeInBytes = static_cast<UINT>(scene.getVertexBufferSize());
-			vertexBufferView.StrideInBytes = sizeof(Vertex);
-
-			indexBufferView.BufferLocation = indexBufferHandle->GetGPUVirtualAddress();
-			indexBufferView.SizeInBytes = static_cast<UINT>(scene.getIndexBufferSize());
-			indexBufferView.Format = DXGI_FORMAT_R32_UINT;
-		}
-
-		SizeType srvHeapHandleSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle = srvHeap->GetCPUDescriptorHandleForHeapStart();
-
-		// Create SRV for the lights
-		if (scene.getNumLights() > 0) {
-			D3D12_SHADER_RESOURCE_VIEW_DESC lightsSrvDesc = {};
-			lightsSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
-			lightsSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-			lightsSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-			lightsSrvDesc.Buffer = {};
-			lightsSrvDesc.Buffer.FirstElement = 0;
-			lightsSrvDesc.Buffer.NumElements = scene.getNumLights();
-			lightsSrvDesc.Buffer.StructureByteStride = sizeof(GPULight);
-			device->CreateShaderResourceView(scene.lightsHandle.get(), &lightsSrvDesc, descriptorHandle);
-		}
-		descriptorHandle.ptr += srvHeapHandleSize;
-
-		// Create SRV for the materials
-		if (scene.getNumMaterials() > 0) {
-			D3D12_SHADER_RESOURCE_VIEW_DESC materialsSrvDesc = {};
-			materialsSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
-			materialsSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-			materialsSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-			materialsSrvDesc.Buffer = {};
-			materialsSrvDesc.Buffer.FirstElement = 0;
-			materialsSrvDesc.Buffer.NumElements = scene.getNumMaterials();
-			materialsSrvDesc.Buffer.StructureByteStride = sizeof(GPUMaterial);
-			device->CreateShaderResourceView(scene.materialsHandle.get(), &materialsSrvDesc, descriptorHandle);
-		}
-		descriptorHandle.ptr += srvHeapHandleSize;
-
-		/* Create SRVs for the textures so we can read them bindlessly in the shader */
-		for (int i = 0; i < numTextures; ++i) {
-			dassert(texData[i].ncomp == 4);
-
-			D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-			srvDesc.Format = texData[i].ncomp == 4 ? DXGI_FORMAT_R8G8B8A8_UNORM : DXGI_FORMAT_UNKNOWN;
-			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-			srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-			srvDesc.Texture2D.MipLevels = 1;
-
-			device->CreateShaderResourceView(textureHandles[i].get(), &srvDesc, descriptorHandle);
-			descriptorHandle.ptr += srvHeapHandleSize;
-		}
 	}
 
 	return true;
@@ -494,11 +328,11 @@ CommandList Sponza::populateCommandList() {
 
 	commandList.transition(scene.lightsHandle, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	commandList.transition(scene.materialsHandle, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	const SizeType numTextures = textureHandles.size();
+	const SizeType numTextures = scene.textureHandles.size();
 	for (int i = 0; i < numTextures; ++i) {
-		commandList.transition(textureHandles[i], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		commandList.transition(scene.textureHandles[i], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	}
-	commandList->SetDescriptorHeaps(1, srvHeap.GetAddressOf());
+	commandList->SetDescriptorHeaps(1, scene.getSrvHeap());
 
 	commandList->SetGraphicsRootSignature(pipelineState.getRootSignature());
 
@@ -581,6 +415,73 @@ bool Sponza::resizeDepthBuffer() {
 	dsDesc.Texture2D.MipSlice = 0;
 
 	device->CreateDepthStencilView(depthBufferHandle.get(), &dsDesc, dsvHeap->GetCPUDescriptorHandleForHeapStart());
+
+	return true;
+}
+
+bool Sponza::loadPipelines() {
+	D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+	};
+
+	CD3DX12_STATIC_SAMPLER_DESC sampler{ D3D12_FILTER_MIN_MAG_MIP_POINT };
+	PipelineStateDesc psDesc = {};
+	psDesc.shaderName = L"basic";
+	psDesc.shadersMask = shaderInfoFlags_useVertex;
+	psDesc.inputLayouts = inputLayouts;
+	psDesc.staticSamplerDesc = &sampler;
+	psDesc.numInputLayouts = _countof(inputLayouts);
+	psDesc.depthStencilBufferFormat = DXGI_FORMAT_D32_FLOAT;
+	psDesc.numConstantBufferViews = static_cast< unsigned int >(ConstantBufferView::Count);
+	psDesc.numTextures = static_cast< UINT >(scene.getNumTextures());
+	psDesc.maxVersion = rootSignatureFeatureData.HighestVersion;
+	if (!pipelineState.init(device, psDesc)) {
+		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to initialize pipeline!");
+		return false;
+	}
+
+	return true;
+}
+
+bool Sponza::loadVertexIndexBuffers() {
+	/* Create the vertex buffer*/
+	ResourceInitData vertData(ResourceType::DataBuffer);
+	vertData.size = scene.getVertexBufferSize();
+	vertData.name = L"VertexBuffer";
+	vertexBufferHandle = resManager->createBuffer(vertData);
+	if (vertexBufferHandle == INVALID_RESOURCE_HANDLE) {
+		return false;
+	}
+
+	/* Create the index buffer*/
+	ResourceInitData indexBufferData(ResourceType::DataBuffer);
+	indexBufferData.size = scene.getIndexBufferSize();
+	indexBufferData.name = L"IndexBuffer";
+	indexBufferHandle = resManager->createBuffer(indexBufferData);
+	if (indexBufferHandle == INVALID_RESOURCE_HANDLE) {
+		return false;
+	}
+
+	/* Upload the vertex, index and texture buffers */
+	UploadHandle uploadHandle = resManager->beginNewUpload();
+
+	resManager->uploadBufferData(uploadHandle, vertexBufferHandle, scene.getVertexBuffer(), scene.getVertexBufferSize());
+	resManager->uploadBufferData(uploadHandle, indexBufferHandle, scene.getIndexBuffer(), scene.getIndexBufferSize());
+
+	resManager->uploadBuffers();
+
+	/* Create views for the vertex and index buffers */
+	vertexBufferView = {};
+	vertexBufferView.BufferLocation = vertexBufferHandle->GetGPUVirtualAddress();
+	vertexBufferView.SizeInBytes = static_cast< UINT >(scene.getVertexBufferSize());
+	vertexBufferView.StrideInBytes = sizeof(Vertex);
+
+	indexBufferView = {};
+	indexBufferView.BufferLocation = indexBufferHandle->GetGPUVirtualAddress();
+	indexBufferView.SizeInBytes = static_cast< UINT >(scene.getIndexBufferSize());
+	indexBufferView.Format = DXGI_FORMAT_R32_UINT;
 
 	return true;
 }

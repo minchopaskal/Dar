@@ -26,3 +26,6 @@ private:
 };
 
 }
+
+#define LOG_FMT(lvl, msg, ...) D3D12::Logger::log(D3D12::LogLevel::lvl, msg, __VA_ARGS__)
+#define LOG(lvl, msg) LOG_FMT(lvl, msg, )

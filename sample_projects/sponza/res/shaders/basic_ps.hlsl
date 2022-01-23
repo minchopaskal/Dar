@@ -116,8 +116,8 @@ float4 main(PSInput IN) : SV_TARGET
 	};
 
 	for (int i = 0; i < numLights; ++i) {
-		const LightData light = lights[2];
-		const float lightWeight = 1.f;// / numLights;
+		const LightData light = lights[i];
+		const float lightWeight = 1.f / numLights;
 		
 		if (light.type == Point) {
 			const float3 lightDir = normalize(IN.fragPos.xyz - light.position);

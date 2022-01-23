@@ -68,10 +68,19 @@ enum class TextureType : unsigned int {
 	Count
 };
 
+enum class TextureFormat : unsigned int {
+	Invalid = 0,
+
+	RGBA_8BIT,
+
+	Count
+};
+
 struct Texture {
 	String path;
 	TextureId id = INVALID_TEXTURE_ID;
 	TextureType type = TextureType::Invalid;
+	TextureFormat format;
 };
 
 struct Mesh {
@@ -197,6 +206,8 @@ struct Vertex {
 	Vec2 uv;
 };
 
+struct ID3D12DDescriptorHeap;
+
 // TODO: encapsulate members
 struct Scene {
 	Vector<Node*> nodes; ///< Vector with pointers to all nodes in the scene
@@ -206,12 +217,13 @@ struct Scene {
 	Vector<Texture> textures; ///< Vector with all textures in the scene. Meshes could share texture ids.
 	Vector<Vertex> vertices; ///< All vertices in the scene.
 	Vector<unsigned int> indices; ///< All indices for all meshes, indexing in the vertices array.
+	Vector<ResourceHandle> textureHandles;
 	ResourceHandle materialsHandle; ///< Handle to the GPU buffer holding all materials' data.
 	ResourceHandle lightsHandle; ///< Handle to the GPU buffer holding all lights' data.
 	BBox sceneBox;
 	CameraId renderCamera = 0; ///< Id of the camera used for rendering
 
-	Scene();
+	Scene(ComPtr<ID3D12Device8> &device);
 	~Scene();
 
 	bool setCameraForCameraController(ICameraController &controller) {
@@ -229,6 +241,8 @@ struct Scene {
 		controller.setCamera(camNode->getCamera());
 		return true;
 	}
+
+	ID3D12DescriptorHeap* const* getSrvHeap();
 
 	SizeType getNumLights() const {
 		return lightIndices.size();
@@ -278,6 +292,10 @@ struct Scene {
 
 		Texture res = { String{path}, textures.size(), type };
 		textures.push_back(res);
+		textureHandles.push_back({});
+
+		texturesNeedUpdate = true;
+
 		return res.id;
 	}
 
@@ -319,18 +337,22 @@ struct Scene {
 		return materials.size();
 	}
 
-	// TODO: this is shit. Find a better way.
-	void uploadSceneData();
+	bool uploadSceneData();
 
 	void draw(CommandList &cmdList) const;
 
 private:
-	void uploadLightData(UploadHandle uploadHandle);
-	void uploadMaterialData(UploadHandle uploadHandle);
+	bool uploadLightData(UploadHandle uploadHandle);
+	bool uploadMaterialData(UploadHandle uploadHandle);
+	bool uploadTextureData(UploadHandle uploadHandle);
 
 	void drawNodeImpl(Node *node, CommandList &cmdList, const Scene &scene, DynamicBitset &drawnNodes) const;
 
 private:
+	ComPtr<ID3D12Device8> &device;
+	ComPtr<ID3D12DescriptorHeap> srvHeap;
+
+	bool texturesNeedUpdate; ///< Indicates textures have been changed and need to be reuploaded to the GPU.
 	bool lightsNeedUpdate; ///< Indicates lights have been changed and need to be reuploaded to the GPU.
 	bool materialsNeedUpdate; ///< Indicates materials have been changed and need to be reuploaded to the GPU.
 };

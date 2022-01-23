@@ -55,7 +55,7 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStat
 		D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED |
 		D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED;
 	
-	if (mask & sif_useVertex) {
+	if (mask & shaderInfoFlags_useVertex) {
 		rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 	}
 	if (rootSignatureFlags != nullptr) {
@@ -73,7 +73,7 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStat
 	stream.insert(PixelShaderToken(D3D12_SHADER_BYTECODE{ psShader->GetBufferPointer(), psShader->GetBufferSize() }));
 
 	ComPtr<ID3DBlob> vsShader;
-	if (mask & sif_useVertex) {
+	if (mask & shaderInfoFlags_useVertex) {
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
 			getAssetFullPath((base + L"_vs.bin").c_str(), AssetType::Shader).c_str(),
@@ -87,7 +87,7 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStat
 	}
 
 	ComPtr<ID3DBlob> geomShader;
-	if (mask & sif_useGeometry) {
+	if (mask & shaderInfoFlags_useGeometry) {
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
 				getAssetFullPath((base + L"_gs.bin").c_str(), AssetType::Shader).c_str(),
@@ -101,7 +101,7 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStat
 	}
 
 	ComPtr<ID3DBlob> domShader;
-	if (mask & sif_useDomain) {
+	if (mask & shaderInfoFlags_useDomain) {
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
 				getAssetFullPath((base + L"_ds.bin").c_str(), AssetType::Shader).c_str(),
@@ -115,7 +115,7 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStat
 	}
 
 	ComPtr<ID3DBlob> hullShader;
-	if (mask & sif_useHull) {
+	if (mask & shaderInfoFlags_useHull) {
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
 				getAssetFullPath((base + L"_hs.bin").c_str(), AssetType::Shader).c_str(),
@@ -129,7 +129,7 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStat
 	}
 
 	ComPtr<ID3DBlob> compShader;
-	if (mask & sif_useCompute) {
+	if (mask & shaderInfoFlags_useCompute) {
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
 				getAssetFullPath((base + L"_cs.bin").c_str(), AssetType::Shader).c_str(),
@@ -141,7 +141,7 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStat
 	}
 
 	ComPtr<ID3DBlob> meshShader;
-	if (mask & sif_useMesh) {
+	if (mask & shaderInfoFlags_useMesh) {
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
 				getAssetFullPath((base + L"_ms.bin").c_str(), AssetType::Shader).c_str(),
@@ -155,7 +155,7 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStat
 	}
 
 	ComPtr<ID3DBlob> ampShader;
-	if (mask & sif_useAmplification) {
+	if (mask & shaderInfoFlags_useAmplification) {
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
 				getAssetFullPath((base + L"_gs.bin").c_str(), AssetType::Shader).c_str(),
