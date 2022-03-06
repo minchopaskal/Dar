@@ -100,10 +100,6 @@ Scene::~Scene() {
 	nodes.clear();
 }
 
-ID3D12DescriptorHeap* const* Scene::getSrvHeap() {
-	return srvHeap.GetAddressOf();
-}
-
 bool Scene::uploadSceneData() {
 	if (!lightsNeedUpdate && !materialsNeedUpdate && !texturesNeedUpdate) {
 		return true;
@@ -134,66 +130,10 @@ bool Scene::uploadSceneData() {
 		}
 	}
 
-	texturesNeedUpdate = lightsNeedUpdate = materialsNeedUpdate = false;
 
 	resManager.uploadBuffers();
 
-	/* Create shader resource view heap which will store the handles to the textures */
-	srvHeap.Reset();
-
-	const UINT numTextures = static_cast<UINT>(getNumTextures());
-	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	srvHeapDesc.NumDescriptors = numTextures + 2;
-	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	srvHeapDesc.NodeMask = 0;
-	RETURN_FALSE_ON_ERROR(
-		device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&srvHeap)),
-		"Failed to create DSV descriptor heap!"
-	);
-
-	SizeType srvHeapHandleSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle = srvHeap->GetCPUDescriptorHandleForHeapStart();
-
-	// Create SRV for the lights
-	if (getNumLights() > 0) {
-		D3D12_SHADER_RESOURCE_VIEW_DESC lightsSrvDesc = {};
-		lightsSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
-		lightsSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-		lightsSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		lightsSrvDesc.Buffer = {};
-		lightsSrvDesc.Buffer.FirstElement = 0;
-		lightsSrvDesc.Buffer.NumElements = getNumLights();
-		lightsSrvDesc.Buffer.StructureByteStride = sizeof(GPULight);
-		device->CreateShaderResourceView(lightsHandle.get(), &lightsSrvDesc, descriptorHandle);
-	}
-	descriptorHandle.ptr += srvHeapHandleSize;
-
-	// Create SRV for the materials
-	if (getNumMaterials() > 0) {
-		D3D12_SHADER_RESOURCE_VIEW_DESC materialsSrvDesc = {};
-		materialsSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
-		materialsSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-		materialsSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		materialsSrvDesc.Buffer = {};
-		materialsSrvDesc.Buffer.FirstElement = 0;
-		materialsSrvDesc.Buffer.NumElements = getNumMaterials();
-		materialsSrvDesc.Buffer.StructureByteStride = sizeof(GPUMaterial);
-		device->CreateShaderResourceView(materialsHandle.get(), &materialsSrvDesc, descriptorHandle);
-	}
-	descriptorHandle.ptr += srvHeapHandleSize;
-
-	/* Create SRVs for the textures so we can read them bindlessly in the shader */
-	for (int i = 0; i < numTextures; ++i) {
-		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-		srvDesc.Format = getTexture(i).format == TextureFormat::RGBA_8BIT ? DXGI_FORMAT_R8G8B8A8_UNORM : DXGI_FORMAT_UNKNOWN;
-		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		srvDesc.Texture2D.MipLevels = 1;
-
-		device->CreateShaderResourceView(textureHandles[i].get(), &srvDesc, descriptorHandle);
-		descriptorHandle.ptr += srvHeapHandleSize;
-	}
+	texturesNeedUpdate = lightsNeedUpdate = materialsNeedUpdate = false;
 }
 
 void Scene::draw(CommandList &cmdList) const {
@@ -308,8 +248,6 @@ bool Scene::uploadMaterialData(UploadHandle uploadHandle) {
 }
 
 bool Scene::uploadTextureData(UploadHandle uploadHandle) {
-	srvHeap.Reset();
-
 	ResourceManager &resManager = getResourceManager();
 
 	SizeType numTextures = getNumTextures();

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <bitset>
 #include <cassert>
 #include <cmath>
@@ -100,6 +101,9 @@ using Set = std::unordered_set<T>;
 
 template <class T>
 using UniquePtr = std::unique_ptr<T>;
+
+template <class T, SizeType N>
+using StaticArray = std::array<T, N>;
 
 using DynamicBitset = std::vector<bool>;
 

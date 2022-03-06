@@ -29,6 +29,10 @@ struct D3D12App : public IKeyboardInputQuery {
 
 	// Inherited by IInputQuery
 	ButtonState query(int key) override;
+	
+	bool queryPressed(int key) override;
+
+	bool queryReleased(int key) override;
 
 protected:
 	/// Toggle between windowed/fullscreen

@@ -25,6 +25,8 @@ set(SOURCES
 set(SHADERS
 	${SHADERS_DIR}/basic_ps.hlsl
 	${SHADERS_DIR}/basic_vs.hlsl
+	${SHADERS_DIR}/screen_quad_ps.hlsl
+	${SHADERS_DIR}/screen_quad_vs.hlsl
 )
 
 source_group("src"           FILES ${SOURCES})

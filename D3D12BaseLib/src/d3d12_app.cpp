@@ -377,6 +377,14 @@ ButtonState D3D12App::query(int key) {
 	return res;
 }
 
+bool D3D12App::queryPressed(int key) {
+	return keyPressed[key];
+}
+
+bool D3D12App::queryReleased(int key) {
+	return keyReleased[key];
+}
+
 GLFWwindow * D3D12App::getGLFWWindow() const {
 	return glfwWindow;
 }

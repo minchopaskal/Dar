@@ -29,6 +29,7 @@ private:
 
 private:
 	CommandList populateCommandList();
+	void populateLightPassCommands(CommandList &cmdList);
 	bool updateRenderTargetViews();
 	bool resizeDepthBuffer();
 
@@ -45,19 +46,39 @@ private:
 		Orthographic
 	} projectionType = ProjectionType::Perspective;
 
-	PipelineState pipelineState;
+	enum class GBuffer {
+		Diffuse,
+		Specular,
+		Normals,
+		Position,
+
+		Count
+	};
+
+	DXGI_FORMAT gBufferFormats[static_cast<SizeType>(GBuffer::Count)] = {
+		DXGI_FORMAT_R8G8B8A8_UNORM, // Diffuse
+		DXGI_FORMAT_R8G8B8A8_UNORM, // Specular
+		DXGI_FORMAT_R32G32B32A32_FLOAT, // Normals
+		DXGI_FORMAT_R32G32B32A32_FLOAT // Position
+	};
+
+	PipelineState deferredPassPipelineState;
+	PipelineState screenQuadPipelineState;
 
 	// Descriptors
-	ComPtr<ID3D12DescriptorHeap> rtvHeap;
-	UINT rtvHeapHandleIncrementSize;
-	ComPtr<ID3D12DescriptorHeap> dsvHeap;
+	DescriptorHeap deferredRTVHeap;
+	DescriptorHeap deferredPassSRVHeap[frameCount];
+	DescriptorHeap lightPassRTVHeap;
+	DescriptorHeap lightPassSRVHeap[frameCount];
+	DescriptorHeap dsvHeap;
 
-	// Vertex buffer
+	StaticArray<ResourceHandle, static_cast<SizeType>(GBuffer::Count)* frameCount> gBufferRTVTextureHandles;
+	ResourceHandle depthBufferHandle;
+
 	ResourceHandle vertexBufferHandle;
 	ResourceHandle indexBufferHandle;
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
 	D3D12_INDEX_BUFFER_VIEW indexBufferView;
-	ResourceHandle depthBufferHandle;
 
 	// MVP matrix
 	ResourceHandle sceneDataHandle[frameCount];
@@ -84,4 +105,7 @@ private:
 	double fps;
 	double totalTime;
 	double deltaTime;
+
+	// Debugging
+	int showGBuffer;
 };

@@ -14,7 +14,7 @@ enum class ResourceType : unsigned int {
 	DataBuffer,
 	StagingBuffer,
 	TextureBuffer,
-	RenderTargetView,
+	RenderTargetBuffer,
 	DepthStencilBuffer,
 };
 
@@ -49,7 +49,7 @@ struct ResourceInitData {
 		case ResourceType::DataBuffer:
 			size = 0;
 			break;
-		case ResourceType::RenderTargetView:
+		case ResourceType::RenderTargetBuffer:
 		case ResourceType::DepthStencilBuffer:
 		case ResourceType::TextureBuffer:
 			textureData = {};

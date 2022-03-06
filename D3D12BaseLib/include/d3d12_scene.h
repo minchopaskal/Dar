@@ -5,6 +5,7 @@
 
 #include "d3d12_camera.h"
 #include "d3d12_command_list.h"
+#include "d3d12_descriptor_heap.h"
 #include "d3d12_resource_manager.h"
 
 using TextureId = unsigned int;
@@ -242,8 +243,6 @@ struct Scene {
 		return true;
 	}
 
-	ID3D12DescriptorHeap* const* getSrvHeap();
-
 	SizeType getNumLights() const {
 		return lightIndices.size();
 	}
@@ -255,7 +254,7 @@ struct Scene {
 		nodes.push_back(l);
 		lightIndices.push_back(id);
 
-		lightsNeedUpdate = true;
+		lightsNeedUpdate = changesSinceLastCheck = true;
 
 		return id;
 	}
@@ -278,7 +277,7 @@ struct Scene {
 		m.normals = normals;
 		materials.push_back(m);
 
-		materialsNeedUpdate = true;
+		materialsNeedUpdate = changesSinceLastCheck = true;
 
 		return m.id;
 	}
@@ -294,7 +293,7 @@ struct Scene {
 		textures.push_back(res);
 		textureHandles.push_back({});
 
-		texturesNeedUpdate = true;
+		texturesNeedUpdate = changesSinceLastCheck = true;
 
 		return res.id;
 	}
@@ -341,6 +340,13 @@ struct Scene {
 
 	void draw(CommandList &cmdList) const;
 
+	bool hadChangesSinceLastCheck() const {
+		bool result = changesSinceLastCheck;
+		changesSinceLastCheck = false;
+
+		return result;
+	}
+
 private:
 	bool uploadLightData(UploadHandle uploadHandle);
 	bool uploadMaterialData(UploadHandle uploadHandle);
@@ -350,9 +356,9 @@ private:
 
 private:
 	ComPtr<ID3D12Device8> &device;
-	ComPtr<ID3D12DescriptorHeap> srvHeap;
 
 	bool texturesNeedUpdate; ///< Indicates textures have been changed and need to be reuploaded to the GPU.
 	bool lightsNeedUpdate; ///< Indicates lights have been changed and need to be reuploaded to the GPU.
 	bool materialsNeedUpdate; ///< Indicates materials have been changed and need to be reuploaded to the GPU.
+	mutable bool changesSinceLastCheck; ///< Check if any changes in the textures/lights/materials was done since the last read of this value.
 };

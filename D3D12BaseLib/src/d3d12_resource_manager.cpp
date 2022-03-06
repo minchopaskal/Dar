@@ -75,6 +75,31 @@ ResourceHandle ResourceManager::createBuffer(const ResourceInitData &initData) {
 			"Failed to create TextureBuffer!"
 		);
 		break;
+	case ResourceType::RenderTargetBuffer:
+		initialState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		clearValue.Format = initData.textureData.format;
+		clearValue.Color[0] = 0.f;
+		clearValue.Color[1] = 0.f;
+		clearValue.Color[2] = 0.f;
+		clearValue.Color[3] = 1.f;
+		RETURN_ON_ERROR(
+			device->CreateCommittedResource(
+				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+				initData.heapFlags,
+				&CD3DX12_RESOURCE_DESC::Tex2D(
+					initData.textureData.format,
+					initData.textureData.width,
+					initData.textureData.height,
+					1, 0, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET
+				),
+				initialState,
+				&clearValue,
+				IID_PPV_ARGS(resource.GetAddressOf())
+			),
+			INVALID_RESOURCE_HANDLE,
+			"Failed to create/resize render target buffer!"
+		);
+		break;
 	case ResourceType::DepthStencilBuffer:
 		initialState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
 		clearValue.Format = initData.textureData.format;

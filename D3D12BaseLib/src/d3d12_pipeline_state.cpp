@@ -202,8 +202,10 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStat
 	stream.insert(PrimitiveTopologyToken{ D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE });
 	
 	D3D12_RT_FORMAT_ARRAY rtFormat = {};
-	rtFormat.NumRenderTargets = 1;
-	rtFormat.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	rtFormat.NumRenderTargets = desc.numRenderTargets;
+	for (int i = 0; i < rtFormat.NumRenderTargets; ++i) {
+		rtFormat.RTFormats[i] = desc.renderTargetFormats[i];
+	}
 	stream.insert(RTFormatsToken{ rtFormat });
 
 	stream.insert(DepthStencilFormatToken{ desc.depthStencilBufferFormat });
