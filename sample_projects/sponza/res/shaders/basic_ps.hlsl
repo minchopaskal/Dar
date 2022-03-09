@@ -35,7 +35,6 @@ SamplerState Sampler : register(s0);
 ConstantBuffer<SceneData> sceneData : register(b0);
 ConstantBuffer<MeshData> meshData : register(b2);
 
-// TODO: This should go in a common file.
 static const uint MATERIALS_BUFFER_INDEX = 0;
 static const uint TEXTURE_BUFFERS_START = 1;
 static const uint INVALID_MATERIAL_INDEX = 0xffffffff;

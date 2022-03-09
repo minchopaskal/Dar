@@ -26,6 +26,13 @@ struct ResourceInitData {
 		UINT samplesCount = 1;
 		UINT samplesQuality = 0;
 		DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		union {
+			FLOAT color[4];
+			struct {
+				FLOAT depth;
+				UINT8 stencil;
+			} depthStencil;
+		} clearValue;
 	};
 
 	struct StagingData {
@@ -49,10 +56,18 @@ struct ResourceInitData {
 		case ResourceType::DataBuffer:
 			size = 0;
 			break;
-		case ResourceType::RenderTargetBuffer:
-		case ResourceType::DepthStencilBuffer:
 		case ResourceType::TextureBuffer:
+		case ResourceType::RenderTargetBuffer:
 			textureData = {};
+			textureData.clearValue.color[0] = 0.f;
+			textureData.clearValue.color[1] = 0.f;
+			textureData.clearValue.color[2] = 0.f;
+			textureData.clearValue.color[3] = 1.f;
+			break;
+		case ResourceType::DepthStencilBuffer:
+			textureData = {};
+			textureData.clearValue.depthStencil.depth = 1.f;
+			textureData.clearValue.depthStencil.stencil = 0;
 			break;
 		case ResourceType::StagingBuffer:
 			stagingData = {};

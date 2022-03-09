@@ -43,7 +43,7 @@ do { \
 do { \
   if (!SUCCEEDED(cmd)) { \
       auto err = GetLastError(); \
-      Logger::log(LogLevel::Error, "D3D12 Error: %s\n Last Error: %lu\n", (msg), err); \
+      D3D12::Logger::log(D3D12::LogLevel::Error, "D3D12 Error: %s\n Last Error: %lu\n", (msg), err); \
       return retval; \
     } \
   } \

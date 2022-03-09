@@ -5,7 +5,7 @@
 
 #include "d3dx12.h"
 
-CommandList::CommandList() : valid(false), type(D3D12_COMMAND_LIST_TYPE_DIRECT) { }
+CommandList::CommandList() : valid(false), type(D3D12_COMMAND_LIST_TYPE::D3D12_COMMAND_LIST_TYPE_DIRECT) { }
 
 bool CommandList::isValid() const {
 	return valid;
@@ -13,6 +13,8 @@ bool CommandList::isValid() const {
 
 bool CommandList::init(const ComPtr<ID3D12Device8> &device, const ComPtr<ID3D12CommandAllocator> &cmdAllocator, D3D12_COMMAND_LIST_TYPE type) {
 	this->type = type;
+
+	cmdList.Reset();
 
 	RETURN_FALSE_ON_ERROR(
 		device->CreateCommandList1(0, type, D3D12_COMMAND_LIST_FLAG_NONE, IID_PPV_ARGS(&cmdList)),
@@ -80,7 +82,8 @@ void CommandList::transition(ResourceHandle resource, D3D12_RESOURCE_STATES stat
 			states[i] = stateAfter;
 		}
 
-	} else { // this is the first time we encounter the subresource.
+	} else {
+		// this is the first time we encounter the subresource for the current recording.
 		// Instead of transitioning here, we will add the barrier to the list of pending
 		// barriers because we don't know the 'beforeState' of the resource, yet
 		lastStates[resource].resize(resManager.getSubresourcesCount(resource));

@@ -186,7 +186,6 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStat
 
 	ComPtr<ID3DBlob> signature;
 	ComPtr<ID3DBlob> error;
-	// TODO: read error if any
 	RETURN_FALSE_ON_ERROR(
 		D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, desc.maxVersion, signature.GetAddressOf(), error.GetAddressOf()),
 		"Failed to create root signature!"

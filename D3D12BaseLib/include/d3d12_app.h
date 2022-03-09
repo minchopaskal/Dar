@@ -85,10 +85,6 @@ protected:
 	virtual void onMouseMove(double xOffset, double yOffset) { };
 	virtual void onWindowPosChange(int xPos, int yPos) { }
 
-public:
-	bool vSyncEnabled;
-	bool allowTearing;
-
 protected:
 	static const UINT frameCount = 2;
 	
@@ -122,6 +118,9 @@ protected:
 	UINT width, height; ///< Dimensions of the window
 
 	int abort; ///< Abort the main loop if true.
+
+	bool vSyncEnabled;
+	bool allowTearing;
 
 private:
 	HWND window; ///< Pointer to the win32 window abstraction

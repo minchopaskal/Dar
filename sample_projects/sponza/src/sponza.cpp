@@ -11,8 +11,6 @@
 #include "d3d12_utils.h"
 #include "scene_loader.h"
 
-// TODO: To make things simple, child projects should not rely on third party software
-// Expose some input controller interface or something like that.
 #include "GLFW/glfw3.h" // keyboard input
 
 #include "imgui.h"
@@ -198,7 +196,6 @@ void Sponza::onResize(const unsigned int w, const unsigned int h) {
 
 	for (unsigned int i = 0; i < frameCount; ++i) {
 		backBuffers[i].Reset();
-		// TODO: handle this automatically
 		// It's important to deregister an outside resource if you want it deallocated
 		// since the ResourceManager keeps a ref if it was registered with it.
 		resManager->deregisterResource(backBuffersHandles[i]);
@@ -425,10 +422,9 @@ void Sponza::populateLightPassCommands(CommandList& commandList) {
 	commandList.transition(scene.lightsHandle, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	const int gBufferCount = static_cast<int>(GBuffer::Count);
 	
-	// TODO: fix transition bug.
-	/*for (int i = 0; i < gBufferCount; ++i) {
+	for (int i = 0; i < gBufferCount; ++i) {
 		commandList.transition(gBufferRTVTextureHandles[frameIndex * gBufferCount + i], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	}*/
+	}
 
 	if (!lightPassSRVHeap[frameIndex]) {
 		lightPassSRVHeap[frameIndex].init(

@@ -86,7 +86,7 @@ enum ShaderInfoFlags : UINT8 {
 	shaderInfoFlags_useCompute = (1<<3),
 	shaderInfoFlags_useMesh = (1<<4),
 	shaderInfoFlags_useAmplification = (1<<5),
-	shaderInfoFlags_useVertex = (1<<6) // TODO: depricate by using bindless buffers
+	shaderInfoFlags_useVertex = (1<<6)
 };
 
 constexpr int MAX_RENDER_TARGETS = 8;

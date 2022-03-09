@@ -89,6 +89,7 @@ void CommandQueue::addCommandListForExecution(CommandList &&commandList) {
 UINT64 CommandQueue::executeCommandLists() {
 	ResourceManager &resManager = getResourceManager();
 
+	Vector<ID3D12CommandList*> pendingBarriersCmdListsToExecute;
 	Vector<ID3D12CommandList*> cmdListsToExecute;
 	Vector<ID3D12CommandAllocator*> cmdAllocators;
 	Vector<CommandList> auxCommandLists;
@@ -97,10 +98,11 @@ UINT64 CommandQueue::executeCommandLists() {
 	// Lock the pending command lists queue until the command lists and any needed resource barriers are exctracted
 	{
 		auto lock = pendingCommandListsCS.lock();
-		cmdListsToExecute.reserve(pendingCommandListsQueue.size() * 4); // reserve more space in case cmd lists have pending barriers
-		cmdAllocators.reserve(pendingCommandListsQueue.size() * 4);
+		pendingBarriersCmdListsToExecute.reserve(pendingCommandListsQueue.size()); // reserve more space in case cmd lists have pending barriers
+		cmdListsToExecute.reserve(pendingCommandListsQueue.size()); // reserve more space in case cmd lists have pending barriers
+		cmdAllocators.reserve(pendingCommandListsQueue.size() * 2);
 
-		auxCommandLists.reserve(pendingCommandListsQueue.size() * 3);
+		auxCommandLists.reserve(pendingCommandListsQueue.size() * 2);
 
 		// For each pending command list, check its pending resource barriers
 		for (int i = 0; i < pendingCommandListsQueue.size(); ++i) {
@@ -119,17 +121,17 @@ UINT64 CommandQueue::executeCommandLists() {
 					Vector<D3D12_RESOURCE_STATES> states;
 					resManager.getLastGlobalState(b.resHandle, states);
 
-					for (int k = 0; k < states.size(); ++k) {
-						if (states[k] == b.stateAfter) {
-							continue;;
-						}
+					for (int k = 1; k < states.size(); ++k) {
+						dassert(states[k] == states[0]);
+					}
+
+					if (states[0] != b.stateAfter) {
 						resBarriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
 							res,
-							states[k],
+							states[0],
 							b.stateAfter,
-							k
+							D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES
 						));
-
 					}
 				} else { // Only one of the subresources needs transitioning
 					D3D12_RESOURCE_STATES state;
@@ -168,15 +170,15 @@ UINT64 CommandQueue::executeCommandLists() {
 					"Failure CommandList::GetPrivateData"
 				);
 				cmdAllocators.push_back(cmdAllocator);
-
-				cmdListPendingBarriers->Close();
-
 				auxCommandLists.push_back(cmdListPendingBarriers);
-				cmdListsToExecute.push_back(cmdListPendingBarriers.get());
+
+				// Execute the pending barriers calls.
+				cmdListPendingBarriers->Close();
+				pendingBarriersCmdListsToExecute.push_back(cmdListPendingBarriers.get());
 			}
 
-			// Set global state of resources to what the last states in the command list were
-			// so on the next command list in the pendingCommandListsQueue would know how to deal
+			// Set global state of the resources to what the last states in the frame command list were
+			// so when the next frame's command list is recorded the pendingCommandListsQueue would know how to deal
 			// with its pending barriers.
 			cmdList.resolveLastStates();
 
@@ -184,6 +186,10 @@ UINT64 CommandQueue::executeCommandLists() {
 			cmdListsToExecute.push_back(cmdList.get());
 		}
 
+		// Execute the pending barriers command lists first to ensure the proper states
+		// were resolved for the resources. Executing all of the command lists together may result
+		// in driver optimizations leading to reordering of the ResourceBarrier commands.
+		commandQueue->ExecuteCommandLists((UINT)pendingBarriersCmdListsToExecute.size(), pendingBarriersCmdListsToExecute.data());
 		commandQueue->ExecuteCommandLists((UINT)cmdListsToExecute.size(), cmdListsToExecute.data());
 		fenceVal = signal();
 

@@ -10,7 +10,6 @@ enum class CameraType : int {
 	Count
 };
 
-// TODO: implement cameras import
 struct Camera {
 	static Camera perspectiveCamera(const Vec3 &pos, float fov, float aspectRatio, float nearPlane, float farPlane);
 	static Camera orthographicCamera(const Vec3 &pos, float renderRectWidth, float renderRectHeight, float nearPlane, float farPlane);

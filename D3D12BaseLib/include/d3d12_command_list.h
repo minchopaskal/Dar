@@ -33,7 +33,7 @@ struct CommandList {
 		return cmdList.Get();
 	}
 
-	ComPtr<ID3D12GraphicsCommandList2> getComPtr() {
+	ComPtr<ID3D12CommandList> getComPtr() {
 		return cmdList;
 	}
 

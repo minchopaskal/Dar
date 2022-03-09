@@ -137,10 +137,6 @@ bool Scene::uploadSceneData() {
 }
 
 void Scene::draw(CommandList &cmdList) const {
-	// TODO: any lights/cameras/other objects global to the scene
-	// that need to go as data in the shader, should go here
-	// before recursing the node tree.
-
 	const SizeType numNodes = nodes.size();
 	DynamicBitset drawnNodes(numNodes);
 	for (int i = 0; i < numNodes; ++i) {

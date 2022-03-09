@@ -35,6 +35,17 @@ ResourceHandle ResourceManager::createBuffer(const ResourceInitData &initData) {
 
 	D3D12_RESOURCE_STATES initialState = initData.state;
 	D3D12_CLEAR_VALUE clearValue = {};
+	if (type != ResourceType::DataBuffer && type != ResourceType::StagingBuffer) {
+		clearValue.Format = initData.textureData.format;
+		if (type == ResourceType::DepthStencilBuffer) {
+			clearValue.DepthStencil.Depth = initData.textureData.clearValue.depthStencil.depth;
+			clearValue.DepthStencil.Stencil = initData.textureData.clearValue.depthStencil.stencil;
+		} else {
+			for (int i = 0; i < 4; ++i) {
+				clearValue.Color[i] = initData.textureData.clearValue.color[i];
+			}
+		}
+	}
 	SizeType resourceSize = 0;
 
 	ComPtr<ID3D12Resource> resource;
@@ -76,12 +87,13 @@ ResourceHandle ResourceManager::createBuffer(const ResourceInitData &initData) {
 		);
 		break;
 	case ResourceType::RenderTargetBuffer:
-		initialState = D3D12_RESOURCE_STATE_RENDER_TARGET;
-		clearValue.Format = initData.textureData.format;
-		clearValue.Color[0] = 0.f;
-		clearValue.Color[1] = 0.f;
-		clearValue.Color[2] = 0.f;
-		clearValue.Color[3] = 1.f;
+		initialState = D3D12_RESOURCE_STATE_COMMON;
+		CD3DX12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Tex2D(
+			initData.textureData.format,
+			initData.textureData.width,
+			initData.textureData.height,
+			1, 0, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET
+		);
 		RETURN_ON_ERROR(
 			device->CreateCommittedResource(
 				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
@@ -102,8 +114,6 @@ ResourceHandle ResourceManager::createBuffer(const ResourceInitData &initData) {
 		break;
 	case ResourceType::DepthStencilBuffer:
 		initialState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
-		clearValue.Format = initData.textureData.format;
-		clearValue.DepthStencil = { 1.f, 0 };
 		RETURN_ON_ERROR(
 			device->CreateCommittedResource(
 				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
@@ -219,7 +229,7 @@ bool ResourceManager::uploadTextureData(UploadHandle uploadHandle, ResourceHandl
 	dassert(states.size() >= numSubresources + startSubresourceIndex);
 #endif // D3D12_DEBUG
 
-	return (bool)UpdateSubresources(cmdLists[uploadHandle].getComPtr().Get(), destResource, stageResource, 0, startSubresourceIndex, numSubresources, subresData);
+	return (bool)UpdateSubresources(cmdLists[uploadHandle].get(), destResource, stageResource, 0, startSubresourceIndex, numSubresources, subresData);
 }
 
 bool ResourceManager::uploadBuffers() {

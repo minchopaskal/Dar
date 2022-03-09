@@ -62,7 +62,6 @@ Vec3 aiVector3DToVec3(const aiColor3D &aiVec) {
 };
 
 void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode, Scene &scene, SizeType &vertexOffset, SizeType &indexOffset) {
-	dassert(node != nullptr);
 	dassert(aiScene != nullptr);
 
 	if (node == nullptr || aiScene == nullptr) {
@@ -176,11 +175,13 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 		vertexOffset += mesh->mNumVertices;
 	}
 
-	model->id = scene.nodes.size();
-	scene.nodes.push_back(model);
+	if (node->mNumMeshes > 0) {
+		model->id = scene.nodes.size();
+		scene.nodes.push_back(model);
 
-	if (parentNode) {
-		parentNode->children.push_back(model->id);
+		if (parentNode) {
+			parentNode->children.push_back(model->id);
+		}
 	}
 
 	for (int i = 0; i < node->mNumChildren; ++i) {
