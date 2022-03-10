@@ -71,7 +71,7 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 	if (node == aiScene->mRootNode) {
 		dassert(node->mNumMeshes != 0);
 
-		for (int i = 0; i < aiScene->mNumLights; ++i) {
+		for (unsigned int i = 0; i < aiScene->mNumLights; ++i) {
 			aiLight *aiL = aiScene->mLights[i];
 			if (aiL == nullptr) {
 				continue;
@@ -90,7 +90,7 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 			scene.addNewLight(light);
 		}
 
-		for (int i = 0; i < aiScene->mNumCameras; ++i) {
+		for (unsigned int i = 0; i < aiScene->mNumCameras; ++i) {
 			aiCamera *aiCam = aiScene->mCameras[i];
 			if (aiCam == nullptr) {
 				continue;
@@ -123,7 +123,7 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 	}
 
 	ModelNode *model = new ModelNode;
-	for (int i = 0; i < node->mNumMeshes; ++i) {
+	for (unsigned int i = 0; i < node->mNumMeshes; ++i) {
 		aiMesh *mesh = aiScene->mMeshes[node->mMeshes[i]];
 		
 		// Setup the mesh
@@ -136,23 +136,23 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 		indexOffset += resMesh.numIndices;
 
 		// Read the mesh indices into the index buffer
-		for (int j = 0; j < mesh->mNumFaces; ++j) {
+		for (unsigned int j = 0; j < mesh->mNumFaces; ++j) {
 			aiFace &face = mesh->mFaces[j];
 
 			// We should have triangulated the mesh already
 			dassert(face.mNumIndices == 3);
 			
-			for (int k = 0; k < face.mNumIndices; ++k) {
+			for (unsigned int k = 0; k < face.mNumIndices; ++k) {
 				// Adding the vertex offset here since these indices are zero-based
 				// and the actual vertices of the current mesh begin at index vertexOffset
 				// in the global scene.vertices array
-				scene.indices.push_back(face.mIndices[k] + vertexOffset);
+				scene.indices.push_back(face.mIndices[k] + static_cast<unsigned int>(vertexOffset));
 			}
 		}
 		model->meshes.push_back(resMesh);
 
 		// save vertex data for the mesh in the global scene structure
-		for (int j = 0; j < mesh->mNumVertices; ++j) {
+		for (unsigned int j = 0; j < mesh->mNumVertices; ++j) {
 			Vertex vertex;
 			auto pos = mesh->mVertices[j];
 			Vec3 p{ pos.x, pos.y, pos.z };
@@ -184,7 +184,7 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 		}
 	}
 
-	for (int i = 0; i < node->mNumChildren; ++i) {
+	for (unsigned int i = 0; i < node->mNumChildren; ++i) {
 		traverseAssimpScene(node->mChildren[i], aiScene, model, scene, vertexOffset, indexOffset);
 	}
 }

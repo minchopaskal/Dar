@@ -89,7 +89,8 @@ Scene::Scene(ComPtr<ID3D12Device8> &device) :
 	device(device),
 	texturesNeedUpdate(true),
 	lightsNeedUpdate(true),
-	materialsNeedUpdate(true)
+	materialsNeedUpdate(true),
+	changesSinceLastCheck(true)
 { }
 
 Scene::~Scene() {
@@ -134,6 +135,8 @@ bool Scene::uploadSceneData() {
 	resManager.uploadBuffers();
 
 	texturesNeedUpdate = lightsNeedUpdate = materialsNeedUpdate = false;
+
+	return true;
 }
 
 void Scene::draw(CommandList &cmdList) const {
@@ -279,4 +282,6 @@ bool Scene::uploadTextureData(UploadHandle uploadHandle) {
 		textureSubresources.SlicePitch = textureSubresources.RowPitch * texData[i].height;
 		resManager.uploadTextureData(uploadHandle, textureHandles[i], &textureSubresources, 1, 0);
 	}
+
+	return true;
 }

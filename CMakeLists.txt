@@ -29,7 +29,7 @@ macro(copyD3D12Core TRG)
 		${DLLS_TO_COPY} $<TARGET_FILE_DIR:${TRG}>/D3D12/)
 endmacro()
 
-macro(compile_shaders TRG SHADERS_FOLDER SHADER_VERSION)
+macro(compile_shaders TRG SHADER_FILES SHADER_VERSION)
 	add_custom_command(TARGET ${TRG} PRE_BUILD
 		COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${TRG}>/res/shaders/
 	)
@@ -39,11 +39,17 @@ macro(compile_shaders TRG SHADERS_FOLDER SHADER_VERSION)
 		add_custom_target(CompileShaders ALL)
 	endif()
 
-	FILE(GLOB SHADER_FILES "${SHADERS_FOLDER}/*.hlsl")
-
 	foreach(SHADER_FILE ${SHADER_FILES})
+		get_filename_component(SHADERS_FOLDER ${SHADER_FILE} DIRECTORY)
 		get_filename_component(SF_NAME ${SHADER_FILE} NAME_WE)
 		get_filename_component(SF_NAME_EXT ${SHADER_FILE} NAME)
+
+		string(FIND ${SF_NAME_EXT} ".hlsli" IS_HEADER_FILE)
+		if (NOT ${IS_HEADER_FILE} STREQUAL "-1")
+			message("Skipping ${SF_NAME_EXT}...")
+			continue()
+		endif()
+
 		message("Setting properties of ${SF_NAME_EXT}")
 
 		set(SHADER_TYPE "")
@@ -91,6 +97,7 @@ macro(compile_shaders TRG SHADERS_FOLDER SHADER_VERSION)
 			-E main # shader entry point. Only main is valid. Each different type of shader must be in its own file.
 			-T ${SHADER_TYPE} # target profile
 			-Fo $<TARGET_FILE_DIR:${TRG}>/res/shaders/${SF_NAME}.bin # output file location
+			/I ${SHADERS_FOLDER}
 			$<$<CONFIG:Debug>:-Zi> # Output debug information, but only in DEBUG mode
 			$<$<CONFIG:Debug>:-Fd> $<$<CONFIG:Debug>:$<TARGET_FILE_DIR:${TRG}>/res/shaders/${SF_NAME}.pdb> # output pdb file
 			$<$<CONFIG:Debug>:-O0> # no optimizations in debug

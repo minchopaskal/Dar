@@ -31,7 +31,7 @@ struct DescriptorHeap {
 
 	D3D12_CPU_DESCRIPTOR_HANDLE getCPUHandle(int index) const {
 		D3D12_CPU_DESCRIPTOR_HANDLE res = cpuHandleStart;
-		res.ptr += index * handleIncrementSize;
+		res.ptr += static_cast<SIZE_T>(index) * handleIncrementSize;
 		return res;
 	}
 

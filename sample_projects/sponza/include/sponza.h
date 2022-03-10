@@ -29,7 +29,10 @@ private:
 
 private:
 	CommandList populateCommandList();
-	void populateLightPassCommands(CommandList &cmdList);
+	void populateDeferredPassCommands(CommandList& cmdList);
+	void populateLightPassCommands(CommandList& cmdList);
+	void populateForwardPassCommands(CommandList& cmdList);
+	void populatePostPassCommands(CommandList &cmdList);
 	bool updateRenderTargetViews();
 	bool resizeDepthBuffer();
 
@@ -62,25 +65,23 @@ private:
 		DXGI_FORMAT_R32G32B32A32_FLOAT // Position
 	};
 
-	PipelineState deferredPassPipelineState;
-	PipelineState screenQuadPipelineState;
-
 	// Descriptors
+	PipelineState deferredPassPipelineState;
 	DescriptorHeap deferredRTVHeap;
 	DescriptorHeap deferredPassSRVHeap[frameCount];
-	DescriptorHeap lightPassRTVHeap;
-	DescriptorHeap lightPassSRVHeap[frameCount];
-	DescriptorHeap dsvHeap;
-
-	StaticArray<ResourceHandle, static_cast<SizeType>(GBuffer::Count)* frameCount> gBufferRTVTextureHandles;
-	ResourceHandle depthBufferHandle;
-
+	StaticArray<ResourceHandle, static_cast<SizeType>(GBuffer::Count) * frameCount> gBufferRTVTextureHandles;
 	ResourceHandle vertexBufferHandle;
 	ResourceHandle indexBufferHandle;
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
 	D3D12_INDEX_BUFFER_VIEW indexBufferView;
+	DescriptorHeap dsvHeap;
+	ResourceHandle depthBufferHandle;
 
-	// MVP matrix
+	PipelineState lightPassPipelineState;
+	DescriptorHeap lightPassRTVHeap;
+	DescriptorHeap lightPassSRVHeap[frameCount];
+
+	// Scene data handle
 	ResourceHandle sceneDataHandle[frameCount];
 
 	// viewport

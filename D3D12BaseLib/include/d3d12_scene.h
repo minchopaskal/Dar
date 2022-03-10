@@ -22,8 +22,7 @@ using CameraId = SizeType;
 
 enum class ConstantBufferView : unsigned int {
 	MVPBuffer = 0,
-	LightsBuffer = 1,
-	MeshData = 2,
+	MeshData = 1,
 
 	Count
 };
@@ -88,8 +87,8 @@ struct Mesh {
 	Mat4 modelMatrix = Mat4(1.f);
 	mutable ResourceHandle meshDataHandle = INVALID_RESOURCE_HANDLE;
 	MaterialId mat = INVALID_MATERIAL_ID;
-	SizeType indexOffset;
-	SizeType numIndices;
+	SizeType indexOffset = 0;
+	SizeType numIndices = 0;
 
 	void uploadMeshData(UploadHandle uploadHandle) const;
 
@@ -289,7 +288,7 @@ struct Scene {
 			}
 		}
 
-		Texture res = { String{path}, textures.size(), type };
+		Texture res = { String{path}, static_cast<unsigned int>(textures.size()), type };
 		textures.push_back(res);
 		textureHandles.push_back({});
 

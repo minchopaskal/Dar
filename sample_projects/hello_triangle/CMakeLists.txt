@@ -31,7 +31,7 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:CONSOLE")
 
 add_executable(HelloTriangle ${HEADERS} ${SOURCES} ${SUBMODULES} ${SHADERS})
 
-compile_shaders(HelloTriangle ${SHADERS_DIR} "6_5")
+compile_shaders(HelloTriangle "${SHADERS}" "6_5")
 
 set_property(TARGET HelloTriangle PROPERTY VS_DEBUGGER_WORKING_DIRECTORY $<TARGET_FILE_DIR:HelloTriangle>)
 

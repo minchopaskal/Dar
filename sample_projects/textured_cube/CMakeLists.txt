@@ -35,7 +35,7 @@ add_executable(TexturedCube ${HEADERS} ${SOURCES} ${SUBMODULES} ${SHADERS})
 
 compile_shaders(
 	TexturedCube
-	${SHADERS_DIR}
+	"${SHADERS}"
 	"6_6"
 )
 

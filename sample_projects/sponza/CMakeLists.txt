@@ -23,10 +23,16 @@ set(SOURCES
 )
 
 set(SHADERS
-	${SHADERS_DIR}/basic_ps.hlsl
-	${SHADERS_DIR}/basic_vs.hlsl
-	${SHADERS_DIR}/screen_quad_ps.hlsl
-	${SHADERS_DIR}/screen_quad_vs.hlsl
+	${SHADERS_DIR}/common.hlsli
+	${SHADERS_DIR}/deferred_ps.hlsl
+	${SHADERS_DIR}/deferred_vs.hlsl
+	${SHADERS_DIR}/lighting_common.hlsli
+	${SHADERS_DIR}/lighting_ps.hlsl
+	${SHADERS_DIR}/lighting_vs.hlsl
+	${SHADERS_DIR}/forward_ps.hlsl
+	${SHADERS_DIR}/forward_vs.hlsl
+	${SHADERS_DIR}/post_ps.hlsl
+	${SHADERS_DIR}/post_vs.hlsl
 )
 
 source_group("src"           FILES ${SOURCES})
@@ -40,7 +46,7 @@ add_executable(Sponza ${HEADERS} ${SOURCES} ${SUBMODULES} ${SHADERS})
 
 compile_shaders(
 	Sponza
-	${SHADERS_DIR}
+	"${SHADERS}"
 	"6_6"
 )
 

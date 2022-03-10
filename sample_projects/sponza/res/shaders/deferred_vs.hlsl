@@ -1,17 +1,4 @@
-struct SceneData {
-	row_major matrix viewProjection;
-	float4 cameraPosition; // world-space
-	float4 cameraDir; // world-space
-};
-
-struct MeshData {
-	row_major matrix modelMatrix;
-	row_major matrix normalMatrix;
-	uint materialId;
-};
- 
-ConstantBuffer<SceneData> sceneData : register(b0);
-ConstantBuffer<MeshData> meshData : register(b2);
+#include "common.hlsli"
 
 struct VSInput
 {  
