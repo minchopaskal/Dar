@@ -4,6 +4,8 @@
 #include <cstring>
 #include <type_traits>
 
+#include "d3d12_defines.h"
+
 #ifdef min
 #undef min
 #endif
@@ -127,7 +129,7 @@ struct Vec2t {
 	}
 
 	Vec2t normalized() const {
-		return *this / lenght();
+		return *this / length();
 	}
 };
 
@@ -325,7 +327,7 @@ struct Vec4t {
 	}
 
 	[[nodiscard]] Vec4t normalized() const {
-		return *this / lenght();
+		return *this / length();
 	}
 };
 
@@ -599,13 +601,13 @@ struct Quatt {
 	}
 
 	[[nodiscard]] Quatt operator*(const Quatt &q) const {
-		Quat res(v, s);
+		Quatt res(v, s);
 		res *= q;
 		return res;
 	}
 
 	[[nodiscard]] Vec3t<T> operator*(const Vec3t<T> &v) const {
-		Quat res(this->v, this->s);
+		Quatt res(this->v, this->s);
 		res *= Quatt(v, T(0));
 		return res.v;
 	}
