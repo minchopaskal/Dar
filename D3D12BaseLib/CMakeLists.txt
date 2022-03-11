@@ -25,6 +25,7 @@ set(HEADERS
 	${INCLUDE_DIR}/d3d12_resource_manager.h
 	${INCLUDE_DIR}/d3d12_scene.h
 	${INCLUDE_DIR}/d3d12_utils.h
+	${INCLUDE_DIR}/d3d12_vertex_index_buffer.h
 )
 
 set(SOURCES

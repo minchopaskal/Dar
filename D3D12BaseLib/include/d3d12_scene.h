@@ -335,7 +335,7 @@ struct Scene {
 		return materials.size();
 	}
 
-	bool uploadSceneData();
+	bool uploadSceneData(UploadHandle uploadHandle);
 
 	void draw(CommandList &cmdList) const;
 

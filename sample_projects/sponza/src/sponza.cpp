@@ -17,10 +17,6 @@
 
 Sponza::Sponza(const UINT w, const UINT h, const String &windowTitle) :
 	D3D12App(w, h, windowTitle.c_str()),
-	vertexBufferHandle(INVALID_RESOURCE_HANDLE),
-	indexBufferHandle(INVALID_RESOURCE_HANDLE),
-	vertexBufferView{},
-	indexBufferView{},
 	depthBufferHandle(INVALID_RESOURCE_HANDLE),
 	sceneDataHandle{ INVALID_RESOURCE_HANDLE, INVALID_RESOURCE_HANDLE },
 	viewport{ 0.f, 0.f, static_cast<float>(w), static_cast<float>(h), 0.f, 1.f },
@@ -317,20 +313,32 @@ bool Sponza::loadAssets() {
 	CameraNode *camNode = new CameraNode(std::move(cam));
 	scene.addNewCamera(camNode);
 
-	scene.uploadSceneData();
 
 	bool setCamRes = scene.setCameraForCameraController(fpsModeControl);
 	if (!setCamRes) {
+		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to set FPS camera controller!");
 		return false;
 	}
 	setCamRes = scene.setCameraForCameraController(editModeControl);
 	if (!setCamRes) {
+		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to set Edit mode camera controller!");
 		return false;
 	}
 
-	if (!loadVertexIndexBuffers()) {
+	ResourceManager &resManager = getResourceManager();
+	UploadHandle uploadHandle = resManager.beginNewUpload();
+
+	if (!scene.uploadSceneData(uploadHandle)) {
+		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to upload scene data!");
 		return false;
 	}
+
+	if (!prepareVertexIndexBuffers(uploadHandle)) {
+		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to prepare vertex and index buffers!");
+		return false;
+	}
+
+	resManager.uploadBuffers();
 
 	return true;
 }
@@ -408,12 +416,12 @@ void Sponza::populateDeferredPassCommands(CommandList& commandList) {
 
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	commandList.transition(vertexBufferHandle, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-	commandList.transition(indexBufferHandle, D3D12_RESOURCE_STATE_INDEX_BUFFER);
+	commandList.transition(vertexBuffer.bufferHandle, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+	commandList.transition(indexBuffer.bufferHandle, D3D12_RESOURCE_STATE_INDEX_BUFFER);
 	commandList.transition(sceneDataHandle[frameIndex], D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 
-	commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
-	commandList->IASetIndexBuffer(&indexBufferView);
+	commandList->IASetVertexBuffers(0, 1, &vertexBuffer.bufferView);
+	commandList->IASetIndexBuffer(&indexBuffer.bufferView);
 	commandList->OMSetRenderTargets(gBufferCount, &rtvHandle, TRUE, &dsvHandle);
 	commandList.setMVPBuffer(sceneDataHandle[frameIndex]);
 
@@ -607,43 +615,24 @@ bool Sponza::loadPipelines() {
 	return true;
 }
 
-bool Sponza::loadVertexIndexBuffers() {
-	/* Create the vertex buffer*/
-	ResourceInitData vertData(ResourceType::DataBuffer);
-	vertData.size = scene.getVertexBufferSize();
-	vertData.name = L"VertexBuffer";
-	vertexBufferHandle = resManager->createBuffer(vertData);
-	if (vertexBufferHandle == INVALID_RESOURCE_HANDLE) {
+bool Sponza::prepareVertexIndexBuffers(UploadHandle uploadHandle) {
+	VertexIndexBufferDesc vertexDesc = {};
+	vertexDesc.data = scene.getVertexBuffer();
+	vertexDesc.size = scene.getVertexBufferSize();
+	vertexDesc.name = L"VertexBuffer";
+	vertexDesc.vertexBufferStride = sizeof(Vertex);
+	if (!vertexBuffer.init(vertexDesc, uploadHandle)) {
 		return false;
 	}
 
-	/* Create the index buffer*/
-	ResourceInitData indexBufferData(ResourceType::DataBuffer);
-	indexBufferData.size = scene.getIndexBufferSize();
-	indexBufferData.name = L"IndexBuffer";
-	indexBufferHandle = resManager->createBuffer(indexBufferData);
-	if (indexBufferHandle == INVALID_RESOURCE_HANDLE) {
+	VertexIndexBufferDesc indexDesc = {};
+	indexDesc.data = scene.getIndexBuffer();
+	indexDesc.size = scene.getIndexBufferSize();
+	indexDesc.name = L"IndexBuffer";
+	indexDesc.indexBufferFormat = DXGI_FORMAT_R32_UINT;
+	if (!indexBuffer.init(indexDesc, uploadHandle)) {
 		return false;
 	}
-
-	/* Upload the vertex, index and texture buffers */
-	UploadHandle uploadHandle = resManager->beginNewUpload();
-
-	resManager->uploadBufferData(uploadHandle, vertexBufferHandle, scene.getVertexBuffer(), scene.getVertexBufferSize());
-	resManager->uploadBufferData(uploadHandle, indexBufferHandle, scene.getIndexBuffer(), scene.getIndexBufferSize());
-
-	resManager->uploadBuffers();
-
-	/* Create views for the vertex and index buffers */
-	vertexBufferView = {};
-	vertexBufferView.BufferLocation = vertexBufferHandle->GetGPUVirtualAddress();
-	vertexBufferView.SizeInBytes = static_cast< UINT >(scene.getVertexBufferSize());
-	vertexBufferView.StrideInBytes = sizeof(Vertex);
-
-	indexBufferView = {};
-	indexBufferView.BufferLocation = indexBufferHandle->GetGPUVirtualAddress();
-	indexBufferView.SizeInBytes = static_cast< UINT >(scene.getIndexBufferSize());
-	indexBufferView.Format = DXGI_FORMAT_R32_UINT;
 
 	return true;
 }

@@ -6,6 +6,7 @@
 #include "d3d12_math.h"
 #include "d3d12_pipeline_state.h"
 #include "d3d12_scene.h"
+#include "d3d12_vertex_index_buffer.h"
 
 #include "fps_camera_controller.h"
 #include "fps_edit_camera_controller.h"
@@ -37,7 +38,7 @@ private:
 	bool resizeDepthBuffer();
 
 	bool loadPipelines();
-	bool loadVertexIndexBuffers();
+	bool prepareVertexIndexBuffers(UploadHandle);
 
 	void timeIt();
 
@@ -70,10 +71,10 @@ private:
 	DescriptorHeap deferredRTVHeap;
 	DescriptorHeap deferredPassSRVHeap[frameCount];
 	StaticArray<ResourceHandle, static_cast<SizeType>(GBuffer::Count) * frameCount> gBufferRTVTextureHandles;
-	ResourceHandle vertexBufferHandle;
-	ResourceHandle indexBufferHandle;
-	D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
-	D3D12_INDEX_BUFFER_VIEW indexBufferView;
+
+	VertexBuffer vertexBuffer;
+	IndexBuffer indexBuffer;
+
 	DescriptorHeap dsvHeap;
 	ResourceHandle depthBufferHandle;
 

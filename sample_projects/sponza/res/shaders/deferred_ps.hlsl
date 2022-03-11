@@ -28,6 +28,7 @@ PSOutput main(PSInput IN) : SV_Target
 	output.diffuse = getColorFromTexture(materialIndices.diffuseIndex + TEXTURE_BUFFERS_START, IN.uv, float4(0.f, 0.f, 0.f, 1.f));
 	if (output.diffuse.w < 1e-6f) {
 		discard;
+		return output; // discard; doesn't return so return here in order to save some texture reads.
 	}
 
 	output.specular = getColorFromTexture(materialIndices.specularIndex + TEXTURE_BUFFERS_START, IN.uv, float4(.5f, .5f, .5f, 1.f));

@@ -101,38 +101,32 @@ Scene::~Scene() {
 	nodes.clear();
 }
 
-bool Scene::uploadSceneData() {
+bool Scene::uploadSceneData(UploadHandle uploadHandle) {
 	if (!lightsNeedUpdate && !materialsNeedUpdate && !texturesNeedUpdate) {
 		return true;
 	}
 
-	ResourceManager &resManager = getResourceManager();
-	UploadHandle handle = resManager.beginNewUpload();
-
 	// TODO: try using placed resources for lights and materials OR small textures
 	if (texturesNeedUpdate) {
-		if (!uploadTextureData(handle)) {
+		if (!uploadTextureData(uploadHandle)) {
 			LOG(Error, "Failed to upload texture data!");
 			return false;
 		}
 	}
 
 	if (lightsNeedUpdate) {
-		if (!uploadLightData(handle)) {
+		if (!uploadLightData(uploadHandle)) {
 			LOG(Error, "Failed to upload light data!");
 			return false;
 		}
 	}
 
 	if (materialsNeedUpdate) {
-		if (!uploadMaterialData(handle)) {
+		if (!uploadMaterialData(uploadHandle)) {
 			LOG(Error, "Failed to upload material data!");
 			return false;
 		}
 	}
-
-
-	resManager.uploadBuffers();
 
 	texturesNeedUpdate = lightsNeedUpdate = materialsNeedUpdate = false;
 
