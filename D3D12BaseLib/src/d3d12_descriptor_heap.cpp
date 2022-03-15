@@ -81,7 +81,7 @@ void DescriptorHeap::addDSV(ID3D12Resource* resource, DXGI_FORMAT format) {
 	dassert(type == D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsDesc = {};
-	dsDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	dsDesc.Format = format;
 	dsDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 	dsDesc.Flags = D3D12_DSV_FLAG_NONE;
 	dsDesc.Texture2D.MipSlice = 0;

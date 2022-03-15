@@ -30,6 +30,8 @@ ImageData loadImage(const String &imgPath) {
 	return result;
 }
 
+// TODO: move d3d12_scene to Sponza(future Renderer project).
+// Then the MeshData will be taken from gpu_cpu_common.hlsli
 struct MeshData {
 	Mat4 modelMatrix;
 	Mat4 normalMatrix;

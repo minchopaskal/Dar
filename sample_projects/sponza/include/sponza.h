@@ -81,6 +81,11 @@ private:
 	PipelineState lightPassPipelineState;
 	DescriptorHeap lightPassRTVHeap;
 	DescriptorHeap lightPassSRVHeap[frameCount];
+	StaticArray<ResourceHandle, frameCount> lightPassRTVTextureHandles;
+
+	PipelineState postPassPipelineState;
+	DescriptorHeap postPassRTVHeap;
+	DescriptorHeap postPassSRVHeap[frameCount];
 
 	// Scene data handle
 	ResourceHandle sceneDataHandle[frameCount];

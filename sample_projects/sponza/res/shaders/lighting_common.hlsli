@@ -36,7 +36,7 @@ struct MaterialData {
 };
 
 LightColors getLightValues(LightData light, float3 lightDir, MaterialData material) {
-	const float3 viewDir = normalize(sceneData.cameraPos.xyz - material.position);
+	const float3 viewDir = normalize(sceneData.cameraPosition.xyz - material.position);
 	const float3 reflectDir = reflect(lightDir, material.normal);
 	const float specularIntensity = 0.5f * pow(max(dot(viewDir, reflectDir), 0.f), 8);
 	const float lightIntensity = max(dot(material.normal, -lightDir), 0.f);
@@ -92,7 +92,7 @@ float4 evalLights(MaterialData material, const uint lightsBufferIndex) {
 		if (light.type == LightType::Spot) {
 			//const float3 lightDir = normalize(IN.fragPos.xyz - light.position);
 			//const float3 spotDir = light.direction;
-			const float3 lightDir = normalize(material.position - sceneData.cameraPos.xyz);
+			const float3 lightDir = normalize(material.position - sceneData.cameraPosition.xyz);
 			const float3 spotDir = sceneData.cameraDir.xyz;
 			const float theta = dot(lightDir, spotDir);
 

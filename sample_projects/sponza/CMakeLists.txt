@@ -23,6 +23,7 @@ set(SOURCES
 )
 
 set(SHADERS
+	${SHADERS_DIR}/gpu_cpu_common.hlsli
 	${SHADERS_DIR}/common.hlsli
 	${SHADERS_DIR}/deferred_ps.hlsl
 	${SHADERS_DIR}/deferred_vs.hlsl
@@ -33,6 +34,7 @@ set(SHADERS
 	${SHADERS_DIR}/forward_vs.hlsl
 	${SHADERS_DIR}/post_ps.hlsl
 	${SHADERS_DIR}/post_vs.hlsl
+	${SHADERS_DIR}/screen_quad_vs.hlsli
 )
 
 source_group("src"           FILES ${SOURCES})
@@ -85,6 +87,7 @@ target_include_directories(
 	${PROJECT_SOURCE_DIR}/D3D12BaseLib/include
 	${SUBMODULE_DIR}/imgui
 	${SUBMODULE_DIR}/assimp/include
+	${SHADERS_DIR}
 )
 
 copyD3D12Core(Sponza)

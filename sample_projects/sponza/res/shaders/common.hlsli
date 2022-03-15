@@ -1,16 +1,4 @@
-struct SceneData {
-	row_major matrix viewProjection;
-	float4 cameraPos; // world-space
-	float4 cameraDir; // world-space
-	int numLights;
-	int showGBuffer;
-};
-
-struct MeshData {
-	row_major matrix modelMatrix;
-	row_major matrix normalMatrix;
-	uint materialId;
-};
+#include "gpu_cpu_common.hlsli"
 
 struct MaterialIndices {
 	uint diffuseIndex;

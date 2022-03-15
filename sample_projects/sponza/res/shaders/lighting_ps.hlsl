@@ -5,19 +5,22 @@ struct PSInput {
 };
 
 static const uint LIGHTS_BUFFER_INDEX = 0;
-static const uint GBUFFER_DIFFUSE_INDEX = 1;
-static const uint GBUFFER_SPECULAR_INDEX = 2;
-static const uint GBUFFER_NORMAL_INDEX = 3;
-static const uint GBUFFER_POSITION_INDEX = 4;
+static const uint DEPTH_BUFFER_INDEX = 1;
+
+static const uint GBUFFER_INDEX_OFFSET = 2;
+
+static const uint GBUFFER_DIFFUSE_INDEX = 0;
+static const uint GBUFFER_SPECULAR_INDEX = 1;
+static const uint GBUFFER_NORMAL_INDEX = 2;
+static const uint GBUFFER_POSITION_INDEX = 3;
 
 float4 main(PSInput IN) : SV_TARGET {
-
 	MaterialData material;
 
-	material.diffuse = getColorFromTexture(GBUFFER_DIFFUSE_INDEX, IN.uv, float4(0.f, 0.f, 0.f, 1.f));
-	material.specular = getColorFromTexture(GBUFFER_SPECULAR_INDEX, IN.uv, float4(.5f, .5f, .5f, 1.f));
-	material.normal = getColorFromTexture(GBUFFER_NORMAL_INDEX, IN.uv).xyz;
-	material.position = getColorFromTexture(GBUFFER_POSITION_INDEX, IN.uv).xyz;
+	material.diffuse = getColorFromTexture(GBUFFER_DIFFUSE_INDEX + GBUFFER_INDEX_OFFSET, IN.uv, float4(0.f, 0.f, 0.f, 1.f));
+	material.specular = getColorFromTexture(GBUFFER_SPECULAR_INDEX + GBUFFER_INDEX_OFFSET, IN.uv, float4(.5f, .5f, .5f, 1.f));
+	material.normal = getColorFromTexture(GBUFFER_NORMAL_INDEX + GBUFFER_INDEX_OFFSET, IN.uv).xyz;
+	material.position = getColorFromTexture(GBUFFER_POSITION_INDEX + GBUFFER_INDEX_OFFSET, IN.uv).xyz;
 
 	if (sceneData.showGBuffer == 1) {
 		return material.diffuse;

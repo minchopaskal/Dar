@@ -11,6 +11,8 @@
 #include "d3d12_utils.h"
 #include "scene_loader.h"
 
+#include "gpu_cpu_common.hlsli"
+
 #include "GLFW/glfw3.h" // keyboard input
 
 #include "imgui.h"
@@ -57,18 +59,25 @@ int Sponza::initImpl() {
 	RETURN_ERROR_IF(shaderModel.HighestShaderModel != D3D_SHADER_MODEL_6_6, false, "Shader model 6.6 not supported!");
 
 	/* Create a descriptor heap for RTVs */
-	lightPassRTVHeap.init(
-		device.Get(),
-		D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
-		frameCount, /*numDescriptors*/
-		false /*shaderVisible*/
-	);
-
 	deferredRTVHeap.init(
 		device.Get(),
 		D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
 		static_cast<int>(GBuffer::Count) * frameCount, /*numDescriptors*/
 		true /*shaderVisible*/
+	);
+	
+	lightPassRTVHeap.init(
+		device.Get(),
+		D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
+		frameCount, /*numDescriptors*/
+		true /*shaderVisible*/
+	);
+
+	postPassRTVHeap.init(
+		device.Get(),
+		D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
+		frameCount, /*numDescriptors*/
+		false /*shaderVisible*/
 	);
 
 	dsvHeap.init(
@@ -105,19 +114,15 @@ void Sponza::update() {
 	Mat4 viewMat = cam.getViewMatrix();
 	Mat4 projectionMat = cam.getProjectionMatrix();
 
-	struct SceneData {
-		Mat4 viewProjectionMat;
-		Vec4 cameraPosition;
-		Vec4 cameraDir;
-		int numLights = 0;
-		int showGBuffer = 0;
-	} sceneData;
+	SceneData sceneData = {};
 
-	sceneData.viewProjectionMat = projectionMat * viewMat;
+	sceneData.viewProjection = projectionMat * viewMat;
 	sceneData.cameraPosition = Vec4{ cam.getPos(), 1.f };
 	sceneData.cameraDir = Vec4{ dmath::normalized(cam.getCameraZ()), 1.f };
 	sceneData.numLights = static_cast<int>(scene.getNumLights());
 	sceneData.showGBuffer = showGBuffer;
+	sceneData.width = width;
+	sceneData.height = height;
 
 	/// Initialize the MVP constant buffer resource if needed
 	if (sceneDataHandle[frameIndex] == INVALID_RESOURCE_HANDLE) {
@@ -432,6 +437,8 @@ void Sponza::populateLightPassCommands(CommandList& commandList) {
 	commandList->SetPipelineState(lightPassPipelineState.getPipelineState());
 
 	commandList.transition(scene.lightsHandle, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	commandList.transition(depthBufferHandle, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
 	const int gBufferCount = static_cast<int>(GBuffer::Count);
 	
 	for (int i = 0; i < gBufferCount; ++i) {
@@ -442,7 +449,7 @@ void Sponza::populateLightPassCommands(CommandList& commandList) {
 		lightPassSRVHeap[frameIndex].init(
 			device.Get(),
 			D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-			gBufferCount + 1, // Gbuffer textures + lights buffer
+			gBufferCount + 2, // Gbuffer textures + lights buffer + depth buffer
 			true /*shaderVisible*/
 		);
 	}
@@ -454,6 +461,9 @@ void Sponza::populateLightPassCommands(CommandList& commandList) {
 
 	// Create SRV for the lights
 	lightPassSRVHeap[frameIndex].addBufferSRV(scene.lightsHandle.get(), static_cast<int>(scene.getNumLights()), sizeof(GPULight));
+
+	// ... and for the depth buffer
+	lightPassSRVHeap[frameIndex].addTexture2DSRV(depthBufferHandle.get(), DXGI_FORMAT_R32_FLOAT);
 
 	// Create SRVs for the textures so we can read them bindlessly in the shader
 	for (int i = 0; i < gBufferCount; ++i) {
@@ -467,12 +477,54 @@ void Sponza::populateLightPassCommands(CommandList& commandList) {
 	commandList->RSSetViewports(1, &viewport);
 	commandList->RSSetScissorRects(1, &scissorRect);
 
-	commandList.transition(backBuffersHandles[frameIndex], D3D12_RESOURCE_STATE_RENDER_TARGET);
+	commandList.transition(lightPassRTVTextureHandles[frameIndex], D3D12_RESOURCE_STATE_RENDER_TARGET);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = lightPassRTVHeap.getCPUHandle(static_cast<int>(frameIndex));
 
-	constexpr float blue[] = { 0.2f, 0.2f, 0.8f, 1.f };
-	const float* clearColor = blue;
+	constexpr float clearColor[] = { 0.f, 0.f, 0.f, 1.f };
+	commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+
+	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+	commandList.setMVPBuffer(sceneDataHandle[frameIndex]);
+
+	commandList->DrawIndexedInstanced(3, 1, 0, 0, 0);
+}
+
+void Sponza::populateForwardPassCommands(CommandList& cmdList) {}
+
+void Sponza::populatePostPassCommands(CommandList&commandList) {
+	commandList->SetPipelineState(postPassPipelineState.getPipelineState());
+
+	commandList.transition(lightPassRTVTextureHandles[frameIndex], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
+	if (!postPassSRVHeap[frameIndex]) {
+		postPassSRVHeap[frameIndex].init(
+			device.Get(),
+			D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+			2, // light pass result + depth buffer
+			true /*shaderVisible*/
+		);
+	}
+
+	// Recreate the srv heap since after resizing the light pass rtv texture handle may need an update.
+	postPassSRVHeap[frameIndex].reset();
+	postPassSRVHeap[frameIndex].addTexture2DSRV(lightPassRTVTextureHandles[frameIndex].get(), DXGI_FORMAT_R8G8B8A8_UNORM);
+	postPassSRVHeap[frameIndex].addTexture2DSRV(depthBufferHandle.get(), DXGI_FORMAT_R32_FLOAT);
+
+	commandList->SetDescriptorHeaps(1, postPassSRVHeap[frameIndex].getAddressOf());
+
+	commandList->SetGraphicsRootSignature(postPassPipelineState.getRootSignature());
+
+	commandList->RSSetViewports(1, &viewport);
+	commandList->RSSetScissorRects(1, &scissorRect);
+
+	commandList.transition(backBuffersHandles[frameIndex], D3D12_RESOURCE_STATE_RENDER_TARGET);
+
+	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = postPassRTVHeap.getCPUHandle(static_cast<int>(frameIndex));
+
+	constexpr float clearColor[] = { 0.f, 0.f, 0.f, 1.f };
 	commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -486,10 +538,6 @@ void Sponza::populateLightPassCommands(CommandList& commandList) {
 
 	commandList.transition(backBuffersHandles[frameIndex], D3D12_RESOURCE_STATE_PRESENT);
 }
-
-void Sponza::populateForwardPassCommands(CommandList& cmdList) {}
-
-void Sponza::populatePostPassCommands(CommandList& cmdList) {}
 
 bool Sponza::updateRenderTargetViews() {
 	auto getGBufferName = [](wchar_t backBufferName[32], GBuffer type, int frameIndex) -> wchar_t* {
@@ -516,13 +564,13 @@ bool Sponza::updateRenderTargetViews() {
 		return backBufferName;
 	};
 
-	lightPassRTVHeap.reset();
+	postPassRTVHeap.reset();
 	for (UINT i = 0; i < frameCount; ++i) {
 		RETURN_FALSE_ON_ERROR_FMT(
 			swapChain->GetBuffer(i, IID_PPV_ARGS(&backBuffers[i])),
 			"Failed to create Render-Target-View for buffer %u!", i
 		);
-		lightPassRTVHeap.addRTV(backBuffers[i].Get(), nullptr);
+		postPassRTVHeap.addRTV(backBuffers[i].Get(), nullptr);
 
 		// Register the back buffer's resources manually since the resource manager doesn't own them, the swap chain does.
 #ifdef D3D12_DEBUG
@@ -538,6 +586,7 @@ bool Sponza::updateRenderTargetViews() {
 
 	const int gBufferCount = static_cast<UINT>(GBuffer::Count);
 	deferredRTVHeap.reset();
+	lightPassRTVHeap.reset();
 	for (UINT i = 0; i < frameCount; ++i) {
 		for (int j = 0; j < gBufferCount; ++j) {
 			ResourceHandle& rtvTexture = gBufferRTVTextureHandles[i * gBufferCount + j];
@@ -554,6 +603,26 @@ bool Sponza::updateRenderTargetViews() {
 			rtvTexture = resManager->createBuffer(rtvTextureDesc);
 
 			deferredRTVHeap.addRTV(rtvTexture.get(), nullptr);
+		}
+
+		// Light pass RTV preparation
+		{
+			ResourceHandle &rtvTexture = lightPassRTVTextureHandles[i];
+			if (rtvTexture != INVALID_RESOURCE_HANDLE) {
+				resManager->deregisterResource(rtvTexture);
+			}
+
+			wchar_t rtvTextureName[32];
+			swprintf(rtvTextureName, L"LightPassRTV[%d]", i);
+
+			ResourceInitData rtvTextureDesc(ResourceType::RenderTargetBuffer);
+			rtvTextureDesc.textureData.width = width;
+			rtvTextureDesc.textureData.height = height;
+			rtvTextureDesc.textureData.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			rtvTextureDesc.name = rtvTextureName;
+			rtvTexture = resManager->createBuffer(rtvTextureDesc);
+
+			lightPassRTVHeap.addRTV(rtvTexture.get(), nullptr);
 		}
 	}
 
@@ -608,7 +677,19 @@ bool Sponza::loadPipelines() {
 	lightingPSDesc.numTextures = static_cast<UINT>(GBuffer::Count);
 	lightingPSDesc.maxVersion = rootSignatureFeatureData.HighestVersion;
 	if (!lightPassPipelineState.init(device, lightingPSDesc)) {
-		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to initialize screen quad pipeline!");
+		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to initialize light pass pipeline!");
+		return false;
+	}
+
+	PipelineStateDesc postPSDesc = {};
+	postPSDesc.shaderName = L"post";
+	postPSDesc.shadersMask = shaderInfoFlags_useVertex;
+	postPSDesc.staticSamplerDesc = &sampler;
+	postPSDesc.numConstantBufferViews = static_cast<unsigned int>(ConstantBufferView::Count);
+	postPSDesc.numTextures = 1;
+	postPSDesc.maxVersion = rootSignatureFeatureData.HighestVersion;
+	if (!postPassPipelineState.init(device, postPSDesc)) {
+		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to initialize post pass pipeline!");
 		return false;
 	}
 
