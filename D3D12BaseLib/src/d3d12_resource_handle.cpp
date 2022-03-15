@@ -11,3 +11,13 @@ ID3D12Resource* ResourceHandle::get() {
 ID3D12Resource* ResourceHandle::operator->() {
 	return get();
 }
+
+const ID3D12Resource *ResourceHandle::get() const {
+	ResourceManager &resManager = getResourceManager();
+	return resManager.getID3D12Resource(handle);
+}
+
+const ID3D12Resource *ResourceHandle::operator->() const {
+	return get();
+}
+

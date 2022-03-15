@@ -19,7 +19,6 @@
 
 Sponza::Sponza(const UINT w, const UINT h, const String &windowTitle) :
 	D3D12App(w, h, windowTitle.c_str()),
-	depthBufferHandle(INVALID_RESOURCE_HANDLE),
 	sceneDataHandle{ INVALID_RESOURCE_HANDLE, INVALID_RESOURCE_HANDLE },
 	viewport{ 0.f, 0.f, static_cast<float>(w), static_cast<float>(h), 0.f, 1.f },
 	scissorRect{ 0, 0, LONG_MAX, LONG_MAX }, // always render on the entire screen
@@ -77,13 +76,6 @@ int Sponza::initImpl() {
 		device.Get(),
 		D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
 		frameCount, /*numDescriptors*/
-		false /*shaderVisible*/
-	);
-
-	dsvHeap.init(
-		device.Get(),
-		D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
-		1, /*numDescriptors*/
 		false /*shaderVisible*/
 	);
 
@@ -201,7 +193,6 @@ void Sponza::onResize(const unsigned int w, const unsigned int h) {
 		// since the ResourceManager keeps a ref if it was registered with it.
 		resManager->deregisterResource(backBuffersHandles[i]);
 	}
-	resManager->deregisterResource(depthBufferHandle);
 
 	DXGI_SWAP_CHAIN_DESC scDesc = { };
 	RETURN_ON_ERROR(
@@ -410,13 +401,13 @@ void Sponza::populateDeferredPassCommands(CommandList& commandList) {
 	}
 
 	const D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = deferredRTVHeap.getCPUHandle(static_cast<int>(frameIndex) * gBufferCount);
-	const D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = dsvHeap.getCPUHandle(0);
+	const D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = depthBuffer.getCPUHandle();
 
 	constexpr float clearColor[] = { 0.f, 0.f, 0.f, 1.f };
 	for (int i = 0; i < gBufferCount; ++i) {
 		commandList->ClearRenderTargetView(deferredRTVHeap.getCPUHandle(static_cast<int>(frameIndex) * gBufferCount + i), clearColor, 0, nullptr);
 	}
-	commandList.transition(depthBufferHandle, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+	commandList.transition(depthBuffer.getBufferHandle(), D3D12_RESOURCE_STATE_DEPTH_WRITE);
 	commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
 
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -437,7 +428,7 @@ void Sponza::populateLightPassCommands(CommandList& commandList) {
 	commandList->SetPipelineState(lightPassPipelineState.getPipelineState());
 
 	commandList.transition(scene.lightsHandle, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	commandList.transition(depthBufferHandle, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	commandList.transition(depthBuffer.getBufferHandle(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
 	const int gBufferCount = static_cast<int>(GBuffer::Count);
 	
@@ -463,7 +454,7 @@ void Sponza::populateLightPassCommands(CommandList& commandList) {
 	lightPassSRVHeap[frameIndex].addBufferSRV(scene.lightsHandle.get(), static_cast<int>(scene.getNumLights()), sizeof(GPULight));
 
 	// ... and for the depth buffer
-	lightPassSRVHeap[frameIndex].addTexture2DSRV(depthBufferHandle.get(), DXGI_FORMAT_R32_FLOAT);
+	lightPassSRVHeap[frameIndex].addTexture2DSRV(depthBuffer.getBufferResource(), depthBuffer.getFormatAsTexture());
 
 	// Create SRVs for the textures so we can read them bindlessly in the shader
 	for (int i = 0; i < gBufferCount; ++i) {
@@ -511,7 +502,7 @@ void Sponza::populatePostPassCommands(CommandList&commandList) {
 	// Recreate the srv heap since after resizing the light pass rtv texture handle may need an update.
 	postPassSRVHeap[frameIndex].reset();
 	postPassSRVHeap[frameIndex].addTexture2DSRV(lightPassRTVTextureHandles[frameIndex].get(), DXGI_FORMAT_R8G8B8A8_UNORM);
-	postPassSRVHeap[frameIndex].addTexture2DSRV(depthBufferHandle.get(), DXGI_FORMAT_R32_FLOAT);
+	postPassSRVHeap[frameIndex].addTexture2DSRV(depthBuffer.getBufferResource(), depthBuffer.getFormatAsTexture());
 
 	commandList->SetDescriptorHeaps(1, postPassSRVHeap[frameIndex].getAddressOf());
 
@@ -630,16 +621,7 @@ bool Sponza::updateRenderTargetViews() {
 }
 
 bool Sponza::resizeDepthBuffer() {
-	ResourceInitData resData(ResourceType::DepthStencilBuffer);
-	resData.textureData.width = width;
-	resData.textureData.height = height;
-	resData.textureData.format = DXGI_FORMAT_D32_FLOAT;
-	depthBufferHandle = resManager->createBuffer(resData);
-	
-	dsvHeap.reset();
-	dsvHeap.addDSV(depthBufferHandle.get(), DXGI_FORMAT_D32_FLOAT);
-
-	return true;
+	return depthBuffer.init(device, width, height, DXGI_FORMAT_D32_FLOAT);
 }
 
 bool Sponza::loadPipelines() {
@@ -656,7 +638,7 @@ bool Sponza::loadPipelines() {
 	deferredPSDesc.inputLayouts = inputLayouts;
 	deferredPSDesc.staticSamplerDesc = &sampler;
 	deferredPSDesc.numInputLayouts = _countof(inputLayouts);
-	deferredPSDesc.depthStencilBufferFormat = DXGI_FORMAT_D32_FLOAT;
+	deferredPSDesc.depthStencilBufferFormat = depthBuffer.getFormatAsDepthBuffer();
 	deferredPSDesc.numConstantBufferViews = static_cast<UINT>(ConstantBufferView::Count);
 	deferredPSDesc.numTextures = static_cast<UINT>(scene.getNumTextures());
 	deferredPSDesc.maxVersion = rootSignatureFeatureData.HighestVersion;

@@ -49,5 +49,9 @@ struct ResourceHandle {
 	}
 
 	ID3D12Resource* get();
+	const ID3D12Resource* get() const;
+
 	ID3D12Resource* operator->();
+	
+	const ID3D12Resource* operator->() const;
 };

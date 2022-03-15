@@ -3,6 +3,7 @@
 #include "d3d12_app.h"
 #include "d3d12_camera.h"
 #include "d3d12_defines.h"
+#include "d3d12_depth_buffer.h"
 #include "d3d12_math.h"
 #include "d3d12_pipeline_state.h"
 #include "d3d12_scene.h"
@@ -75,8 +76,7 @@ private:
 	VertexBuffer vertexBuffer;
 	IndexBuffer indexBuffer;
 
-	DescriptorHeap dsvHeap;
-	ResourceHandle depthBufferHandle;
+	DepthBuffer depthBuffer;
 
 	PipelineState lightPassPipelineState;
 	DescriptorHeap lightPassRTVHeap;
