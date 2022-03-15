@@ -31,7 +31,7 @@ PSOutput main(PSInput IN) : SV_Target
 		return output; // discard; doesn't return so return here in order to save some texture reads.
 	}
 
-	// gamma-correction
+	// inverse gamma-correction
 	output.diffuse.xyz = pow(output.diffuse.xyz, 2.2);
 
 	output.specular = getColorFromTexture(materialIndices.specularIndex + TEXTURE_BUFFERS_START, IN.uv, float4(.5f, .5f, .5f, 1.f));
