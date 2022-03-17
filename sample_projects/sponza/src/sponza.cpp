@@ -26,15 +26,16 @@ Sponza::Sponza(const UINT w, const UINT h, const String &windowTitle) :
 	fenceValues{ 0 },
 	scene(device),
 	camControl(nullptr),
-	fpsModeControl(nullptr, 200.f),
-	editModeControl(nullptr, 200.f),
-	editMode(false),
+	fpsModeControl(nullptr, 2.f),
+	editModeControl(nullptr, 2.f),
 	fps(0.0),
 	totalTime(0.0),
 	deltaTime(0.0),
-	showGBuffer(0)
+	showGBuffer(0),
+	editMode(true),
+	withNormalMapping(true)
 {
-	camControl = &fpsModeControl;
+	camControl = editMode ? &editModeControl : &fpsModeControl;
 	gBufferRTVTextureHandles.fill(INVALID_RESOURCE_HANDLE);
 }
 
@@ -115,6 +116,7 @@ void Sponza::update() {
 	sceneData.showGBuffer = showGBuffer;
 	sceneData.width = width;
 	sceneData.height = height;
+	sceneData.withNormalMapping = withNormalMapping;
 
 	/// Initialize the MVP constant buffer resource if needed
 	if (sceneDataHandle[frameIndex] == INVALID_RESOURCE_HANDLE) {
@@ -166,11 +168,22 @@ void Sponza::drawUI() {
 		ImGui::Text("Forward: %.2f %.2f %.2f", z.x, z.y, z.z);
 	ImGui::End();
 
+	ImGui::Begin("General controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::Text("[`] - Show Rendered image");
+		ImGui::Text("[1-4] - Show G-Buffers");
+		ImGui::Text("[m] - Switch between FPS/edit modes");
+		ImGui::Text("[o] - Switch between perspective/orthographic projection");
+		ImGui::Text("[f] - Toggle fullscreen mode");
+		ImGui::Text("[v] - Toggle V-Sync mode");
+	ImGui::End();
+
 	camControl->onDrawUI();
 
 	if (editMode) {
 		ImGui::Begin("Edit mode", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-		ImGui::Text("You are in edit mode!");
+			ImGui::ListBox("G-Buffer", &showGBuffer, gBufferLabels, 5);
+			ImGui::Checkbox("With normal mapping", &withNormalMapping);
+			ImGui::Checkbox("V-Sync", &vSyncEnabled);
 		ImGui::End();
 	}
 }
@@ -271,6 +284,7 @@ bool Sponza::loadAssets() {
 	}
 
 	SceneLoaderError sceneLoadErr = loadScene("res\\scenes\\Sponza\\glTF\\Sponza.gltf", scene);
+	//SceneLoaderError sceneLoadErr = loadScene("res\\scenes\\NormalTangentTest\\NormalTangentTest.gltf", scene);
 	if (sceneLoadErr != SceneLoaderError::Success) {
 		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to load scene!");
 		return false;
@@ -305,10 +319,9 @@ bool Sponza::loadAssets() {
 	lSpot->outerAngleCutoff = dmath::radians(40.f);
 	scene.addNewLight(lSpot);
 
-	Camera cam = Camera::perspectiveCamera(Vec3(0.f, 100.f, 0.f), 90.f, getWidth() / static_cast<float>(getHeight()), 10.f, 10000.f);
+	Camera cam = Camera::perspectiveCamera(Vec3(0.f, 0.f, -1.f), 90.f, getWidth() / static_cast<float>(getHeight()), 0.1f, 10000.f);
 	CameraNode *camNode = new CameraNode(std::move(cam));
 	scene.addNewCamera(camNode);
-
 
 	bool setCamRes = scene.setCameraForCameraController(fpsModeControl);
 	if (!setCamRes) {
@@ -345,6 +358,9 @@ CommandList Sponza::populateCommandList() {
 	if (!commandList.isValid()) {
 		return commandList;
 	}
+
+	WString commandListName = L"CommandList[" + std::to_wstring(frameIndex) + L"]";
+	commandList->SetName(commandListName.c_str());
 	
 	populateDeferredPassCommands(commandList);
 	populateLightPassCommands(commandList);
@@ -405,7 +421,8 @@ void Sponza::populateDeferredPassCommands(CommandList& commandList) {
 
 	constexpr float clearColor[] = { 0.f, 0.f, 0.f, 1.f };
 	for (int i = 0; i < gBufferCount; ++i) {
-		commandList->ClearRenderTargetView(deferredRTVHeap.getCPUHandle(static_cast<int>(frameIndex) * gBufferCount + i), clearColor, 0, nullptr);
+		constexpr float clearColor2[] = { 0.f, 0.5f, 0.8f, 1.f };
+		commandList->ClearRenderTargetView(deferredRTVHeap.getCPUHandle(static_cast<int>(frameIndex) * gBufferCount + i), i == 0 ? clearColor2 : clearColor, 0, nullptr);
 	}
 	commandList.transition(depthBuffer.getBufferHandle(), D3D12_RESOURCE_STATE_DEPTH_WRITE);
 	commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
@@ -472,7 +489,7 @@ void Sponza::populateLightPassCommands(CommandList& commandList) {
 
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = lightPassRTVHeap.getCPUHandle(static_cast<int>(frameIndex));
 
-	constexpr float clearColor[] = { 0.f, 0.f, 0.f, 1.f };
+	constexpr float clearColor[] = { 0.f, 0.3f, 0.7f, 1.f };
 	commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -511,7 +528,14 @@ void Sponza::populatePostPassCommands(CommandList&commandList) {
 	commandList->RSSetViewports(1, &viewport);
 	commandList->RSSetScissorRects(1, &scissorRect);
 
-	commandList.transition(backBuffersHandles[frameIndex], D3D12_RESOURCE_STATE_RENDER_TARGET);
+	ID3D12DebugCommandList1 *dcl = nullptr;
+	commandList->QueryInterface<ID3D12DebugCommandList1>(&dcl);
+	if (dcl) {
+		dcl->AssertResourceState(backBuffers[frameIndex].Get(), 0, D3D12_RESOURCE_STATE_PRESENT);
+	}
+
+	//commandList.transition(backBuffersHandles[frameIndex], D3D12_RESOURCE_STATE_RENDER_TARGET);
+	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(backBuffers[frameIndex].Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = postPassRTVHeap.getCPUHandle(static_cast<int>(frameIndex));
 
@@ -527,6 +551,7 @@ void Sponza::populatePostPassCommands(CommandList&commandList) {
 
 	renderUI(commandList, rtvHandle);
 
+	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(backBuffers[frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON));
 	commandList.transition(backBuffersHandles[frameIndex], D3D12_RESOURCE_STATE_PRESENT);
 }
 
@@ -565,7 +590,7 @@ bool Sponza::updateRenderTargetViews() {
 
 		// Register the back buffer's resources manually since the resource manager doesn't own them, the swap chain does.
 #ifdef D3D12_DEBUG
-		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, D3D12_RESOURCE_STATE_PRESENT, ResourceType::RenderTargetBuffer);
+		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, D3D12_RESOURCE_STATE_RENDER_TARGET, ResourceType::RenderTargetBuffer);
 #else
 		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, D3D12_RESOURCE_STATE_PRESENT);
 #endif
@@ -628,10 +653,11 @@ bool Sponza::loadPipelines() {
 	D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 	};
 
-	CD3DX12_STATIC_SAMPLER_DESC sampler{ D3D12_FILTER_MIN_MAG_MIP_POINT };
+	CD3DX12_STATIC_SAMPLER_DESC sampler{ 0, D3D12_FILTER_MIN_MAG_MIP_LINEAR };
 	PipelineStateDesc deferredPSDesc = {};
 	deferredPSDesc.shaderName = L"deferred";
 	deferredPSDesc.shadersMask = shaderInfoFlags_useVertex;

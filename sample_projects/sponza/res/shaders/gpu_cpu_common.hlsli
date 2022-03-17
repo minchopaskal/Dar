@@ -12,6 +12,7 @@ struct SceneData {
 	int showGBuffer;
 	int width;
 	int height;
+	int withNormalMapping;
 };
 
 struct MeshData {

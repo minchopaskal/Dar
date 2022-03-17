@@ -106,7 +106,6 @@ private:
 	FPSCameraController fpsModeControl;
 	FPSEditModeCameraController editModeControl;
 
-	bool editMode;
 
 	// timing
 	double fps;
@@ -114,5 +113,8 @@ private:
 	double deltaTime;
 
 	// Debugging
+	const char *gBufferLabels[5] = {"Render", "Diffuse", "Specular", "Normal", "Position"};
 	int showGBuffer;
+	bool editMode;
+	bool withNormalMapping;
 };

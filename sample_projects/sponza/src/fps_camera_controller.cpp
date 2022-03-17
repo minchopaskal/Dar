@@ -98,14 +98,13 @@ void FPSCameraController::processKeyboardInput(IKeyboardInputQuery *inputQuery, 
 }
 
 void FPSCameraController::onDrawUI() {
-	ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+	ImGui::Begin("FPS Camera Controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 	ImGui::Text("[mouse move] - Turn around");
 	ImGui::Text("[mouse scroll] - Zoom/unzoom");
 	ImGui::Text("[wasd] - Move forwards/left/backwards/right");
 	ImGui::Text("[qe] - Move up/down");
 	ImGui::Text("[rt] - Increase/Decrease camera speed");
 	ImGui::Text("[k] - Make/Stop camera keeping on the plane of walking");
-	ImGui::Text("[m] - Switch to edit mode");
 	ImGui::Text("[shift] - Hold to move twice as fast.");
 	ImGui::End();
 }

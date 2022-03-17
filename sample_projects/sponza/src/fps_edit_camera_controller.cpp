@@ -49,9 +49,8 @@ void FPSEditModeCameraController::processKeyboardInput(IKeyboardInputQuery *inpu
 }
 
 void FPSEditModeCameraController::onDrawUI() {
-	ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+	ImGui::Begin("FPS Edit Mode Camera Controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 	ImGui::Text("[alt] - Hold for movement and rotation of camera");
 	ImGui::Text("[mouse scroll] - Zoom/unzoom");
-	ImGui::Text("[m] - Switch to FPS mode");
 	ImGui::End();
 }

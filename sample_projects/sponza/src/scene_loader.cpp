@@ -69,8 +69,6 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 	}
 
 	if (node == aiScene->mRootNode) {
-		dassert(node->mNumMeshes != 0);
-
 		for (unsigned int i = 0; i < aiScene->mNumLights; ++i) {
 			aiLight *aiL = aiScene->mLights[i];
 			if (aiL == nullptr) {
@@ -135,6 +133,28 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 		// Make sure the next mesh knows where its indices begin
 		indexOffset += resMesh.numIndices;
 
+		// save vertex data for the mesh in the global scene structure
+		for (unsigned int j = 0; j < mesh->mNumVertices; ++j) {
+			Vertex vertex;
+			vertex.pos = aiVector3DToVec3(mesh->mVertices[j]);
+			vertex.tangent = aiVector3DToVec3(mesh->mTangents[j]);
+
+			if (mesh->HasTextureCoords(0)) {
+				vertex.uv.x = mesh->mTextureCoords[0][j].x;
+				vertex.uv.y = mesh->mTextureCoords[0][j].y;
+			}
+
+			if (mesh->HasNormals()) {
+				vertex.normal = aiVector3DToVec3(mesh->mNormals[j]);
+			}
+
+			if (mesh->HasTangentsAndBitangents()) {
+				vertex.tangent = aiVector3DToVec3(mesh->mTangents[j]);
+			}
+
+			scene.vertices.push_back(vertex);
+		}
+
 		// Read the mesh indices into the index buffer
 		for (unsigned int j = 0; j < mesh->mNumFaces; ++j) {
 			aiFace &face = mesh->mFaces[j];
@@ -148,30 +168,45 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 				// in the global scene.vertices array
 				scene.indices.push_back(face.mIndices[k] + static_cast<unsigned int>(vertexOffset));
 			}
+
+			// Generate normals and tangents if the mesh doesn't contain them
+			const int index = scene.indices.size() - 3;
+			if (true || !mesh->HasNormals() || !mesh->HasTangentsAndBitangents()) {
+				Vertex *v[3];
+				v[0] = &scene.vertices[scene.indices[index + 0]];
+				v[1] = &scene.vertices[scene.indices[index + 1]];
+				v[2] = &scene.vertices[scene.indices[index + 2]];
+
+				Vec3 edge0 = v[1]->pos - v[0]->pos;
+				Vec3 edge1 = v[2]->pos - v[0]->pos;
+
+				if (true || !mesh->HasNormals()) {
+					v[0]->normal = v[1]->normal = v[2]->normal = edge0.cross(edge1).normalized();
+				}
+
+				// Check for texture coordinates before generating the tangent vector
+				if (!mesh->HasTangentsAndBitangents() && mesh->HasTextureCoords(0)) {
+#ifndef USE_MIKKTSPACE
+					Vec2 &uv0 = v[0]->uv;
+					Vec2 &uv1 = v[1]->uv;
+					Vec2 &uv2 = v[2]->uv;
+
+					Vec2 dUV0 = uv1 - uv0;
+					Vec2 dUV1 = uv2 - uv0;
+
+					v[0]->tangent.x = v[1]->tangent.x = v[2]->tangent.x = dUV1.y * edge0.x - dUV0.y * edge1.x;
+					v[0]->tangent.y = v[1]->tangent.y = v[2]->tangent.y = dUV1.y * edge0.y - dUV0.y * edge1.y;
+					v[0]->tangent.z = v[1]->tangent.z = v[2]->tangent.z = dUV1.y * edge0.z - dUV0.y * edge1.z;
+#else
+
+#endif // USE_MIKKTSPACE
+				}
+			}
 		}
 		model->meshes.push_back(resMesh);
 
-		// save vertex data for the mesh in the global scene structure
-		for (unsigned int j = 0; j < mesh->mNumVertices; ++j) {
-			Vertex vertex;
-			auto pos = mesh->mVertices[j];
-			Vec3 p{ pos.x, pos.y, pos.z };
-
-			auto normal = mesh->mNormals[j];
-			Vec3 n{ normal.x, normal.y, normal.z };
-
-			Vec2 uv{ 0.f, 0.f };
-			if (mesh->HasTextureCoords(0)) {
-				uv.x = mesh->mTextureCoords[0][j].x;
-				uv.y = mesh->mTextureCoords[0][j].y;
-			}
-
-			vertex.pos = p;
-			vertex.normal = n;
-			vertex.uv = uv;
-
-			scene.vertices.push_back(vertex);
-		}
+		// Add the number of vertices we added to the global scene vertex buffer
+		// so the next mesh's indices are offset correctly.
 		vertexOffset += mesh->mNumVertices;
 	}
 
@@ -202,7 +237,8 @@ SceneLoaderError loadScene(const String &path, Scene &scene) {
 		path,
 		aiProcess_Triangulate |
 		aiProcess_OptimizeMeshes |
-		aiProcess_JoinIdenticalVertices | 
+		aiProcess_JoinIdenticalVertices |
+		aiProcess_CalcTangentSpace |
 		aiProcess_ConvertToLeftHanded
 	);
 	if (!assimpScene || assimpScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !assimpScene->mRootNode) {
