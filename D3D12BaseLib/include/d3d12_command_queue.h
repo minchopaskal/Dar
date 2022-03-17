@@ -16,6 +16,14 @@ struct CommandQueue {
 	CommandList getCommandList();
 	void addCommandListForExecution(CommandList &&commandList);
 
+	/// Execute all command lists previously submitted via
+	/// addCommandListsForExecution.
+	/// Before excuting them any pending resource barriers recorded via
+	/// calls to CommandList::transition() are resolved. This is done in order to automate
+	/// the handling of the resources' states. \see CommandList::transition() which only wants to know
+	/// the after state - the before state is handled by the app.
+	/// NOTE! Any call to addCommandListForExecution will block until the currently
+	/// pending command lists are executed.
 	UINT64 executeCommandLists();
 
 	ComPtr<ID3D12CommandQueue> getCommandQueue() const;

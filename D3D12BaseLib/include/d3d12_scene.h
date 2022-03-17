@@ -203,6 +203,7 @@ private:
 struct Vertex {
 	Vec3 pos;
 	Vec3 normal;
+	Vec3 tangent;
 	Vec2 uv;
 };
 

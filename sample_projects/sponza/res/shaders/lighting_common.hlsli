@@ -38,13 +38,13 @@ struct MaterialData {
 LightColors getLightValues(LightData light, float3 lightDir, MaterialData material) {
 	const float3 viewDir = normalize(sceneData.cameraPosition.xyz - material.position);
 	const float3 reflectDir = reflect(lightDir, material.normal);
-	const float specularIntensity = 0.5f * pow(max(dot(viewDir, reflectDir), 0.f), 8);
+	const float specularIntensity = 0.5f * pow(max(dot(viewDir, reflectDir), 0.f), 64);
 	const float lightIntensity = max(dot(material.normal, -lightDir), 0.f);
 
 	LightColors result;
 	result.diffuse = lightIntensity * light.diffuse * material.diffuse.xyz;
 	result.ambient = light.ambient * material.diffuse.xyz;
-	result.specular = specularIntensity * light.specular * material.specular.xyz;
+	result.specular = specularIntensity * light.specular * 0.5;// material.specular.xyz;
 
 	return result;
 }
@@ -60,7 +60,7 @@ float4 evalLights(MaterialData material, const uint lightsBufferIndex) {
 
 	for (int i = 0; i < sceneData.numLights; ++i) {
 		const LightData light = lights[i];
-		const float lightWeight = 1.f / sceneData.numLights;
+		const float lightWeight = 1.f / (sceneData.numLights);
 
 		if (light.type == LightType::Point) {
 			const float3 lightDir = normalize(material.position - light.position);

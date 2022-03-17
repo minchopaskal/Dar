@@ -44,6 +44,10 @@ CommandList CommandQueue::getCommandList() {
 	CommandList cmdList;
 	ComPtr<ID3D12CommandAllocator> cmdAllocator;
 
+	// We only check the front of the queue for available command allocators.
+	// We make sure that all the command allocators pushed to the queue after it have bigger
+	// fence values, thus if the fence ensuring the first command allocator is free to use is not ready yet
+	// no allocator after it is ready either.
 	if (!commandAllocatorsPool.empty() && fenceCompleted(commandAllocatorsPool.front().fenceValue)) {
 		cmdAllocator = commandAllocatorsPool.front().cmdAllocator;
 		commandAllocatorsPool.pop();
@@ -89,28 +93,31 @@ void CommandQueue::addCommandListForExecution(CommandList &&commandList) {
 UINT64 CommandQueue::executeCommandLists() {
 	ResourceManager &resManager = getResourceManager();
 
-	Vector<ID3D12CommandList*> pendingBarriersCmdListsToExecute;
-	Vector<ID3D12CommandList*> cmdListsToExecute;
+	// The command lists in the pending command lists queue will go here
+	// to be executed together.
+	Vector<ID3D12CommandList*> pendingCmdListsToExecute;
+
+	// Each command list's allocator we will execute in this method
+	// will be cached at the end of the function for reuse in future command lists.
 	Vector<ID3D12CommandAllocator*> cmdAllocators;
-	Vector<CommandList> auxCommandLists;
+
+	// Array of the resource barriers we want to execute before submitting
+	// the pending command lists.
+	Vector<D3D12_RESOURCE_BARRIER> resBarriers;
 
 	UINT64 fenceVal;
+
 	// Lock the pending command lists queue until the command lists and any needed resource barriers are exctracted
 	{
 		auto lock = pendingCommandListsCS.lock();
-		pendingBarriersCmdListsToExecute.reserve(pendingCommandListsQueue.size()); // reserve more space in case cmd lists have pending barriers
-		cmdListsToExecute.reserve(pendingCommandListsQueue.size()); // reserve more space in case cmd lists have pending barriers
-		cmdAllocators.reserve(pendingCommandListsQueue.size() * 2);
-
-		auxCommandLists.reserve(pendingCommandListsQueue.size() * 2);
+		pendingCmdListsToExecute.reserve(pendingCommandListsQueue.size());
+		cmdAllocators.reserve(pendingCommandListsQueue.size() + 1); // Reserve space for the allocators we want to cache. +1 for the pendingBarriersCmdList allocator 
 
 		// For each pending command list, check its pending resource barriers
 		for (int i = 0; i < pendingCommandListsQueue.size(); ++i) {
 			CommandList &cmdList = pendingCommandListsQueue[i];
 
 			Vector<PendingResourceBarrier> &pendingBarriers = cmdList.getPendingResourceBarriers();
-			CommandList cmdListPendingBarriers;
-			Vector<CD3DX12_RESOURCE_BARRIER> resBarriers;
 
 			// For each pending barrier check the (sub)resource's state and only push the barrier if it's needed
 			for (int j = 0; j < pendingBarriers.size(); ++j) {
@@ -148,12 +155,6 @@ UINT64 CommandQueue::executeCommandLists() {
 			}
 			pendingBarriers.clear();
 
-			// We have resource barriers we need to call before executing the command list. Initialize the auxiliary command list and call the barriers from there.
-			if (resBarriers.size() > 0) {
-				cmdListPendingBarriers = getCommandList();
-				cmdListPendingBarriers->ResourceBarrier((UINT)resBarriers.size(), resBarriers.data());
-			}
-
 			// Save command allocator of main and auxiliary cmd list to be later pushed into the allocators pool when the fence value is known
 			ID3D12CommandAllocator *cmdAllocator;
 			UINT dataSize = sizeof(cmdAllocator);
@@ -163,44 +164,51 @@ UINT64 CommandQueue::executeCommandLists() {
 			);
 			cmdAllocators.push_back(cmdAllocator);
 
-			// If we had any resource barriers to call, we save the command list and its allocator in the respective pools
-			if (cmdListPendingBarriers.isValid()) {
-				RETURN_FALSE_ON_ERROR(
-					cmdListPendingBarriers->GetPrivateData(__uuidof(ID3D12CommandAllocator), &dataSize, &cmdAllocator),
-					"Failure CommandList::GetPrivateData"
-				);
-				cmdAllocators.push_back(cmdAllocator);
-				auxCommandLists.push_back(cmdListPendingBarriers);
-
-				// Execute the pending barriers calls.
-				cmdListPendingBarriers->Close();
-				pendingBarriersCmdListsToExecute.push_back(cmdListPendingBarriers.get());
-			}
-
 			// Set global state of the resources to what the last states in the frame command list were
 			// so when the next frame's command list is recorded the pendingCommandListsQueue would know how to deal
 			// with its pending barriers.
 			cmdList.resolveLastStates();
 
 			cmdList->Close();
-			cmdListsToExecute.push_back(cmdList.get());
+			pendingCmdListsToExecute.push_back(cmdList.get());
+		}
+
+		// We have resource barriers we need to call before executing the command list. Initialize the auxiliary command list and call the barriers from there.
+		CommandList cmdListPendingBarriers;
+		if (resBarriers.size() > 0) {
+			cmdListPendingBarriers = getCommandList();
+			cmdListPendingBarriers->ResourceBarrier((UINT)resBarriers.size(), resBarriers.data());
+			cmdListPendingBarriers->Close();
+
+			// If we had any resource barriers to call, we save the command list and its allocator in the respective pools
+			ID3D12CommandAllocator *cmdAllocator;
+			UINT dataSize = sizeof(cmdAllocator);
+			RETURN_FALSE_ON_ERROR(
+				cmdListPendingBarriers->GetPrivateData(__uuidof(ID3D12CommandAllocator), &dataSize, &cmdAllocator),
+				"Failure CommandList::GetPrivateData"
+			);
+			cmdAllocators.push_back(cmdAllocator);
 		}
 
 		// Execute the pending barriers command lists first to ensure the proper states
 		// were resolved for the resources. Executing all of the command lists together may result
 		// in driver optimizations leading to reordering of the ResourceBarrier commands.
-		commandQueue->ExecuteCommandLists((UINT)pendingBarriersCmdListsToExecute.size(), pendingBarriersCmdListsToExecute.data());
-		commandQueue->ExecuteCommandLists((UINT)cmdListsToExecute.size(), cmdListsToExecute.data());
+		if (cmdListPendingBarriers.isValid()) {
+			commandQueue->ExecuteCommandLists(1, cmdListPendingBarriers.getAddressOf());
+		}
+
+		if (pendingCmdListsToExecute.size()) {
+			commandQueue->ExecuteCommandLists((UINT)pendingCmdListsToExecute.size(), pendingCmdListsToExecute.data());
+		}
 		fenceVal = signal();
 
+		if (cmdListPendingBarriers.isValid()) {
+			commandListsPool.emplace(cmdListPendingBarriers);
+		}
 		for (int i = 0; i < pendingCommandListsQueue.size(); ++i) {
 			commandListsPool.emplace(pendingCommandListsQueue[i]);
 		}
 		pendingCommandListsQueue.clear();
-	}
-
-	for (int i = 0; i < auxCommandLists.size(); ++i) {
-		commandListsPool.emplace(auxCommandLists[i]);
 	}
 
 	for (int i = 0; i < cmdAllocators.size(); ++i) {

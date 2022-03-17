@@ -37,6 +37,14 @@ struct CommandList {
 		return cmdList;
 	}
 
+	const ComPtr<ID3D12CommandList> getComPtr() const {
+		return cmdList;
+	}
+
+	ID3D12CommandList** getAddressOf() {
+		return reinterpret_cast<ID3D12CommandList**>(cmdList.GetAddressOf());
+	}
+
 private:
 	using SubresStates = Vector<D3D12_RESOURCE_STATES>;
 	using LastStates = Map<SizeType, SubresStates>;
