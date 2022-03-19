@@ -8,7 +8,13 @@ enum class SceneLoaderError : int {
 	InvalidScene
 };
 
+enum SceneLoaderFlags : int {
+	sceneLoaderFlags_none = 0,
+	sceneLoaderFlags_overrideGenTangents = 1 << 0,
+};
+
 SceneLoaderError loadScene(
 	const String &path,
-	Scene &scene
+	Scene &scene,
+	SceneLoaderFlags flags = sceneLoaderFlags_none
 );
