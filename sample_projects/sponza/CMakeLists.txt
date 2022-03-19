@@ -20,6 +20,7 @@ set(SOURCES
 	${SRC_DIR}/main.cpp
 	${SRC_DIR}/scene_loader.cpp
 	${SRC_DIR}/sponza.cpp
+	${SUBMODULE_DIR}/MikkTSpace/mikktspace.c
 )
 
 set(SHADERS

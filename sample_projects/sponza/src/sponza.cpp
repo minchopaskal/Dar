@@ -26,8 +26,8 @@ Sponza::Sponza(const UINT w, const UINT h, const String &windowTitle) :
 	fenceValues{ 0 },
 	scene(device),
 	camControl(nullptr),
-	fpsModeControl(nullptr, 2.f),
-	editModeControl(nullptr, 2.f),
+	fpsModeControl(nullptr, 200.f),
+	editModeControl(nullptr, 200.f),
 	fps(0.0),
 	totalTime(0.0),
 	deltaTime(0.0),
@@ -283,8 +283,8 @@ bool Sponza::loadAssets() {
 		return false;
 	}
 
-	SceneLoaderError sceneLoadErr = loadScene("res\\scenes\\Sponza\\glTF\\Sponza.gltf", scene);
-	//SceneLoaderError sceneLoadErr = loadScene("res\\scenes\\NormalTangentTest\\NormalTangentTest.gltf", scene);
+	// MikkTSpace tangents give slightly better results than the tangents in the gltf file.
+	SceneLoaderError sceneLoadErr = loadScene("res\\scenes\\Sponza\\glTF\\Sponza.gltf", scene, sceneLoaderFlags_overrideGenTangents);
 	if (sceneLoadErr != SceneLoaderError::Success) {
 		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to load scene!");
 		return false;

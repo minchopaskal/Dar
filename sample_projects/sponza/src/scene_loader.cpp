@@ -4,7 +4,94 @@
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
 
-// !!! Note: not thread-safe.
+#include "MikkTSpace/mikktspace.h"
+
+#include "d3d12_defines.h"
+
+#define USE_MIKKTSPACE
+
+struct MeshData {
+	Scene *scene;
+	aiMesh *mesh;
+	Map<UINT, UINT> *indicesMapping;
+};
+
+/// Helper structure for generating the tangents with the MikkTSpace algorithm
+/// as given by glTF2.0 specs.
+struct MikkTSpaceTangentSpaceGenerator {
+	void init(MeshData *meshData) {
+		tSpaceIface.m_getNumFaces = getNumFaces;
+		tSpaceIface.m_getNormal = getNormal;
+		tSpaceIface.m_getNumVerticesOfFace = getNumVerticesOfFace;
+		tSpaceIface.m_getPosition = getPosition;
+		tSpaceIface.m_getTexCoord = getTexCoord;
+		tSpaceIface.m_setTSpaceBasic = setTSpaceBasic;
+
+		tSpaceCtx.m_pInterface = &tSpaceIface;
+		tSpaceCtx.m_pUserData = reinterpret_cast<void*>(meshData);
+	}
+
+	tbool generateTangets() {
+		return genTangSpaceDefault(&tSpaceCtx);
+	}
+
+private:
+	SMikkTSpaceInterface tSpaceIface = {};
+	SMikkTSpaceContext tSpaceCtx = {};
+
+	static int getNumFaces(const SMikkTSpaceContext *pContext) {
+		MeshData *meshData = static_cast<MeshData*>(pContext->m_pUserData);
+		return meshData->mesh->mNumFaces;
+	}
+
+	static int getNumVerticesOfFace(const SMikkTSpaceContext *pContext, const int iFace) {
+		return 3; // We always triangulate the imported mesh
+	}
+
+	static void getPosition(const SMikkTSpaceContext *pContext, float fvPosOut[], const int iFace, const int iVert) {
+		MeshData *meshData = static_cast<MeshData *>(pContext->m_pUserData);
+		aiMesh *mesh = meshData->mesh;
+		aiVector3D &v = mesh->mVertices[mesh->mFaces[iFace].mIndices[iVert]];
+		fvPosOut[0] = v.x;
+		fvPosOut[1] = v.y;
+		fvPosOut[2] = v.z;
+	}
+
+	static void getNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
+		MeshData *meshData = static_cast<MeshData *>(pContext->m_pUserData);
+		aiMesh *mesh = meshData->mesh;
+		aiVector3D &v = mesh->mNormals[mesh->mFaces[iFace].mIndices[iVert]];
+		fvNormOut[0] = v.x;
+		fvNormOut[1] = v.y;
+		fvNormOut[2] = v.z;
+	}
+
+	static void getTexCoord(const SMikkTSpaceContext *pContext, float fvTexcOut[], const int iFace, const int iVert) {
+		MeshData *meshData = static_cast<MeshData *>(pContext->m_pUserData);
+		aiMesh *mesh = meshData->mesh;
+		aiVector3D &uv = mesh->mTextureCoords[0][mesh->mFaces[iFace].mIndices[iVert]];
+		fvTexcOut[0] = uv.x;
+		fvTexcOut[1] = uv.y;
+	}
+
+	static void setTSpaceBasic(const SMikkTSpaceContext *pContext, const float fvTangent[], const float fSign, const int iFace, const int iVert) {
+		MeshData *meshData = static_cast<MeshData*>(pContext->m_pUserData);
+		Scene &scene = *meshData->scene;
+		const aiMesh &mesh = *meshData->mesh;
+		const auto &indicesMap = *meshData->indicesMapping;
+		const UINT offsetIndex = indicesMap.at(mesh.mFaces[iFace].mIndices[iVert]);
+		
+		Vertex &v = scene.vertices[offsetIndex];
+		v.tangent.x = fvTangent[0];
+		v.tangent.y = fvTangent[1];
+		v.tangent.z = fvTangent[2];
+
+		// TODO: Ignore the sign for now. See if that's needed.
+		// v.tangentSign = fSign;
+	}
+};
+
+// !!! Note: not thread-safe. Generally an inctance of the Assimp::Importer should be used by one thread only!
 static Assimp::Importer *importer = nullptr;
 Assimp::Importer& getAssimpImporter() {
 	if (importer == nullptr) {
@@ -61,7 +148,7 @@ Vec3 aiVector3DToVec3(const aiColor3D &aiVec) {
 	return Vec3{ aiVec.r, aiVec.g, aiVec.b };
 };
 
-void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode, Scene &scene, SizeType &vertexOffset, SizeType &indexOffset) {
+void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode, Scene &scene, SizeType &vertexOffset, SizeType &indexOffset, SceneLoaderFlags flags) {
 	dassert(aiScene != nullptr);
 
 	if (node == nullptr || aiScene == nullptr) {
@@ -123,7 +210,9 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 	ModelNode *model = new ModelNode;
 	for (unsigned int i = 0; i < node->mNumMeshes; ++i) {
 		aiMesh *mesh = aiScene->mMeshes[node->mMeshes[i]];
-		
+
+		const bool genTangents = (flags & sceneLoaderFlags_overrideGenTangents) || !mesh->HasTangentsAndBitangents();
+
 		// Setup the mesh
 		Mesh resMesh;
 		resMesh.indexOffset = indexOffset;
@@ -148,11 +237,21 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 				vertex.normal = aiVector3DToVec3(mesh->mNormals[j]);
 			}
 
-			if (mesh->HasTangentsAndBitangents()) {
+			if (mesh->HasTangentsAndBitangents() && !genTangents) {
 				vertex.tangent = aiVector3DToVec3(mesh->mTangents[j]);
 			}
 
 			scene.vertices.push_back(vertex);
+		}
+
+		MikkTSpaceTangentSpaceGenerator tangentGenerator = {};
+		MeshData meshData = {};
+		Map<UINT, UINT> indicesMapping;
+		if (genTangents) {
+			meshData.scene = &scene;
+			meshData.mesh = mesh;
+			meshData.indicesMapping = &indicesMapping;
+			tangentGenerator.init(&meshData);
 		}
 
 		// Read the mesh indices into the index buffer
@@ -166,12 +265,17 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 				// Adding the vertex offset here since these indices are zero-based
 				// and the actual vertices of the current mesh begin at index vertexOffset
 				// in the global scene.vertices array
-				scene.indices.push_back(face.mIndices[k] + static_cast<unsigned int>(vertexOffset));
+				unsigned int offsetIndex = face.mIndices[k] + static_cast<unsigned int>(vertexOffset);
+				scene.indices.push_back(offsetIndex);
+
+				if (genTangents) {
+					indicesMapping[face.mIndices[k]] = offsetIndex;
+				}
 			}
 
 			// Generate normals and tangents if the mesh doesn't contain them
 			const int index = scene.indices.size() - 3;
-			if (true || !mesh->HasNormals() || !mesh->HasTangentsAndBitangents()) {
+			if (!mesh->HasNormals() || !mesh->HasTangentsAndBitangents() || (genTangents && !mesh->HasNormals())) {
 				Vertex *v[3];
 				v[0] = &scene.vertices[scene.indices[index + 0]];
 				v[1] = &scene.vertices[scene.indices[index + 1]];
@@ -180,13 +284,13 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 				Vec3 edge0 = v[1]->pos - v[0]->pos;
 				Vec3 edge1 = v[2]->pos - v[0]->pos;
 
-				if (true || !mesh->HasNormals()) {
+				if (!mesh->HasNormals()) {
 					v[0]->normal = v[1]->normal = v[2]->normal = edge0.cross(edge1).normalized();
 				}
 
+#ifndef USE_MIKKTSPACE
 				// Check for texture coordinates before generating the tangent vector
 				if (!mesh->HasTangentsAndBitangents() && mesh->HasTextureCoords(0)) {
-#ifndef USE_MIKKTSPACE
 					Vec2 &uv0 = v[0]->uv;
 					Vec2 &uv1 = v[1]->uv;
 					Vec2 &uv2 = v[2]->uv;
@@ -197,13 +301,18 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 					v[0]->tangent.x = v[1]->tangent.x = v[2]->tangent.x = dUV1.y * edge0.x - dUV0.y * edge1.x;
 					v[0]->tangent.y = v[1]->tangent.y = v[2]->tangent.y = dUV1.y * edge0.y - dUV0.y * edge1.y;
 					v[0]->tangent.z = v[1]->tangent.z = v[2]->tangent.z = dUV1.y * edge0.z - dUV0.y * edge1.z;
-#else
-
-#endif // USE_MIKKTSPACE
 				}
+#endif // !USE_MIKKTSPACE
 			}
 		}
 		model->meshes.push_back(resMesh);
+
+#ifdef USE_MIKKTSPACE
+		if (genTangents) {
+			tbool result = tangentGenerator.generateTangets();
+			dassert(result);
+		}
+#endif // USE_MIKKTSPACE
 
 		// Add the number of vertices we added to the global scene vertex buffer
 		// so the next mesh's indices are offset correctly.
@@ -220,12 +329,12 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 	}
 
 	for (unsigned int i = 0; i < node->mNumChildren; ++i) {
-		traverseAssimpScene(node->mChildren[i], aiScene, model, scene, vertexOffset, indexOffset);
+		traverseAssimpScene(node->mChildren[i], aiScene, model, scene, vertexOffset, indexOffset, flags);
 	}
 }
 
 // TODO: make own importer implementation. Should be able to import .obj, gltf2 files.
-SceneLoaderError loadScene(const String &path, Scene &scene) {
+SceneLoaderError loadScene(const String &path, Scene &scene, SceneLoaderFlags flags) {
 	Assimp::Importer &importer = getAssimpImporter();
 
 	const String ext = path.substr(path.find_last_of('.'));
@@ -247,7 +356,7 @@ SceneLoaderError loadScene(const String &path, Scene &scene) {
 
 	SizeType vertexOffset = 0;
 	SizeType indexOffset = 0;
-	traverseAssimpScene(assimpScene->mRootNode, assimpScene, nullptr, scene, vertexOffset, indexOffset);
+	traverseAssimpScene(assimpScene->mRootNode, assimpScene, nullptr, scene, vertexOffset, indexOffset, flags);
 
 	return SceneLoaderError::Success;
 }
