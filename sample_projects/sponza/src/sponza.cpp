@@ -284,7 +284,7 @@ bool Sponza::loadAssets() {
 	}
 
 	// MikkTSpace tangents give slightly better results than the tangents in the gltf file.
-	SceneLoaderError sceneLoadErr = loadScene("res\\scenes\\Sponza\\glTF\\Sponza.gltf", scene, sceneLoaderFlags_overrideGenTangents);
+	SceneLoaderError sceneLoadErr = loadScene("res\\scenes\\Sponza\\glTF\\Sponza.gltf", scene, sceneLoaderFlags_none);
 	if (sceneLoadErr != SceneLoaderError::Success) {
 		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to load scene!");
 		return false;
