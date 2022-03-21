@@ -35,16 +35,30 @@ struct MaterialData {
 	float3 normal;
 };
 
-LightColors getLightValues(LightData light, float3 lightDir, MaterialData material) {
+LightColors evalBlinnPhong(LightData light, float3 lightDir, MaterialData material) {
+	// Should be taken from the material, but we will support PBR materials,
+	// so this code is for debugging purposes only.
+	const int shininess = 16;
+
+	const float3 invLightDir = -lightDir;
 	const float3 viewDir = normalize(sceneData.cameraPosition.xyz - material.position);
+
+	// Phong model calculations
+	/*
 	const float3 reflectDir = reflect(lightDir, material.normal);
-	const float specularIntensity = 0.5f * pow(max(dot(viewDir, reflectDir), 0.f), 64);
-	const float lightIntensity = max(dot(material.normal, -lightDir), 0.f);
+	const float specularIntensity = pow(max(dot(viewDir, reflectDir), 0.f), shininess);
+	*/
+
+	// Blinn-Phong
+	const float3 halfwayVector = normalize(viewDir + invLightDir);
+	const float specularIntensity = pow(max(dot(material.normal, halfwayVector), 0.f), shininess);
+
+	const float lightIntensity = max(dot(material.normal, invLightDir), 0.f);
 
 	LightColors result;
 	result.diffuse = lightIntensity * light.diffuse * material.diffuse.xyz;
 	result.ambient = light.ambient * material.diffuse.xyz;
-	result.specular = specularIntensity * light.specular * 0.5;// material.specular.xyz;
+	result.specular = specularIntensity * light.specular * material.specular.xyz;
 
 	return result;
 }
@@ -64,7 +78,7 @@ float4 evalLights(MaterialData material, const uint lightsBufferIndex) {
 
 		if (light.type == LightType::Point) {
 			const float3 lightDir = normalize(material.position - light.position);
-			LightColors pointLight = getLightValues(light, lightDir, material);
+			LightColors pointLight = evalBlinnPhong(light, lightDir, material);
 
 			const float distance = length(light.position - material.position);
 			const float c = light.attenuation.x;
@@ -82,7 +96,7 @@ float4 evalLights(MaterialData material, const uint lightsBufferIndex) {
 
 		if (light.type == LightType::Directional) {
 			const float3 lightDir = light.direction;
-			LightColors directionLight = getLightValues(light, lightDir, material);
+			LightColors directionLight = evalBlinnPhong(light, lightDir, material);
 
 			lightColors.diffuse += lightWeight * directionLight.diffuse;
 			lightColors.specular += lightWeight * directionLight.specular;
@@ -97,7 +111,7 @@ float4 evalLights(MaterialData material, const uint lightsBufferIndex) {
 			const float theta = dot(lightDir, spotDir);
 
 			if (theta > light.outerCutoff) {
-				LightColors spotLight = getLightValues(light, lightDir, material);
+				LightColors spotLight = evalBlinnPhong(light, lightDir, material);
 
 				if (theta < light.innerCutoff) {
 					const float spotEdgeIntensity = (theta - light.outerCutoff) / (light.innerCutoff - light.outerCutoff);
