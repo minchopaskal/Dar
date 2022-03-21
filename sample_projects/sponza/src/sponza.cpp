@@ -8,6 +8,7 @@
 #include "d3d12_asset_manager.h"
 #include "d3d12_pipeline_state.h"
 #include "d3d12_resource_manager.h"
+#include "d3d12_timer.h"
 #include "d3d12_utils.h"
 #include "scene_loader.h"
 
@@ -283,7 +284,11 @@ bool Sponza::loadAssets() {
 		return false;
 	}
 
+	// TODO: load the scene in binary format + run MikkTSpace on the tangents in a preprocess step.
+	//       During runtime we should only read the bin scene and upload the data to the gpu.
 	// MikkTSpace tangents give slightly better results than the tangents in the gltf file.
+	//SceneLoaderError sceneLoadErr = loadScene("res\\scenes\\Sponza\\glTF\\Sponza.gltf", scene, sceneLoaderFlags_overrideGenTangents);
+	// .. but the algorithm is too slow for run-time evaluation.
 	SceneLoaderError sceneLoadErr = loadScene("res\\scenes\\Sponza\\glTF\\Sponza.gltf", scene, sceneLoaderFlags_none);
 	if (sceneLoadErr != SceneLoaderError::Success) {
 		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to load scene!");
