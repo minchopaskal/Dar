@@ -182,7 +182,7 @@ void Sponza::drawUI() {
 
 	if (editMode) {
 		ImGui::Begin("Edit mode", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-			ImGui::ListBox("G-Buffer", &showGBuffer, gBufferLabels, 5);
+			ImGui::ListBox("G-Buffer", &showGBuffer, gBufferLabels, sizeof(gBufferLabels)/sizeof(char*));
 			ImGui::Checkbox("With normal mapping", &withNormalMapping);
 			ImGui::Checkbox("V-Sync", &vSyncEnabled);
 		ImGui::End();
@@ -198,6 +198,8 @@ void Sponza::onResize(const unsigned int w, const unsigned int h) {
 	this->height = std::max(1u, h);
 	viewport = { 0.f, 0.f, static_cast<float>(width), static_cast<float>(height), 0.f, 1.f };
 	aspectRatio = static_cast<float>(width) / static_cast<float>(height);
+
+	scene.getRenderCamera()->updateAspectRatio(width, height);
 
 	flush();
 

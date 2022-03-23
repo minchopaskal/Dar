@@ -222,7 +222,7 @@ struct Scene {
 	ResourceHandle materialsHandle; ///< Handle to the GPU buffer holding all materials' data.
 	ResourceHandle lightsHandle; ///< Handle to the GPU buffer holding all lights' data.
 	BBox sceneBox;
-	CameraId renderCamera = 0; ///< Id of the camera used for rendering
+	unsigned int renderCamera = 0; ///< Id of the camera used for rendering
 
 	Scene(ComPtr<ID3D12Device8> &device);
 	~Scene();
@@ -320,6 +320,10 @@ struct Scene {
 
 	const SizeType getIndexBufferSize() const {
 		return indices.size() == 0 ? 0 : indices.size() * sizeof(indices[0]);
+	}
+
+	Camera *getRenderCamera() {
+		return dynamic_cast<CameraNode*>(nodes[cameraIndices[renderCamera]])->getCamera();
 	}
 
 	const SizeType getNumNodes() const {

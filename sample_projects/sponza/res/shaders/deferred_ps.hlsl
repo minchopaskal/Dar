@@ -62,9 +62,13 @@ PSOutput main(PSInput IN) : SV_Target
 		occlusion = getColorFromTexture(materialIndices.ambientOcclusionIndex, TEXTURE_BUFFERS_START, IN.uv);
 	}
 
-	// Read occlusion from the blue channel as it may be encoded in the metallicRoughness texture
+	// Read occlusion from the red channel as it may be encoded in the metallicRoughness texture
 	// If it's in a separate texture is just gray so it doesn't matter from which channel we read.
-	output.metalnessRoughnessOcclusion = float4(metallicRoughness.r, metallicRoughness.g, occlusion.b, 0.f);
+	// glTF standart metalness/roughness/occlusion encoding
+	// metalness - blue channel
+	// roughness - green channel
+	// occlusion - red channel, if present
+	output.metalnessRoughnessOcclusion = float4(metallicRoughness.b, metallicRoughness.g, occlusion.r, 0.f);
 
 	output.position = IN.fragPos;
 

@@ -58,7 +58,7 @@ LightColors evalBlinnPhong(LightData light, float3 lightDir, Material material) 
 	LightColors result;
 	result.diffuse = lightIntensity * light.diffuse * material.albedo.xyz;
 	result.ambient = light.ambient * material.albedo.xyz;
-	result.specular = specularIntensity * light.specular * 0.5f;
+	result.specular = specularIntensity * light.specular * material.metalnessRoughnessOcclusion.r;
 
 	return result;
 }

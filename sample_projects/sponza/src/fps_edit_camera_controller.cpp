@@ -9,21 +9,10 @@ FPSEditModeCameraController::FPSEditModeCameraController(Camera *cam, double mov
 { }
 
 void FPSEditModeCameraController::onMouseMove(double xPos, double yPos, double deltaTime) {
-	if (!mousePosValid) {
-		mousePos.x = xPos;
-		mousePos.y = yPos;
-		mousePosValid = true;
-		return;
-	}
-
 	if (flyMode) {
-		const double xOffset = (xPos - mousePos.x) * mouseSensitivity;
-		const double yOffset = (yPos - mousePos.y) * mouseSensitivity;
-		mousePos.x = xPos;
-		mousePos.y = yPos;
-
-		cam->yaw(xOffset);
-		cam->pitch(yOffset);
+		FPSCameraController::onMouseMove(xPos, yPos, deltaTime);
+	} else {
+		mousePosValid = false;
 	}
 }
 
@@ -43,9 +32,7 @@ void FPSEditModeCameraController::processKeyboardInput(IKeyboardInputQuery *inpu
 		setGLFWCursorHiddenState(window, flyMode == false);
 	}
 
-	if (flyMode) {
-		FPSCameraController::processKeyboardInput(inputQuery, deltaTime);
-	}
+	FPSCameraController::processKeyboardInput(inputQuery, deltaTime);
 }
 
 void FPSEditModeCameraController::onDrawUI() {
