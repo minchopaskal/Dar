@@ -44,26 +44,26 @@ struct BBox {
 	}
 };
 
-// TODO: make pbr ofc
-struct GPUMaterial {
-	unsigned int diffuse;
-	unsigned int specular;
-	unsigned int normals;
+struct MaterialData {
+	TextureId baseColor;
+	TextureId normals;
+	TextureId metallicRoughness;
+	TextureId ambientOcclusion;
 };
 
 struct Material {
 	MaterialId id = INVALID_MATERIAL_ID;
-	TextureId diffuse = INVALID_TEXTURE_ID;
-	TextureId specular = INVALID_TEXTURE_ID;
-	TextureId normals = INVALID_TEXTURE_ID;
+	MaterialData materialData;
 };
 
 enum class TextureType : unsigned int {
 	Invalid = 0,
 
-	Diffuse,
-	Specular,
+	BaseColor,
 	Normals,
+	Metalness,
+	Roughness,
+	AmbientOcclusion,
 
 	Count
 };
@@ -269,12 +269,10 @@ struct Scene {
 		return id;
 	}
 
-	MaterialId getNewMaterial(TextureId diffuse, TextureId specular, TextureId normals) {
+	MaterialId getNewMaterial(MaterialData materialData) {
 		Material m;
 		m.id = materials.size();
-		m.diffuse = diffuse;
-		m.specular = specular;
-		m.normals = normals;
+		m.materialData = materialData;
 		materials.push_back(m);
 
 		materialsNeedUpdate = changesSinceLastCheck = true;

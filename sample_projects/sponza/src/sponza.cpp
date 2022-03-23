@@ -269,6 +269,14 @@ void Sponza::onKeyboardInput(int key, int action) {
 	if (queryPressed(GLFW_KEY_4)) {
 		showGBuffer = 4;
 	}
+
+	if (queryPressed(GLFW_KEY_5)) {
+		showGBuffer = 5;
+	}
+
+	if (queryPressed(GLFW_KEY_6)) {
+		showGBuffer = 6;
+	}
 }
 
 void Sponza::onMouseScroll(double xOffset, double yOffset) {
@@ -399,7 +407,7 @@ void Sponza::populateDeferredPassCommands(CommandList& commandList) {
 	deferredPassSRVHeap[frameIndex].reset();
 
 	// Create SRV for the materials
-	deferredPassSRVHeap[frameIndex].addBufferSRV(scene.materialsHandle.get(), static_cast<int>(scene.getNumMaterials()), sizeof(GPUMaterial));
+	deferredPassSRVHeap[frameIndex].addBufferSRV(scene.materialsHandle.get(), static_cast<int>(scene.getNumMaterials()), sizeof(MaterialData));
 
 	// Create SRVs for the textures so we can read them bindlessly in the shader
 	for (int i = 0; i < numTextures; ++i) {
@@ -561,23 +569,23 @@ void Sponza::populatePostPassCommands(CommandList&commandList) {
 }
 
 bool Sponza::updateRenderTargetViews() {
-	auto getGBufferName = [](wchar_t backBufferName[32], GBuffer type, int frameIndex) -> wchar_t* {
+	auto getGBufferName = [](wchar_t backBufferName[64], GBuffer type, int frameIndex) -> wchar_t* {
 		int offset = 0;
 		switch (type) {
-		case GBuffer::Diffuse:
-			offset = swprintf(backBufferName, 32, L"GBuffer::Diffuse");
+		case GBuffer::Albedo:
+			offset = swprintf(backBufferName, 64, L"GBuffer::Albedo");
 			break;
 		case GBuffer::Normals:
-			offset = swprintf(backBufferName, 32, L"GBuffer::Normals");
+			offset = swprintf(backBufferName, 64, L"GBuffer::Normals");
 			break;
-		case GBuffer::Specular:
-			offset = swprintf(backBufferName, 32, L"GBuffer::Specular");
+		case GBuffer::MetallnessRoughnessOcclusion:
+			offset = swprintf(backBufferName, 64, L"GBuffer::MetallnessRoughnessOcclusion");
 			break;
 		case GBuffer::Position:
-			offset = swprintf(backBufferName, 32, L"GBuffer::Position");
+			offset = swprintf(backBufferName, 64, L"GBuffer::Position");
 			break;
 		default:
-			offset = swprintf(backBufferName, 32, L"GBuffer::Unknown");
+			offset = swprintf(backBufferName, 64, L"GBuffer::Unknown");
 			break;
 		}
 
@@ -615,7 +623,7 @@ bool Sponza::updateRenderTargetViews() {
 				resManager->deregisterResource(rtvTexture);
 			}
 
-			wchar_t rtvTextureName[32];
+			wchar_t rtvTextureName[64];
 			ResourceInitData rtvTextureDesc(ResourceType::RenderTargetBuffer);
 			rtvTextureDesc.textureData.width = width;
 			rtvTextureDesc.textureData.height = height;

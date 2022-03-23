@@ -52,9 +52,9 @@ private:
 	} projectionType = ProjectionType::Perspective;
 
 	enum class GBuffer {
-		Diffuse,
-		Specular,
+		Albedo,
 		Normals,
+		MetallnessRoughnessOcclusion,
 		Position,
 
 		Count
@@ -62,8 +62,8 @@ private:
 
 	DXGI_FORMAT gBufferFormats[static_cast<SizeType>(GBuffer::Count)] = {
 		DXGI_FORMAT_R8G8B8A8_UNORM, // Diffuse
-		DXGI_FORMAT_R8G8B8A8_UNORM, // Specular
 		DXGI_FORMAT_R32G32B32A32_FLOAT, // Normals
+		DXGI_FORMAT_R32G32B32A32_FLOAT, // Metalness+Roughness+Occlusion
 		DXGI_FORMAT_R32G32B32A32_FLOAT // Position
 	};
 
@@ -113,7 +113,7 @@ private:
 	double deltaTime;
 
 	// Debugging
-	const char *gBufferLabels[5] = {"Render", "Diffuse", "Specular", "Normal", "Position"};
+	const char *gBufferLabels[7] = {"Render", "Diffuse", "Normals", "Metalness", "Roughness", "Occlusion", "Position"};
 	int showGBuffer;
 	bool editMode;
 	bool withNormalMapping;

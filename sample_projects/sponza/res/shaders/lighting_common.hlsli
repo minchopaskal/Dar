@@ -28,14 +28,14 @@ struct LightColors {
 	float3 ambient;
 };
 
-struct MaterialData {
-	float4 diffuse;
-	float4 specular;
-	float3 position;
+struct Material {
+	float4 albedo;
+	float3 metalnessRoughnessOcclusion;
 	float3 normal;
+	float3 position;
 };
 
-LightColors evalBlinnPhong(LightData light, float3 lightDir, MaterialData material) {
+LightColors evalBlinnPhong(LightData light, float3 lightDir, Material material) {
 	// Should be taken from the material, but we will support PBR materials,
 	// so this code is for debugging purposes only.
 	const int shininess = 16;
@@ -56,14 +56,14 @@ LightColors evalBlinnPhong(LightData light, float3 lightDir, MaterialData materi
 	const float lightIntensity = max(dot(material.normal, invLightDir), 0.f);
 
 	LightColors result;
-	result.diffuse = lightIntensity * light.diffuse * material.diffuse.xyz;
-	result.ambient = light.ambient * material.diffuse.xyz;
-	result.specular = specularIntensity * light.specular * material.specular.xyz;
+	result.diffuse = lightIntensity * light.diffuse * material.albedo.xyz;
+	result.ambient = light.ambient * material.albedo.xyz;
+	result.specular = specularIntensity * light.specular * 0.5f;
 
 	return result;
 }
 
-float4 evalLights(MaterialData material, const uint lightsBufferIndex) {
+float4 evalLights(Material material, const uint lightsBufferIndex) {
 	StructuredBuffer<LightData> lights = ResourceDescriptorHeap[lightsBufferIndex];
 
 	LightColors lightColors = {
@@ -124,7 +124,7 @@ float4 evalLights(MaterialData material, const uint lightsBufferIndex) {
 				lightColors.specular += lightWeight * spotLight.specular;
 				lightColors.ambient += lightWeight * spotLight.ambient;
 			} else {
-				lightColors.ambient += lightWeight * light.ambient * material.diffuse.xyz;
+				lightColors.ambient += lightWeight * light.ambient * material.albedo.xyz;
 			}
 		}
 	}

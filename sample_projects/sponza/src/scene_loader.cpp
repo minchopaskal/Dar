@@ -3,6 +3,7 @@
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
+#include "assimp/GltfMaterial.h"
 
 #include "MikkTSpace/mikktspace.h"
 
@@ -103,14 +104,20 @@ Assimp::Importer& getAssimpImporter() {
 
 TextureId loadTexture(aiMaterial *aiMat, aiTextureType aiType, TextureType matType, Scene &scene) {
 	const int matTypeCount = aiMat->GetTextureCount(aiType);
-	if (matTypeCount <= 0) {
+	if (matTypeCount <= 0 && aiType != aiTextureType_METALNESS) {
 		return INVALID_TEXTURE_ID;
 	}
 
 	// Only read the first texture, for now we won't export
 	// multiple textures per channel.
 	aiString path;
-	aiMat->GetTexture(aiType, 0, &path);
+
+	// Assimp + glTF pain
+	if (aiType == aiTextureType_METALNESS) {
+		aiMat->GetTexture(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLICROUGHNESS_TEXTURE, &path);
+	} else {
+		aiMat->GetTexture(aiType, 0, &path);
+	}
 
 	if (path.length <= 0) {
 		return INVALID_TEXTURE_ID;
@@ -133,11 +140,21 @@ MaterialId readMaterialDataForMesh(aiMesh *mesh, const aiScene *sc, Scene &scene
 
 	aiMaterial *aiMat = sc->mMaterials[matIdx];
 
+	// Blinn-Phong model materials
+	/*
 	TextureId diffuse = loadTexture(aiMat, aiTextureType_DIFFUSE, TextureType::Diffuse, scene);
 	TextureId specular = loadTexture(aiMat, aiTextureType_SPECULAR, TextureType::Specular, scene);
 	TextureId normals = loadTexture(aiMat, aiTextureType_NORMALS, TextureType::Normals, scene);
+	*/
 
-	return scene.getNewMaterial(diffuse, specular, normals);
+	// PBR model materials
+	MaterialData material;
+	material.baseColor = loadTexture(aiMat, aiTextureType_BASE_COLOR, TextureType::BaseColor, scene);
+	material.normals   = loadTexture(aiMat, aiTextureType_NORMALS, TextureType::BaseColor, scene);
+	material.metallicRoughness = loadTexture(aiMat, aiTextureType_METALNESS, TextureType::BaseColor, scene);
+	material.ambientOcclusion = loadTexture(aiMat, aiTextureType_AMBIENT_OCCLUSION, TextureType::BaseColor, scene);
+
+	return scene.getNewMaterial(material);
 }
 
 Vec3 aiVector3DToVec3(const aiVector3D &aiVec) {

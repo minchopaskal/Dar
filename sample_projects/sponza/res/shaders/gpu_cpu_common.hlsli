@@ -20,3 +20,12 @@ struct MeshData {
 	Mat4 normalMatrix;
 	UINT materialId;
 };
+
+#ifdef __HLSL_VERSION
+struct MaterialData {
+	UINT baseColorIndex;
+	UINT normalsIndex;
+	UINT metallicRoughnessIndex;
+	UINT ambientOcclusionIndex;
+};
+#endif
