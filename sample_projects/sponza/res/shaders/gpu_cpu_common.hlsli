@@ -1,8 +1,11 @@
+#ifndef GPU_CPU_COMMON_HLSLI
+#define GPU_CPU_COMMON_HLSLI
+
 #ifdef __HLSL_VERSION
 typedef row_major matrix Mat4;
 typedef float4 Vec4;
 typedef uint UINT;
-#endif // DXC_VERSION_MAJOR
+#endif // __HLSL_VERSION
 
 struct SceneData {
 	Mat4 viewProjection;
@@ -13,6 +16,7 @@ struct SceneData {
 	int width;
 	int height;
 	int withNormalMapping;
+	int spotLightOn;
 };
 
 struct MeshData {
@@ -23,9 +27,14 @@ struct MeshData {
 
 #ifdef __HLSL_VERSION
 struct MaterialData {
+	float3 baseColorFactor;
+	float metallicFactor;
+	float roughnessFactor;
 	UINT baseColorIndex;
 	UINT normalsIndex;
 	UINT metallicRoughnessIndex;
 	UINT ambientOcclusionIndex;
 };
-#endif
+#endif // __HLSL_VERSION
+
+#endif // GPU_CPU_COMMON_HLSLI

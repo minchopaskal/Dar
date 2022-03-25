@@ -17,28 +17,32 @@ struct PSOutput
 	float4 position;
 };
 
+static const uint INVALID_TEXTURE_INDEX = uint(-1);
 static const uint MATERIALS_BUFFER_INDEX = 0;
 static const uint TEXTURE_BUFFERS_START = 1;
 
 PSOutput main(PSInput IN) : SV_Target
 {
 	StructuredBuffer<MaterialData> materials = ResourceDescriptorHeap[MATERIALS_BUFFER_INDEX];
-	const MaterialData materialIndices = materials[meshData.materialId];
+	const MaterialData material = materials[meshData.materialId];
 
 	PSOutput output;
 
-	output.albedo = getColorFromTexture(materialIndices.baseColorIndex, TEXTURE_BUFFERS_START, IN.uv, float4(0.f, 0.f, 0.f, 1.f));
+	output.albedo = getColorFromTexture(material.baseColorIndex, TEXTURE_BUFFERS_START, IN.uv, float4(0.f, 0.f, 0.f, 1.f));
 	if (output.albedo.w < 1e-6f) {
 		discard;
 		return output; // discard; doesn't return so return here in order to save some texture reads.
 	}
+
+	output.albedo *= float4(material.baseColorFactor, 1.f);
+
 	// inverse gamma-correction
 	output.albedo.xyz = pow(output.albedo.xyz, 2.2);
 
 	float3 normal = 0.f;
-	if (sceneData.withNormalMapping && materialIndices.normalsIndex != uint(-1)) {
-		float3 texNormal = getColorFromTexture(materialIndices.normalsIndex, TEXTURE_BUFFERS_START, IN.uv).rgb;
-		texNormal = texNormal * (255.f/127.f) - 128.f/127.f;
+	if (sceneData.withNormalMapping && material.normalsIndex != INVALID_TEXTURE_INDEX) {
+		float3 texNormal = getColorFromTexture(material.normalsIndex, TEXTURE_BUFFERS_START, IN.uv).rgb;
+		texNormal = texNormal * (255.f/127.f) - 128.f/127.f; // [0;1] -> [-1;1]
 
 		// Flip y-coordinate. We are reading a normal map from glTF scene.
 		// By glTF specification Y+ of the tangent space points up, whereas for DX12 Y+ points down
@@ -53,13 +57,13 @@ PSOutput main(PSInput IN) : SV_Target
 	}
 	output.normal = float4(normal, 0.f);
 
-	const float4 metallicRoughness = getColorFromTexture(materialIndices.metallicRoughnessIndex, TEXTURE_BUFFERS_START, IN.uv);
+	float4 metallicRoughness = getColorFromTexture(material.metallicRoughnessIndex, TEXTURE_BUFFERS_START, IN.uv);
 	float4 occlusion = 1.f;
 	// Occlusion may be encoded in the same texture as the metallicRoughness part, so make sure to skip the texture read in that case
-	if (materialIndices.metallicRoughnessIndex == materialIndices.ambientOcclusionIndex) {
+	if (material.metallicRoughnessIndex == material.ambientOcclusionIndex) {
 		occlusion = metallicRoughness;
-	} else {
-		occlusion = getColorFromTexture(materialIndices.ambientOcclusionIndex, TEXTURE_BUFFERS_START, IN.uv);
+	} else if (material.ambientOcclusionIndex != INVALID_TEXTURE_INDEX) {
+		occlusion = getColorFromTexture(material.ambientOcclusionIndex, TEXTURE_BUFFERS_START, IN.uv);
 	}
 
 	// Read occlusion from the red channel as it may be encoded in the metallicRoughness texture
@@ -68,6 +72,8 @@ PSOutput main(PSInput IN) : SV_Target
 	// metalness - blue channel
 	// roughness - green channel
 	// occlusion - red channel, if present
+	metallicRoughness.b *= material.metallicFactor;
+	metallicRoughness.g *= material.roughnessFactor;
 	output.metalnessRoughnessOcclusion = float4(metallicRoughness.b, metallicRoughness.g, occlusion.r, 0.f);
 
 	output.position = IN.fragPos;

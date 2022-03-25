@@ -22,6 +22,7 @@ set(HEADERS
 	${INCLUDE_DIR}/d3d12_logger.h
 	${INCLUDE_DIR}/d3d12_math.h
 	${INCLUDE_DIR}/d3d12_pipeline_state.h
+	${INCLUDE_DIR}/random.h
 	${INCLUDE_DIR}/d3d12_resource_handle.h
 	${INCLUDE_DIR}/d3d12_resource_manager.h
 	${INCLUDE_DIR}/d3d12_scene.h

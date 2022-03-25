@@ -1,4 +1,9 @@
+#ifndef COMMON_HLSLI
+#define COMMON_HLSLI
+
 #include "gpu_cpu_common.hlsli"
+
+#define PI 3.14159265f
 
 SamplerState Sampler : register(s0);
 ConstantBuffer<SceneData> sceneData : register(b0);
@@ -15,3 +20,5 @@ float4 getColorFromTexture(uint textureIndex, uint indexOffset, float2 uv, float
 
 	return color;
 }
+
+#endif // COMMON_HLSLI

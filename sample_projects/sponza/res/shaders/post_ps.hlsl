@@ -4,7 +4,7 @@ struct PSInput {
 	float2 uv : TEXCOORD;
 };
 
-float4 main(PSInput IN) : SV_TARGET {
+float4 main(PSInput IN) : SV_TARGET{
 	Texture2D<float4> renderTex = ResourceDescriptorHeap[0];
 	Texture2D<float> depthTex = ResourceDescriptorHeap[1];
 

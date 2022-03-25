@@ -45,6 +45,9 @@ struct BBox {
 };
 
 struct MaterialData {
+	Vec3 baseColorFactor;
+	float metallicFactor;
+	float roughnessFactor;
 	TextureId baseColor;
 	TextureId normals;
 	TextureId metallicRoughness;

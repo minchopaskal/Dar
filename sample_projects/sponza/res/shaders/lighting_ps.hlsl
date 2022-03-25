@@ -17,10 +17,17 @@ static const uint GBUFFER_POSITION_INDEX = 3;
 float4 main(PSInput IN) : SV_TARGET {
 	Material material;
 
-	material.albedo = getColorFromTexture(GBUFFER_ALBEDO_INDEX, GBUFFER_INDEX_OFFSET, IN.uv, float4(0.f, 0.f, 0.f, 1.f));
+	material.albedo = getColorFromTexture(GBUFFER_ALBEDO_INDEX, GBUFFER_INDEX_OFFSET, IN.uv, float4(0.f, 0.f, 0.f, 0.f));
+
+	if (material.albedo.w == 0.f) {
+		discard;
+		return 0.f;
+	}
+
 	material.normal = getColorFromTexture(GBUFFER_NORMALS_INDEX, GBUFFER_INDEX_OFFSET, IN.uv).xyz;
 	material.metalnessRoughnessOcclusion = getColorFromTexture(GBUFFER_MRO_INDEX, GBUFFER_INDEX_OFFSET, IN.uv).rgb;
 	material.position = getColorFromTexture(GBUFFER_POSITION_INDEX, GBUFFER_INDEX_OFFSET, IN.uv).xyz;
+	
 
 	if (sceneData.showGBuffer == 1) {
 		return material.albedo;
