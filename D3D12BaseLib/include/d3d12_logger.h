@@ -1,6 +1,6 @@
 #pragma once
 
-namespace D3D12 {
+namespace Dar {
 
 enum class LogLevel : int {
 	Debug = 0,
@@ -27,5 +27,5 @@ private:
 
 }
 
-#define LOG_FMT(lvl, msg, ...) D3D12::Logger::log(D3D12::LogLevel::lvl, msg, __VA_ARGS__)
+#define LOG_FMT(lvl, msg, ...) Dar::Logger::log(Dar::LogLevel::lvl, msg, __VA_ARGS__)
 #define LOG(lvl, msg) LOG_FMT(lvl, msg, )

@@ -361,6 +361,7 @@ private:
 
 private:
 	ComPtr<ID3D12Device8> &device;
+	HeapHandle texturesHeap; ///< Heap of the memory holding the textures' data
 
 	bool texturesNeedUpdate; ///< Indicates textures have been changed and need to be reuploaded to the GPU.
 	bool lightsNeedUpdate; ///< Indicates lights have been changed and need to be reuploaded to the GPU.

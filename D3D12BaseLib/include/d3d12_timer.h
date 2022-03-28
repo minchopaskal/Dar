@@ -2,7 +2,7 @@
 
 #include <Windows.h>
 
-namespace D3D12 {
+namespace Dar {
 
 /// Class for measuring time in milliseconds.
 struct Timer {
@@ -22,12 +22,12 @@ struct Timer {
 
 	/// Get time since the timer was launched or last restarted
 	/// @return time since last launch in milliseconds
-	float time() {
+	double time() {
 		LARGE_INTEGER endTime;
 		QueryPerformanceCounter(&endTime);
 		double elapsedTime = static_cast<double>(endTime.QuadPart) - static_cast<double>(startTime.QuadPart);
 
-		return static_cast<float>(elapsedTime / frequency);
+		return elapsedTime / frequency;
 	}
 
 private:

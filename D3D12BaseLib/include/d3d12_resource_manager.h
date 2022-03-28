@@ -6,8 +6,10 @@
 
 using SubresStates = Vector<D3D12_RESOURCE_STATES>;
 using UploadHandle = SizeType;
+using HeapHandle = SizeType;
 
 #define INVALID_UPLOAD_HANDLE SizeType(-1)
+#define INVALID_HEAP_HANDLE SizeType(-1)
 
 enum class ResourceType : unsigned int {
 	Invalid = 0,
@@ -16,6 +18,21 @@ enum class ResourceType : unsigned int {
 	TextureBuffer,
 	RenderTargetBuffer,
 	DepthStencilBuffer,
+};
+
+enum class HeapAlignmentType : SizeType {
+	Default = 65536, // 64KB
+	Small = 4069, // 4KB
+	MSAA = 4194304, // 4 MB
+
+	Invalid = 0
+};
+
+/// Helper structure used to describe our intention
+/// for creation a placed resource on the given heap.
+struct HeapInfo {
+	HeapHandle handle; ///< Handle to the heap we wish to create the resource on.
+	SizeType offset; ///< Offset in the heap memory in bytes.
 };
 
 struct ResourceInitData {
@@ -41,6 +58,7 @@ struct ResourceInitData {
 		UINT firstSubresourceIndex = 0;
 	};
 
+	HeapInfo *heapInfo = nullptr;
 	ResourceType type = ResourceType::DataBuffer;
 	union {
 		SizeType size; ///< Size used when DataBuffer is created
@@ -51,7 +69,16 @@ struct ResourceInitData {
 	WString name = L""; ///< Empty name will result in setting default name corresponding to the type of the resource
 	D3D12_HEAP_FLAGS heapFlags = D3D12_HEAP_FLAG_NONE;
 
+	ResourceInitData() : size(0) {}
+
 	ResourceInitData(ResourceType type) : type(type), size(0) {
+		init(type);
+	}
+
+	D3D12_RESOURCE_DESC getResourceDescriptor();
+
+	void init(ResourceType type) {
+		this->type = type;
 		switch (type) {
 		case ResourceType::DataBuffer:
 			size = 0;
@@ -79,8 +106,36 @@ struct ResourceInitData {
 };
 
 struct ResourceManager {
+	/// Create a heap which can be used for placed resources.
+	/// Use createBuffer to create a resource on the heap by specifying
+	/// the ResourceInitData::heapInfo member.
+	/// @param size Size of the heap we wish to create
+	/// @param alignment Alignment
+	/// @return Handle to the created heap.
+	HeapHandle createHeap(SizeType size, HeapAlignmentType alignment);
+
+	/// \see createHeap(SizeType). Calculates size of the heap by the given arguments.
+	/// @param resDescriptors Array of resource descriptors.
+	/// @param numResources Number of elements in the resDescriptors array.
+	/// @return Handle to the created heap.
+	HeapHandle createHeap(D3D12_RESOURCE_DESC *resDescriptors, UINT numResources);
+
+	/// \see createHeap(SizeType). Calculates size of the heap by the given arguments.
+	/// @param resDescriptors Array of resource descriptors.
+	/// @param numResources Number of elements in the resDescriptors array.
+	/// @param handle Handle to the created heap. If handle points to an existing heap, try to reuse it if possible.
+	void createHeap(D3D12_RESOURCE_DESC *resDescriptors, UINT numResources, HeapHandle &handle);
+
+	/// Release the memory of a created heap.
+	/// @param handle Reference to the handle of the heap we wish to deallocate.
+	/// @return true on success, false otherwise.
+	bool deallocateHeap(HeapHandle &handle);
+
 	/// Creates a buffer of the specified in ResourceInitData type.
-	ResourceHandle createBuffer(const ResourceInitData &initData);
+	/// Resources can be commited or placed, depending on whether ResourceInitData::heapInfo is initialized.
+	/// @param initData Resource initialization data.
+	/// @return Handle to the resource, which is managed by the resource manager.
+	ResourceHandle createBuffer(ResourceInitData &initData);
 
 	// TODO: see if this method could be made idempotent per thread.
 	/// Creates a new command list for use in upload*Data methods.
@@ -105,7 +160,8 @@ struct ResourceManager {
 	/// @param subresData An array of numSubresources elements holding data for each subresource we wish to upload.
 	/// @param numSubresources Number of subresources we wish to upload
 	/// @param startSubresourceIndex Index of the first subresource we wish to upload.
-	bool uploadTextureData(UploadHandle uploadHandle, ResourceHandle destResource, D3D12_SUBRESOURCE_DATA *subresData, UINT numSubresources, UINT startSubresourceIndex);
+	/// @return Size of the uploaded texture. Useful when uploading to a heap, so we know how much the next resource will be offset in the heap.
+	UINT64 uploadTextureData(UploadHandle uploadHandle, ResourceHandle destResource, D3D12_SUBRESOURCE_DATA *subresData, UINT numSubresources, UINT startSubresourceIndex);
 	
 	/// NOTE!!! Not thread safe!
 	/// Should be called after all calls to upload*Data to actually submit the data to the GPU.
@@ -132,15 +188,20 @@ struct ResourceManager {
 	bool setGlobalStateForSubres(ResourceHandle handle, const D3D12_RESOURCE_STATES &state, const unsigned int subresIndex);
 
 #ifdef D3D12_DEBUG
-	ResourceHandle registerResource(ComPtr<ID3D12Resource> resource, UINT subresourcesCount, D3D12_RESOURCE_STATES state, ResourceType type);
+	ResourceHandle registerResource(ComPtr<ID3D12Resource> resource, UINT subresourcesCount, SizeType size, D3D12_RESOURCE_STATES state, ResourceType type);
 #else
-	ResourceHandle registerResource(ComPtr<ID3D12Resource> resource, UINT subresourcesCount, D3D12_RESOURCE_STATES state);
+	ResourceHandle registerResource(ComPtr<ID3D12Resource> resource, UINT subresourcesCount, SizeType size, D3D12_RESOURCE_STATES state);
 #endif
 
 	/// Release resource's data. All work with the resource is expected to have completed.
 	bool deregisterResource(ResourceHandle &handle);
 
 	ID3D12Resource* getID3D12Resource(ResourceHandle handle);
+	SizeType getResourceSize(ResourceHandle handle) const;
+
+	ID3D12Heap *getID3D12Heap(HeapHandle handle);
+	HeapAlignmentType getHeapAlignment(HeapHandle handle);
+	SizeType getHeapSize(HeapHandle handle);
 
 	void endFrame();
 
@@ -149,7 +210,9 @@ private:
 
 	void resetCommandLists();
 
-	ResourceHandle registerResourceImpl(ComPtr<ID3D12Resource> resourcePtr, UINT subresourcesCount, D3D12_RESOURCE_STATES state);
+	bool isValidHeapHandle(HeapHandle handle) const;
+
+	ResourceHandle registerResourceImpl(ComPtr<ID3D12Resource> resourcePtr, UINT subresourcesCount, SizeType size, D3D12_RESOURCE_STATES state);
 
 #ifdef D3D12_DEBUG
 	ResourceType getResourceType(ResourceHandle handle);
@@ -159,9 +222,16 @@ private:
 		ComPtr<ID3D12Resource> res;
 		SubresStates subresStates;
 		CriticalSection cs;
+		SizeType size;
 #ifdef D3D12_DEBUG
 		ResourceType type = ResourceType::Invalid;
 #endif // D3D12_DEBUG
+	};
+
+	struct Heap {
+		ComPtr<ID3D12Heap> heap;
+		SizeType size;
+		HeapAlignmentType alignment;
 	};
 
 	ComPtr<ID3D12Device8> device;
@@ -171,6 +241,9 @@ private:
 	Vector<Resource> resources;
 	Vector<ResourceHandle> stagingBuffers;
 	Queue<ResourceHandle> resourcePool;
+
+	Vector<Heap> heaps;
+	Queue<HeapHandle> heapHandlesPool;
 
 	CriticalSection resourcesCS;
 	unsigned int numThreads;
