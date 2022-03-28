@@ -295,7 +295,7 @@ bool Sponza::loadAssets() {
 	SceneLoaderError sceneLoadErr = loadScene("res\\scenes\\Sponza\\glTF\\Sponza.gltf", scene, sceneLoaderFlags_none);
 	
 	if (sceneLoadErr != SceneLoaderError::Success) {
-		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to load scene!");
+		LOG(Error, "Failed to load scene!");
 		return false;
 	}
 
@@ -344,12 +344,12 @@ bool Sponza::loadAssets() {
 
 	bool setCamRes = scene.setCameraForCameraController(fpsModeControl);
 	if (!setCamRes) {
-		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to set FPS camera controller!");
+		LOG(Error, "Failed to set FPS camera controller!");
 		return false;
 	}
 	setCamRes = scene.setCameraForCameraController(editModeControl);
 	if (!setCamRes) {
-		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to set Edit mode camera controller!");
+		LOG(Error, "Failed to set Edit mode camera controller!");
 		return false;
 	}
 
@@ -357,12 +357,12 @@ bool Sponza::loadAssets() {
 	UploadHandle uploadHandle = resManager.beginNewUpload();
 
 	if (!scene.uploadSceneData(uploadHandle)) {
-		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to upload scene data!");
+		LOG(Error, "Failed to upload scene data!");
 		return false;
 	}
 
 	if (!prepareVertexIndexBuffers(uploadHandle)) {
-		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to prepare vertex and index buffers!");
+		LOG(Error, "Failed to prepare vertex and index buffers!");
 		return false;
 	}
 
@@ -599,9 +599,15 @@ bool Sponza::updateRenderTargetViews() {
 
 		// Register the back buffer's resources manually since the resource manager doesn't own them, the swap chain does.
 #ifdef D3D12_DEBUG
-		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, D3D12_RESOURCE_STATE_COMMON, ResourceType::RenderTargetBuffer);
+		backBuffersHandles[i] = resManager->registerResource(
+			backBuffers[i].Get(),
+			1, /*numSubresource*/
+			0, /*size*/ // we don't use that
+			D3D12_RESOURCE_STATE_COMMON, // initial state
+			ResourceType::RenderTargetBuffer
+		);
 #else
-		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, D3D12_RESOURCE_STATE_COMMON);
+		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, 0, D3D12_RESOURCE_STATE_COMMON);
 #endif
 
 		wchar_t backBufferName[32];
@@ -686,7 +692,7 @@ bool Sponza::loadPipelines() {
 		deferredPSDesc.renderTargetFormats[i] = gBufferFormats[i];
 	}
 	if (!deferredPassPipelineState.init(device, deferredPSDesc)) {
-		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to initialize deferred pass pipeline!");
+		LOG(Error, "Failed to initialize deferred pass pipeline!");
 		return false;
 	}
 
@@ -699,7 +705,7 @@ bool Sponza::loadPipelines() {
 	lightingPSDesc.maxVersion = rootSignatureFeatureData.HighestVersion;
 	lightingPSDesc.cullMode = D3D12_CULL_MODE_NONE;
 	if (!lightPassPipelineState.init(device, lightingPSDesc)) {
-		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to initialize light pass pipeline!");
+		LOG(Error, "Failed to initialize light pass pipeline!");
 		return false;
 	}
 
@@ -712,7 +718,7 @@ bool Sponza::loadPipelines() {
 	postPSDesc.maxVersion = rootSignatureFeatureData.HighestVersion;
 	postPSDesc.cullMode = D3D12_CULL_MODE_NONE;
 	if (!postPassPipelineState.init(device, postPSDesc)) {
-		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to initialize post pass pipeline!");
+		LOG(Error, "Failed to initialize post pass pipeline!");
 		return false;
 	}
 

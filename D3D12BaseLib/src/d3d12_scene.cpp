@@ -4,6 +4,8 @@
 
 #include "d3d12_logger.h"
 
+#include "d3d12_timer.h"
+
 // For loading the texture image
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_WINDOWS_UTF8
@@ -193,13 +195,17 @@ bool Scene::uploadLightData(UploadHandle uploadHandle) {
 
 	ResourceManager &resManager = getResourceManager();
 
-	ResourceInitData resData(ResourceType::DataBuffer);
-	resData.size = lightsDataSize;
-	resData.name = L"LightsData";
-	lightsHandle = resManager.createBuffer(resData);
+	SizeType lightsOldBufferSize = resManager.getResourceSize(lightsHandle);
+	if (lightsDataSize > lightsOldBufferSize) {
+		resManager.deregisterResource(lightsHandle);
+		ResourceInitData resData(ResourceType::DataBuffer);
+		resData.size = lightsDataSize;
+		resData.name = L"LightsData";
+		lightsHandle = resManager.createBuffer(resData);
+	}
 
 	if (!resManager.uploadBufferData(uploadHandle, lightsHandle, lightsMemory, lightsDataSize)) {
-		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to upload lights data!");
+		LOG(Error, "Failed to upload lights data!");
 		return false;
 	}
 
@@ -226,13 +232,18 @@ bool Scene::uploadMaterialData(UploadHandle uploadHandle) {
 
 	ResourceManager &resManager = getResourceManager();
 
-	ResourceInitData resData(ResourceType::DataBuffer);
-	resData.size = materialsDataSize;
-	resData.name = L"MaterialsData";
-	materialsHandle = resManager.createBuffer(resData);
+	SizeType materialsOldBufferSize = resManager.getResourceSize(materialsHandle);
+	if (materialsDataSize > materialsOldBufferSize) {
+		resManager.deregisterResource(materialsHandle);
+
+		ResourceInitData resData(ResourceType::DataBuffer);
+		resData.size = materialsDataSize;
+		resData.name = L"MaterialsData";
+		materialsHandle = resManager.createBuffer(resData);
+	}
 
 	if (!resManager.uploadBufferData(uploadHandle, materialsHandle, materialsMemory, materialsDataSize)) {
-		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to material lights data!");
+		LOG(Error, "Failed to material lights data!");
 		return false;
 	}
 
@@ -246,36 +257,58 @@ bool Scene::uploadTextureData(UploadHandle uploadHandle) {
 
 	SizeType numTextures = getNumTextures();
 
-	Vector<ImageData> texData(numTextures);
-	Vector<ComPtr<ID3D12Resource>> stagingImageBuffers(numTextures);
-	for (int i = 0; i < numTextures; ++i) {
-		if (textureHandles[i] != INVALID_RESOURCE_HANDLE) {
-			continue;
+	std::for_each(
+		textureHandles.begin(),
+		textureHandles.end(),
+		[&resManager](ResourceHandle handle) {
+			resManager.deregisterResource(handle); 
 		}
+	);
 
+	textureHandles.resize(numTextures);
+
+	Vector<ImageData> texData(numTextures);
+	Vector<D3D12_RESOURCE_DESC> texDescs(numTextures);
+	Vector<ResourceInitData> texInitDatas(numTextures);
+	for (int i = 0; i < numTextures; ++i) {
 		Texture &tex = textures[i];
 		texData[i] = loadImage(tex.path);
 		tex.format = texData[i].ncomp == 4 ? TextureFormat::RGBA_8BIT : TextureFormat::Invalid;
 		wchar_t textureName[32] = L"";
 		swprintf(textureName, 32, L"Texture[%d]", i);
 
-		ResourceInitData texInitData(ResourceType::TextureBuffer);
+		ResourceInitData &texInitData = texInitDatas[i];
+		texInitData.init(ResourceType::TextureBuffer);
 		texInitData.textureData.width = texData[i].width;
 		texInitData.textureData.height = texData[i].height;
 		texInitData.textureData.format = DXGI_FORMAT_R8G8B8A8_UNORM;
 		texInitData.name = textureName;
-		textureHandles[i] = resManager.createBuffer(texInitData);
-		if (textureHandles[i] == INVALID_RESOURCE_HANDLE) {
-			return false;
-		}
+
+		texDescs[i] = texInitData.getResourceDescriptor();
 	}
 
+	resManager.createHeap(texDescs.data(), static_cast<UINT>(texDescs.size()), texturesHeap);
+
+	if (texturesHeap == INVALID_HEAP_HANDLE) {
+		return false;
+	}
+
+	SizeType heapOffset = 0;
 	for (int i = 0; i < numTextures; ++i) {
+		HeapInfo heapInfo = {};
+		heapInfo.handle = texturesHeap;
+		heapInfo.offset = heapOffset;
+		texInitDatas[i].heapInfo = &heapInfo;
+
+		textureHandles[i] = resManager.createBuffer(texInitDatas[i]);
+
 		D3D12_SUBRESOURCE_DATA textureSubresources = {};
 		textureSubresources.pData = texData[i].data;
 		textureSubresources.RowPitch = static_cast< UINT64 >(texData[i].width) * static_cast< UINT64 >(texData[i].ncomp);
 		textureSubresources.SlicePitch = textureSubresources.RowPitch * texData[i].height;
-		resManager.uploadTextureData(uploadHandle, textureHandles[i], &textureSubresources, 1, 0);
+		UINT64 size = resManager.uploadTextureData(uploadHandle, textureHandles[i], &textureSubresources, 1, 0);
+
+		heapOffset += size;
 	}
 
 	return true;

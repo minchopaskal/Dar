@@ -11,11 +11,11 @@
 #define ANSI_COLOR_BLUE    "\u001b[34;1m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
-void D3D12::Logger::setLogLevel(LogLevel lvl) {
+void Dar::Logger::setLogLevel(LogLevel lvl) {
 	loggingLevel = static_cast<int>(lvl);
 }
 
-void D3D12::Logger::log(LogLevel lvl, const char *fmt, ...) {
+void Dar::Logger::log(LogLevel lvl, const char *fmt, ...) {
 #ifndef CUDA_DEBUG
 	if (lvl == LogLevel::Debug) {
 		return;
@@ -71,4 +71,4 @@ void D3D12::Logger::log(LogLevel lvl, const char *fmt, ...) {
 	fprintf(OUT_STREAM, "\n");
 }
 
-int D3D12::Logger::loggingLevel = static_cast<int>(LogLevel::InfoFancy);
+int Dar::Logger::loggingLevel = static_cast<int>(LogLevel::InfoFancy);

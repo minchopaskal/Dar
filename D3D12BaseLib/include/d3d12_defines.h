@@ -31,7 +31,7 @@
 do { \
   if (!SUCCEEDED((cmd))) { \
       auto err = GetLastError(); \
-      D3D12::Logger::log(D3D12::LogLevel::Error, "D3D12 Error: %s\n Last Error: %lu\n", (msg), err); \
+      LOG_FMT(Error, "D3D12 Error: %s\n Last Error: %lu\n", (msg), err); \
       char error[512]; \
       sprintf(error, "D3D12 Error: %s\n", _com_error(err).ErrorMessage()); \
       OutputDebugString(error); \
@@ -44,7 +44,7 @@ do { \
 do { \
   if (!SUCCEEDED(cmd)) { \
       auto err = GetLastError(); \
-      D3D12::Logger::log(D3D12::LogLevel::Error, "D3D12 Error: %s\n Last Error: %lu\n", (msg), err); \
+      LOG_FMT(Error, "D3D12 Error: %s\n Last Error: %lu\n", (msg), err); \
       return retval; \
     } \
   } \
