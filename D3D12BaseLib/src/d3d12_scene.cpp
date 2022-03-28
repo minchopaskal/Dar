@@ -213,7 +213,7 @@ bool Scene::uploadMaterialData(UploadHandle uploadHandle) {
 		return true;
 	}
 
-	SizeType materialsDataSize = numMaterials * sizeof(GPUMaterial);
+	SizeType materialsDataSize = numMaterials * sizeof(MaterialData);
 	Byte *materialsMemory = ( Byte* )malloc(materialsDataSize);
 	if (materialsMemory == nullptr) {
 		return false;
@@ -221,8 +221,7 @@ bool Scene::uploadMaterialData(UploadHandle uploadHandle) {
 
 	for (int i = 0; i < numMaterials; ++i) {
 		const Material &m = getMaterial(i);
-		GPUMaterial gpuM = { m.diffuse, m.specular, m.normals };
-		memcpy(materialsMemory + i * sizeof(GPUMaterial), &gpuM, sizeof(GPUMaterial));
+		memcpy(materialsMemory + i * sizeof(MaterialData), &m.materialData, sizeof(MaterialData));
 	}
 
 	ResourceManager &resManager = getResourceManager();

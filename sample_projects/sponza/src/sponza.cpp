@@ -8,7 +8,9 @@
 #include "d3d12_asset_manager.h"
 #include "d3d12_pipeline_state.h"
 #include "d3d12_resource_manager.h"
+#include "d3d12_timer.h"
 #include "d3d12_utils.h"
+#include "random.h"
 #include "scene_loader.h"
 
 #include "gpu_cpu_common.hlsli"
@@ -19,21 +21,8 @@
 
 Sponza::Sponza(const UINT w, const UINT h, const String &windowTitle) :
 	D3D12App(w, h, windowTitle.c_str()),
-	sceneDataHandle{ INVALID_RESOURCE_HANDLE, INVALID_RESOURCE_HANDLE },
 	viewport{ 0.f, 0.f, static_cast<float>(w), static_cast<float>(h), 0.f, 1.f },
-	scissorRect{ 0, 0, LONG_MAX, LONG_MAX }, // always render on the entire screen
-	aspectRatio(static_cast<float>(w) / static_cast<float>(h)),
-	fenceValues{ 0 },
-	scene(device),
-	camControl(nullptr),
-	fpsModeControl(nullptr, 200.f),
-	editModeControl(nullptr, 200.f),
-	fps(0.0),
-	totalTime(0.0),
-	deltaTime(0.0),
-	showGBuffer(0),
-	editMode(true),
-	withNormalMapping(true)
+	aspectRatio(static_cast<float>(w) / static_cast<float>(h))
 {
 	camControl = editMode ? &editModeControl : &fpsModeControl;
 	gBufferRTVTextureHandles.fill(INVALID_RESOURCE_HANDLE);
@@ -117,6 +106,7 @@ void Sponza::update() {
 	sceneData.width = width;
 	sceneData.height = height;
 	sceneData.withNormalMapping = withNormalMapping;
+	sceneData.spotLightOn = spotLightOn;
 
 	/// Initialize the MVP constant buffer resource if needed
 	if (sceneDataHandle[frameIndex] == INVALID_RESOURCE_HANDLE) {
@@ -181,7 +171,7 @@ void Sponza::drawUI() {
 
 	if (editMode) {
 		ImGui::Begin("Edit mode", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-			ImGui::ListBox("G-Buffer", &showGBuffer, gBufferLabels, 5);
+			ImGui::ListBox("G-Buffer", &showGBuffer, gBufferLabels, sizeof(gBufferLabels)/sizeof(char*));
 			ImGui::Checkbox("With normal mapping", &withNormalMapping);
 			ImGui::Checkbox("V-Sync", &vSyncEnabled);
 		ImGui::End();
@@ -197,6 +187,8 @@ void Sponza::onResize(const unsigned int w, const unsigned int h) {
 	this->height = std::max(1u, h);
 	viewport = { 0.f, 0.f, static_cast<float>(width), static_cast<float>(height), 0.f, 1.f };
 	aspectRatio = static_cast<float>(width) / static_cast<float>(height);
+
+	scene.getRenderCamera()->updateAspectRatio(width, height);
 
 	flush();
 
@@ -231,8 +223,12 @@ void Sponza::onResize(const unsigned int w, const unsigned int h) {
 }
 
 void Sponza::onKeyboardInput(int key, int action) {
-	if (keyPressed[GLFW_KEY_F] && !keyRepeated[GLFW_KEY_F]) {
+	if (keyPressed[GLFW_KEY_P] && !keyRepeated[GLFW_KEY_P]) {
 		toggleFullscreen();
+	}
+
+	if (keyPressed[GLFW_KEY_F] && !keyRepeated[GLFW_KEY_F]) {
+		spotLightOn = !spotLightOn;
 	}
 
 	if (keyPressed[GLFW_KEY_V] && !keyRepeated[GLFW_KEY_V]) {
@@ -268,6 +264,14 @@ void Sponza::onKeyboardInput(int key, int action) {
 	if (queryPressed(GLFW_KEY_4)) {
 		showGBuffer = 4;
 	}
+
+	if (queryPressed(GLFW_KEY_5)) {
+		showGBuffer = 5;
+	}
+
+	if (queryPressed(GLFW_KEY_6)) {
+		showGBuffer = 6;
+	}
 }
 
 void Sponza::onMouseScroll(double xOffset, double yOffset) {
@@ -283,30 +287,45 @@ bool Sponza::loadAssets() {
 		return false;
 	}
 
+	// TODO: load the scene in binary format + run MikkTSpace on the tangents in a preprocess step.
+	//       During runtime we should only read the bin scene and upload the data to the gpu.
 	// MikkTSpace tangents give slightly better results than the tangents in the gltf file.
-	SceneLoaderError sceneLoadErr = loadScene("res\\scenes\\Sponza\\glTF\\Sponza.gltf", scene, sceneLoaderFlags_overrideGenTangents);
+	//SceneLoaderError sceneLoadErr = loadScene("res\\scenes\\Sponza\\glTF\\Sponza.gltf", scene, sceneLoaderFlags_overrideGenTangents);
+	// .. but the algorithm is too slow for run-time evaluation.
+	SceneLoaderError sceneLoadErr = loadScene("res\\scenes\\Sponza\\glTF\\Sponza.gltf", scene, sceneLoaderFlags_none);
+	
 	if (sceneLoadErr != SceneLoaderError::Success) {
 		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to load scene!");
 		return false;
 	}
 
 	// TODO: hard-coded for debugging. Add lights through scene editor/use scene lights
-	LightNode *lDir = new LightNode;
+	/*LightNode *lDir = new LightNode;
 	lDir->type = LightType::Directional;
 	lDir->direction = Vec3{ -1.f, -1.f, 0.f };
 	lDir->diffuse   = Vec3{ .3f, .3f, .3f };
 	lDir->ambient   = Vec3{ .1f, .1f, .1f };
 	lDir->specular  = Vec3{ 1.f, 1.f, 1.f };
-	scene.addNewLight(lDir);
+	scene.addNewLight(lDir);*/
 
-	LightNode *lPoint = new LightNode;
-	lPoint->type = LightType::Point;
-	lPoint->position = Vec3{ -400.f, 200.f, 0.f };
-	lPoint->diffuse = Vec3{ .7f, .0f, .0f };
-	lPoint->ambient = Vec3{ .1f, .1f, .1f };
-	lPoint->specular = Vec3{ 1.f, 0.f, 0.f };
-	lPoint->attenuation = Vec3{ 1.f, 0.0014f, 0.000007f };
-	scene.addNewLight(lPoint);
+	Dar::Random rand;
+	for (int i = 0; i < 10; ++i) {
+		const float x = rand.generateFlt(-200.f, 200.f);
+		const float y = rand.generateFlt(0.f, 1.f);
+		const float z = rand.generateFlt(-200.f, 200.f);
+		const float r = rand.generateFlt(0.f, 1.f) * 1.f;
+		const float g = rand.generateFlt(0.f, 1.f) * 1.f;
+		const float b = rand.generateFlt(0.f, 1.f) * 1.f;
+
+		LightNode *lPoint = new LightNode;
+		lPoint->type = LightType::Point;
+		lPoint->position = Vec3{ x, y, z };
+		lPoint->diffuse = Vec3{ r, g, b };
+		lPoint->ambient = Vec3{ .1f, .1f, .1f };
+		lPoint->specular = Vec3{ 1.f, 0.f, 0.f };
+		lPoint->attenuation = Vec3{ 1.f, 0.0014f, 0.000007f };
+		scene.addNewLight(lPoint);
+	}
 
 	LightNode *lSpot = new LightNode;
 	lSpot->type = LightType::Spot;
@@ -319,7 +338,7 @@ bool Sponza::loadAssets() {
 	lSpot->outerAngleCutoff = dmath::radians(40.f);
 	scene.addNewLight(lSpot);
 
-	Camera cam = Camera::perspectiveCamera(Vec3(0.f, 0.f, -1.f), 90.f, getWidth() / static_cast<float>(getHeight()), 0.1f, 10000.f);
+	Camera cam = Camera::perspectiveCamera(Vec3(0.f, -0.f, -0.f), 90.f, getWidth() / static_cast<float>(getHeight()), 0.1f, 10000.f);
 	CameraNode *camNode = new CameraNode(std::move(cam));
 	scene.addNewCamera(camNode);
 
@@ -394,7 +413,7 @@ void Sponza::populateDeferredPassCommands(CommandList& commandList) {
 	deferredPassSRVHeap[frameIndex].reset();
 
 	// Create SRV for the materials
-	deferredPassSRVHeap[frameIndex].addBufferSRV(scene.materialsHandle.get(), static_cast<int>(scene.getNumMaterials()), sizeof(GPUMaterial));
+	deferredPassSRVHeap[frameIndex].addBufferSRV(scene.materialsHandle.get(), static_cast<int>(scene.getNumMaterials()), sizeof(MaterialData));
 
 	// Create SRVs for the textures so we can read them bindlessly in the shader
 	for (int i = 0; i < numTextures; ++i) {
@@ -419,10 +438,9 @@ void Sponza::populateDeferredPassCommands(CommandList& commandList) {
 	const D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = deferredRTVHeap.getCPUHandle(static_cast<int>(frameIndex) * gBufferCount);
 	const D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = depthBuffer.getCPUHandle();
 
-	constexpr float clearColor[] = { 0.f, 0.f, 0.f, 1.f };
+	constexpr float clearColor[] = { 0.f, 0.f, 0.f, 0.f };
 	for (int i = 0; i < gBufferCount; ++i) {
-		constexpr float clearColor2[] = { 0.f, 0.5f, 0.8f, 1.f };
-		commandList->ClearRenderTargetView(deferredRTVHeap.getCPUHandle(static_cast<int>(frameIndex) * gBufferCount + i), i == 0 ? clearColor2 : clearColor, 0, nullptr);
+		commandList->ClearRenderTargetView(deferredRTVHeap.getCPUHandle(static_cast<int>(frameIndex) * gBufferCount + i), clearColor, 0, nullptr);
 	}
 	commandList.transition(depthBuffer.getBufferHandle(), D3D12_RESOURCE_STATE_DEPTH_WRITE);
 	commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
@@ -489,7 +507,7 @@ void Sponza::populateLightPassCommands(CommandList& commandList) {
 
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = lightPassRTVHeap.getCPUHandle(static_cast<int>(frameIndex));
 
-	constexpr float clearColor[] = { 0.f, 0.3f, 0.7f, 1.f };
+	constexpr float clearColor[] = { 0.f, 0.f, 0.f, 1.f };
 	commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -497,7 +515,7 @@ void Sponza::populateLightPassCommands(CommandList& commandList) {
 	commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
 	commandList.setMVPBuffer(sceneDataHandle[frameIndex]);
 
-	commandList->DrawIndexedInstanced(3, 1, 0, 0, 0);
+	commandList->DrawInstanced(3, 1, 0, 0);
 }
 
 void Sponza::populateForwardPassCommands(CommandList& cmdList) {}
@@ -528,14 +546,7 @@ void Sponza::populatePostPassCommands(CommandList&commandList) {
 	commandList->RSSetViewports(1, &viewport);
 	commandList->RSSetScissorRects(1, &scissorRect);
 
-	ID3D12DebugCommandList1 *dcl = nullptr;
-	commandList->QueryInterface<ID3D12DebugCommandList1>(&dcl);
-	if (dcl) {
-		dcl->AssertResourceState(backBuffers[frameIndex].Get(), 0, D3D12_RESOURCE_STATE_PRESENT);
-	}
-
-	//commandList.transition(backBuffersHandles[frameIndex], D3D12_RESOURCE_STATE_RENDER_TARGET);
-	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(backBuffers[frameIndex].Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET));
+	commandList.transition(backBuffersHandles[frameIndex], D3D12_RESOURCE_STATE_RENDER_TARGET);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = postPassRTVHeap.getCPUHandle(static_cast<int>(frameIndex));
 
@@ -543,36 +554,34 @@ void Sponza::populatePostPassCommands(CommandList&commandList) {
 	commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
 	commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
 	commandList.setMVPBuffer(sceneDataHandle[frameIndex]);
 
-	commandList->DrawIndexedInstanced(3, 1, 0, 0, 0);
+	commandList->DrawInstanced(3, 1, 0, 0);
 
 	renderUI(commandList, rtvHandle);
 
-	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(backBuffers[frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COMMON));
 	commandList.transition(backBuffersHandles[frameIndex], D3D12_RESOURCE_STATE_PRESENT);
 }
 
 bool Sponza::updateRenderTargetViews() {
-	auto getGBufferName = [](wchar_t backBufferName[32], GBuffer type, int frameIndex) -> wchar_t* {
+	auto getGBufferName = [](wchar_t backBufferName[64], GBuffer type, int frameIndex) -> wchar_t* {
 		int offset = 0;
 		switch (type) {
-		case GBuffer::Diffuse:
-			offset = swprintf(backBufferName, 32, L"GBuffer::Diffuse");
+		case GBuffer::Albedo:
+			offset = swprintf(backBufferName, 64, L"GBuffer::Albedo");
 			break;
 		case GBuffer::Normals:
-			offset = swprintf(backBufferName, 32, L"GBuffer::Normals");
+			offset = swprintf(backBufferName, 64, L"GBuffer::Normals");
 			break;
-		case GBuffer::Specular:
-			offset = swprintf(backBufferName, 32, L"GBuffer::Specular");
+		case GBuffer::MetallnessRoughnessOcclusion:
+			offset = swprintf(backBufferName, 64, L"GBuffer::MetallnessRoughnessOcclusion");
 			break;
 		case GBuffer::Position:
-			offset = swprintf(backBufferName, 32, L"GBuffer::Position");
+			offset = swprintf(backBufferName, 64, L"GBuffer::Position");
 			break;
 		default:
-			offset = swprintf(backBufferName, 32, L"GBuffer::Unknown");
+			offset = swprintf(backBufferName, 64, L"GBuffer::Unknown");
 			break;
 		}
 
@@ -590,9 +599,9 @@ bool Sponza::updateRenderTargetViews() {
 
 		// Register the back buffer's resources manually since the resource manager doesn't own them, the swap chain does.
 #ifdef D3D12_DEBUG
-		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, D3D12_RESOURCE_STATE_RENDER_TARGET, ResourceType::RenderTargetBuffer);
+		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, D3D12_RESOURCE_STATE_COMMON, ResourceType::RenderTargetBuffer);
 #else
-		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, D3D12_RESOURCE_STATE_PRESENT);
+		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, D3D12_RESOURCE_STATE_COMMON);
 #endif
 
 		wchar_t backBufferName[32];
@@ -610,11 +619,15 @@ bool Sponza::updateRenderTargetViews() {
 				resManager->deregisterResource(rtvTexture);
 			}
 
-			wchar_t rtvTextureName[32];
+			wchar_t rtvTextureName[64];
 			ResourceInitData rtvTextureDesc(ResourceType::RenderTargetBuffer);
 			rtvTextureDesc.textureData.width = width;
 			rtvTextureDesc.textureData.height = height;
 			rtvTextureDesc.textureData.format = gBufferFormats[j];
+			rtvTextureDesc.textureData.clearValue.color[0] = 0.f;
+			rtvTextureDesc.textureData.clearValue.color[1] = 0.f;
+			rtvTextureDesc.textureData.clearValue.color[2] = 0.f;
+			rtvTextureDesc.textureData.clearValue.color[3] = 0.f;
 			rtvTextureDesc.name = getGBufferName(rtvTextureName, static_cast<GBuffer>(j), i);
 			rtvTexture = resManager->createBuffer(rtvTextureDesc);
 
@@ -684,6 +697,7 @@ bool Sponza::loadPipelines() {
 	lightingPSDesc.numConstantBufferViews = static_cast<unsigned int>(ConstantBufferView::Count);
 	lightingPSDesc.numTextures = static_cast<UINT>(GBuffer::Count);
 	lightingPSDesc.maxVersion = rootSignatureFeatureData.HighestVersion;
+	lightingPSDesc.cullMode = D3D12_CULL_MODE_NONE;
 	if (!lightPassPipelineState.init(device, lightingPSDesc)) {
 		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to initialize light pass pipeline!");
 		return false;
@@ -696,6 +710,7 @@ bool Sponza::loadPipelines() {
 	postPSDesc.numConstantBufferViews = static_cast<unsigned int>(ConstantBufferView::Count);
 	postPSDesc.numTextures = 1;
 	postPSDesc.maxVersion = rootSignatureFeatureData.HighestVersion;
+	postPSDesc.cullMode = D3D12_CULL_MODE_NONE;
 	if (!postPassPipelineState.init(device, postPSDesc)) {
 		D3D12::Logger::log(D3D12::LogLevel::Error, "Failed to initialize post pass pipeline!");
 		return false;

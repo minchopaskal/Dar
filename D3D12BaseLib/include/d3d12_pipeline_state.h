@@ -99,6 +99,7 @@ struct PipelineStateDesc {
 	D3D12_STATIC_SAMPLER_DESC *staticSamplerDesc = nullptr; ///< Static sampler description. Used for root signature creation
 	DXGI_FORMAT depthStencilBufferFormat = DXGI_FORMAT_UNKNOWN; ///< Format for the depth stencil buffer. Leave unknown if DSB is null.
 	DXGI_FORMAT renderTargetFormats[MAX_RENDER_TARGETS] = { DXGI_FORMAT_R8G8B8A8_UNORM };
+	D3D12_CULL_MODE cullMode = D3D12_CULL_MODE_BACK;
 	UINT numRenderTargets = 1; ///< Number of render targets
 	UINT numInputLayouts = 0; ///< Number of input layouts.
 	UINT numTextures = 0; ///< Number of textures in the texture descriptor table.

@@ -97,6 +97,17 @@ void Camera::updateOrientation() const {
 	orientationValid = true;
 }
 
+void Camera::updateAspectRatio(unsigned int width, unsigned int height) {
+	if (type == CameraType::Orthographic) {
+		this->width = float(width);
+		this->height = float(height);
+	} else {
+		aspectRatio = width / float(height);
+	}
+
+	projectionMatrixValid = false;
+}
+
 void Camera::updateViewMatrix() const {
 	if (viewMatrixValid) {
 		return;

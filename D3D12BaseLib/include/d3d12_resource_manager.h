@@ -80,7 +80,6 @@ struct ResourceInitData {
 
 struct ResourceManager {
 	/// Creates a buffer of the specified in ResourceInitData type.
-	/// Be careful with 
 	ResourceHandle createBuffer(const ResourceInitData &initData);
 
 	// TODO: see if this method could be made idempotent per thread.

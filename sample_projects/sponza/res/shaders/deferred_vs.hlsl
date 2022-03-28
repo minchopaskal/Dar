@@ -24,7 +24,7 @@ VSOutput main(VSInput IN)
 	result.fragPos = mul(meshData.modelMatrix, float4(IN.position, 1.f));
 	result.position = mul(sceneData.viewProjection, result.fragPos);
 
-	float3 N = normalize(mul(meshData.normalMatrix, float4(IN.normal, 0.f)).xyz);
+	const float3 N = normalize(mul(meshData.normalMatrix, float4(IN.normal, 0.f)).xyz);
 
 	float3 T = normalize(mul(meshData.normalMatrix, float4(IN.tangent, 0.f)).xyz);
 	T = normalize(T - N * dot(T, N));

@@ -9,26 +9,40 @@ static const uint DEPTH_BUFFER_INDEX = 1;
 
 static const uint GBUFFER_INDEX_OFFSET = 2;
 
-static const uint GBUFFER_DIFFUSE_INDEX = 0;
-static const uint GBUFFER_SPECULAR_INDEX = 1;
-static const uint GBUFFER_NORMAL_INDEX = 2;
+static const uint GBUFFER_ALBEDO_INDEX = 0;
+static const uint GBUFFER_NORMALS_INDEX = 1;
+static const uint GBUFFER_MRO_INDEX = 2;
 static const uint GBUFFER_POSITION_INDEX = 3;
 
 float4 main(PSInput IN) : SV_TARGET {
-	MaterialData material;
+	Material material;
 
-	material.diffuse = getColorFromTexture(GBUFFER_DIFFUSE_INDEX + GBUFFER_INDEX_OFFSET, IN.uv, float4(0.f, 0.f, 0.f, 1.f));
-	material.specular = getColorFromTexture(GBUFFER_SPECULAR_INDEX + GBUFFER_INDEX_OFFSET, IN.uv, float4(.5f, .5f, .5f, 1.f));
-	material.normal = getColorFromTexture(GBUFFER_NORMAL_INDEX + GBUFFER_INDEX_OFFSET, IN.uv).xyz;
-	material.position = getColorFromTexture(GBUFFER_POSITION_INDEX + GBUFFER_INDEX_OFFSET, IN.uv).xyz;
+	material.albedo = getColorFromTexture(GBUFFER_ALBEDO_INDEX, GBUFFER_INDEX_OFFSET, IN.uv, float4(0.f, 0.f, 0.f, 0.f));
+
+	if (material.albedo.w == 0.f) {
+		discard;
+		return 0.f;
+	}
+
+	material.normal = getColorFromTexture(GBUFFER_NORMALS_INDEX, GBUFFER_INDEX_OFFSET, IN.uv).xyz;
+	material.metalnessRoughnessOcclusion = getColorFromTexture(GBUFFER_MRO_INDEX, GBUFFER_INDEX_OFFSET, IN.uv).rgb;
+	material.position = getColorFromTexture(GBUFFER_POSITION_INDEX, GBUFFER_INDEX_OFFSET, IN.uv).xyz;
+	
 
 	if (sceneData.showGBuffer == 1) {
-		return material.diffuse;
+		return material.albedo;
 	} else if (sceneData.showGBuffer == 2) {
-		return material.specular;
-	} else if (sceneData.showGBuffer == 3) {
 		return float4(material.normal, 1.f);
+	} else if (sceneData.showGBuffer == 3) {
+		const float c = material.metalnessRoughnessOcclusion.r;
+		return float4(c, c, c, 1.f);
 	} else if (sceneData.showGBuffer == 4) {
+		const float c = material.metalnessRoughnessOcclusion.g;
+		return float4(c, c, c, 1.f);
+	} else if (sceneData.showGBuffer == 5) {
+		const float c = material.metalnessRoughnessOcclusion.b;
+		return float4(c, c, c, 1.f);
+	} else if (sceneData.showGBuffer == 6) {
 		return float4(normalize(material.position), 1.f);
 	}
 

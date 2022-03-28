@@ -52,9 +52,9 @@ private:
 	} projectionType = ProjectionType::Perspective;
 
 	enum class GBuffer {
-		Diffuse,
-		Specular,
+		Albedo,
 		Normals,
+		MetallnessRoughnessOcclusion,
 		Position,
 
 		Count
@@ -62,8 +62,8 @@ private:
 
 	DXGI_FORMAT gBufferFormats[static_cast<SizeType>(GBuffer::Count)] = {
 		DXGI_FORMAT_R8G8B8A8_UNORM, // Diffuse
-		DXGI_FORMAT_R8G8B8A8_UNORM, // Specular
 		DXGI_FORMAT_R32G32B32A32_FLOAT, // Normals
+		DXGI_FORMAT_R32G32B32A32_FLOAT, // Metalness+Roughness+Occlusion
 		DXGI_FORMAT_R32G32B32A32_FLOAT // Position
 	};
 
@@ -92,29 +92,30 @@ private:
 
 	// viewport
 	D3D12_VIEWPORT viewport;
-	D3D12_RECT scissorRect;
+	D3D12_RECT scissorRect = { 0, 0, LONG_MAX, LONG_MAX };
 	float aspectRatio;
 	float orthoDim = 10.f;
 
 	// Keeping track of fence values for double/triple buffering
-	UINT64 fenceValues[frameCount];
+	UINT64 fenceValues[frameCount] = { 0, 0 };
 
 	// Scene
-	Scene scene;
+	Scene scene = { device };
 
-	FPSCameraController *camControl;
-	FPSCameraController fpsModeControl;
-	FPSEditModeCameraController editModeControl;
+	FPSCameraController *camControl = nullptr;
+	FPSCameraController fpsModeControl = { nullptr, 200.f };
+	FPSEditModeCameraController editModeControl = { nullptr, 200.f };
 
 
 	// timing
-	double fps;
-	double totalTime;
-	double deltaTime;
+	double fps = 0.0;
+	double totalTime = 0.0;
+	double deltaTime = 0.0;
 
 	// Debugging
-	const char *gBufferLabels[5] = {"Render", "Diffuse", "Specular", "Normal", "Position"};
-	int showGBuffer;
-	bool editMode;
-	bool withNormalMapping;
+	const char *gBufferLabels[7] = {"Render", "Diffuse", "Normals", "Metalness", "Roughness", "Occlusion", "Position"};
+	int showGBuffer = 0;
+	bool spotLightOn = false;
+	bool editMode = true;
+	bool withNormalMapping = true;
 };

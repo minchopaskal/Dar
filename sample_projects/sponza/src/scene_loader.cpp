@@ -3,6 +3,7 @@
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
+#include "assimp/GltfMaterial.h"
 
 #include "MikkTSpace/mikktspace.h"
 
@@ -103,14 +104,20 @@ Assimp::Importer& getAssimpImporter() {
 
 TextureId loadTexture(aiMaterial *aiMat, aiTextureType aiType, TextureType matType, Scene &scene) {
 	const int matTypeCount = aiMat->GetTextureCount(aiType);
-	if (matTypeCount <= 0) {
+	if (matTypeCount <= 0 && aiType != aiTextureType_METALNESS) {
 		return INVALID_TEXTURE_ID;
 	}
 
 	// Only read the first texture, for now we won't export
 	// multiple textures per channel.
 	aiString path;
-	aiMat->GetTexture(aiType, 0, &path);
+
+	// Assimp + glTF pain
+	if (aiType == aiTextureType_METALNESS) {
+		aiMat->GetTexture(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLICROUGHNESS_TEXTURE, &path);
+	} else {
+		aiMat->GetTexture(aiType, 0, &path);
+	}
 
 	if (path.length <= 0) {
 		return INVALID_TEXTURE_ID;
@@ -125,6 +132,14 @@ TextureId loadTexture(aiMaterial *aiMat, aiTextureType aiType, TextureType matTy
 	return scene.getNewTexture(path.C_Str(), matType);
 }
 
+Vec3 aiVector3DToVec3(const aiVector3D &aiVec) {
+	return Vec3{ aiVec.x, aiVec.y, aiVec.z };
+};
+
+Vec3 aiVector3DToVec3(const aiColor3D &aiVec) {
+	return Vec3{ aiVec.r, aiVec.g, aiVec.b };
+};
+
 MaterialId readMaterialDataForMesh(aiMesh *mesh, const aiScene *sc, Scene &scene) {
 	auto matIdx = mesh->mMaterialIndex;
 	if (matIdx < 0) {
@@ -133,20 +148,33 @@ MaterialId readMaterialDataForMesh(aiMesh *mesh, const aiScene *sc, Scene &scene
 
 	aiMaterial *aiMat = sc->mMaterials[matIdx];
 
+	// Blinn-Phong model materials
+	/*
 	TextureId diffuse = loadTexture(aiMat, aiTextureType_DIFFUSE, TextureType::Diffuse, scene);
 	TextureId specular = loadTexture(aiMat, aiTextureType_SPECULAR, TextureType::Specular, scene);
 	TextureId normals = loadTexture(aiMat, aiTextureType_NORMALS, TextureType::Normals, scene);
+	*/
 
-	return scene.getNewMaterial(diffuse, specular, normals);
+	// PBR model materials
+	MaterialData material;
+	material.baseColor = loadTexture(aiMat, aiTextureType_BASE_COLOR, TextureType::BaseColor, scene);
+	material.normals   = loadTexture(aiMat, aiTextureType_NORMALS, TextureType::BaseColor, scene);
+	material.metallicRoughness = loadTexture(aiMat, aiTextureType_METALNESS, TextureType::BaseColor, scene);
+	material.ambientOcclusion = loadTexture(aiMat, aiTextureType_AMBIENT_OCCLUSION, TextureType::BaseColor, scene);
+
+	ai_real metallicFactor, roughnessFactor;
+	aiVector3D baseColorFactor;
+	aiReturn result = aiMat->Get(AI_MATKEY_BASE_COLOR, baseColorFactor);
+	material.baseColorFactor = result == AI_SUCCESS ? aiVector3DToVec3(baseColorFactor) : Vec3(1.f);
+
+	result = aiMat->Get(AI_MATKEY_METALLIC_FACTOR, metallicFactor);
+	material.metallicFactor = result == AI_SUCCESS ? metallicFactor : 1.f;
+	
+	result = aiMat->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughnessFactor);
+	material.roughnessFactor = result == AI_SUCCESS ? roughnessFactor : 1.f;
+
+	return scene.getNewMaterial(material);
 }
-
-Vec3 aiVector3DToVec3(const aiVector3D &aiVec) {
-	return Vec3{ aiVec.x, aiVec.y, aiVec.z };
-};
-
-Vec3 aiVector3DToVec3(const aiColor3D &aiVec) {
-	return Vec3{ aiVec.r, aiVec.g, aiVec.b };
-};
 
 void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode, Scene &scene, SizeType &vertexOffset, SizeType &indexOffset, SceneLoaderFlags flags) {
 	dassert(aiScene != nullptr);
@@ -211,7 +239,7 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 	for (unsigned int i = 0; i < node->mNumMeshes; ++i) {
 		aiMesh *mesh = aiScene->mMeshes[node->mMeshes[i]];
 
-		const bool genTangents = (flags & sceneLoaderFlags_overrideGenTangents) || !mesh->HasTangentsAndBitangents();
+		const bool genTangents = mesh->HasTextureCoords(0) && ((flags & sceneLoaderFlags_overrideGenTangents) || !mesh->HasTangentsAndBitangents());
 
 		// Setup the mesh
 		Mesh resMesh;
@@ -226,7 +254,6 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 		for (unsigned int j = 0; j < mesh->mNumVertices; ++j) {
 			Vertex vertex;
 			vertex.pos = aiVector3DToVec3(mesh->mVertices[j]);
-			vertex.tangent = aiVector3DToVec3(mesh->mTangents[j]);
 
 			if (mesh->HasTextureCoords(0)) {
 				vertex.uv.x = mesh->mTextureCoords[0][j].x;

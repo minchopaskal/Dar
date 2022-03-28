@@ -82,6 +82,8 @@ struct Camera {
 		return fov;
 	}
 
+	void updateAspectRatio(unsigned int width, unsigned int height);
+
 private:
 	void updateOrientation() const;
 	void updateViewMatrix() const;
