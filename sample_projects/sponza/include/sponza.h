@@ -75,7 +75,6 @@ private:
 
 	VertexBuffer vertexBuffer;
 	IndexBuffer indexBuffer;
-	IndexBuffer screenTriangleIndexBuffer;
 
 	DepthBuffer depthBuffer;
 

@@ -80,10 +80,10 @@ float ndfTrowbridgeReitzGGX(float NoH, float roughness) {
 // Note that optimize the brdf calculations by cancelling the numerator of the geometry GGX
 // with the denominator of the reflectance BRDF
 float geometrySchlick_SmithGGX(float3 N, float3 V, float3 L, float roughness) {
-	//const float k = roughness / 2.f;
+	const float k = (roughness*roughness) / 2.f;
 
-	float r = (roughness + 1.0);
-	float k = (r * r) / 8.0;
+	/*float r = (roughness + 1.0);
+	float k = (r * r) / 8.0;*/
 
 	const float NoV = max(0.f, dot(N, V));
 	const float NoL = max(0.f, dot(N, L));
@@ -102,9 +102,9 @@ float3 evalOutputRadiance(Material material, float3 lightColor, float3 N, float3
 	const float3 H = normalize(L + V);
 	const float NoH = max(0.f, dot(N, H));
 	const float3 kS = fresnelSchlick(F0, V, H);
-	// brdf = D * G * F
-	//       ----------
-	//        4*NoL*NoV
+	//         D * G * F
+	// brdf = -----------
+	//         4*NoL*NoV
 	// But the visibility GGX contains NoL*NoV as a numerator so we cancel that out.
 	const float3 specular = kS * ndfTrowbridgeReitzGGX(NoH, roughness) * geometrySchlick_SmithGGX(N, V, L, roughness) * 0.25;
 	
@@ -138,7 +138,7 @@ float4 evalLights(Material material, const uint lightsBufferIndex) {
 			const float c = light.attenuation.x;
 			const float l = light.attenuation.y;
 			const float q = light.attenuation.z;
-			//const float attenuation = 1.f / (distance * distance);
+			//const float attenuation = 1.f / (distance * distance); // physically correct, but the other method gives us more control
 			const float attenuation = 1.f / (c + l * distance + q * distance * distance);
 			lighting += evalOutputRadiance(material, light.diffuse, N, V, L, attenuation, roughness);
 		}

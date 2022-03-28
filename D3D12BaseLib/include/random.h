@@ -23,7 +23,7 @@ struct Random {
 	}
 
 	template <class T>
-	std::enable_if_t<std::is_integral_v<T>, T> generateIntSigned(T min, T max) {
+	std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<T>, T> generateIntSigned(T min, T max) {
 		std::uniform_int_distribution<long long> uniformDist{ static_cast<long long>(min),  static_cast<long long>(max) };
 		return static_cast<T>(uniformDist(generator));
 	}

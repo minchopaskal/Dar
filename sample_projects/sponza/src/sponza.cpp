@@ -300,19 +300,19 @@ bool Sponza::loadAssets() {
 	}
 
 	// TODO: hard-coded for debugging. Add lights through scene editor/use scene lights
-	LightNode *lDir = new LightNode;
+	/*LightNode *lDir = new LightNode;
 	lDir->type = LightType::Directional;
 	lDir->direction = Vec3{ -1.f, -1.f, 0.f };
 	lDir->diffuse   = Vec3{ .3f, .3f, .3f };
 	lDir->ambient   = Vec3{ .1f, .1f, .1f };
 	lDir->specular  = Vec3{ 1.f, 1.f, 1.f };
-	scene.addNewLight(lDir);
+	scene.addNewLight(lDir);*/
 
-	/*Dar::Random rand;
+	Dar::Random rand;
 	for (int i = 0; i < 10; ++i) {
-		const float x = rand.generateFlt(-20.f, 20.f);
-		const float y = rand.generateFlt(-20.f, 20.f);
-		const float z = rand.generateFlt(-20.f, 20.f);
+		const float x = rand.generateFlt(-200.f, 200.f);
+		const float y = rand.generateFlt(0.f, 1.f);
+		const float z = rand.generateFlt(-200.f, 200.f);
 		const float r = rand.generateFlt(0.f, 1.f) * 1.f;
 		const float g = rand.generateFlt(0.f, 1.f) * 1.f;
 		const float b = rand.generateFlt(0.f, 1.f) * 1.f;
@@ -336,7 +336,7 @@ bool Sponza::loadAssets() {
 	lSpot->specular = Vec3{ 1.f, 1.f, 1.0f };
 	lSpot->innerAngleCutoff = dmath::radians(35.5f);
 	lSpot->outerAngleCutoff = dmath::radians(40.f);
-	scene.addNewLight(lSpot);*/
+	scene.addNewLight(lSpot);
 
 	Camera cam = Camera::perspectiveCamera(Vec3(0.f, -0.f, -0.f), 90.f, getWidth() / static_cast<float>(getHeight()), 0.1f, 10000.f);
 	CameraNode *camNode = new CameraNode(std::move(cam));
@@ -735,16 +735,6 @@ bool Sponza::prepareVertexIndexBuffers(UploadHandle uploadHandle) {
 	indexDesc.name = L"IndexBuffer";
 	indexDesc.indexBufferFormat = DXGI_FORMAT_R32_UINT;
 	if (!indexBuffer.init(indexDesc, uploadHandle)) {
-		return false;
-	}
-
-	UINT triangleIndices[] = {0, 1, 2};
-	VertexIndexBufferDesc screenTriDesc = {};
-	screenTriDesc.data = triangleIndices;
-	screenTriDesc.size = sizeof(triangleIndices);
-	screenTriDesc.name = L"ScreenTriangleIndexBuffer";
-	screenTriDesc.indexBufferFormat = DXGI_FORMAT_R32_UINT;
-	if (!screenTriangleIndexBuffer.init(screenTriDesc, uploadHandle)) {
 		return false;
 	}
 
