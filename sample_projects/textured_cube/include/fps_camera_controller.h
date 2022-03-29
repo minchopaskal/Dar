@@ -1,6 +1,6 @@
 #pragma once
 
-#include "d3d12_camera.h"
+#include "framework/camera.h"
 
 struct Camera;
 

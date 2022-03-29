@@ -4,13 +4,12 @@
 #include <chrono>
 #include <cstdio>
 
-#include "d3d12_app.h"
-#include "d3d12_asset_manager.h"
-#include "d3d12_pipeline_state.h"
-#include "d3d12_resource_manager.h"
-#include "d3d12_timer.h"
-#include "d3d12_utils.h"
-#include "random.h"
+#include "framework/app.h"
+#include "asset_manager/asset_manager.h"
+#include "d3d12/pipeline_state.h"
+#include "d3d12/resource_manager.h"
+#include "utils/utils.h"
+#include "utils/random.h"
 #include "scene_loader.h"
 
 #include "gpu_cpu_common.hlsli"
@@ -143,6 +142,8 @@ void Sponza::drawUI() {
 
 	const Camera &cam = camControl->getCamera();
 
+	ImGui::SetNextWindowPos({ 0, 0 });
+
 	ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 		ImGui::Text("FPS: %.2f", fps);
 		ImGui::Text("Camera FOV: %.2f", cam.getFOV());
@@ -156,8 +157,12 @@ void Sponza::drawUI() {
 		ImGui::Text("Right: %.2f %.2f %.2f", x.x, x.y, x.z);
 		ImGui::Text("Up: %.2f %.2f %.2f", y.x, y.y, y.z);
 		ImGui::Text("Forward: %.2f %.2f %.2f", z.x, z.y, z.z);
+		ImGui::GetWindowHeight();
+		ImVec2 winPos = ImGui::GetWindowPos();
+		ImVec2 winSize = ImGui::GetWindowSize();
 	ImGui::End();
 
+	ImGui::SetNextWindowPos({ winPos.x, winPos.y + winSize.y });
 	ImGui::Begin("General controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 		ImGui::Text("[`] - Show Rendered image");
 		ImGui::Text("[1-4] - Show G-Buffers");
@@ -165,15 +170,42 @@ void Sponza::drawUI() {
 		ImGui::Text("[o] - Switch between perspective/orthographic projection");
 		ImGui::Text("[f] - Toggle fullscreen mode");
 		ImGui::Text("[v] - Toggle V-Sync mode");
+		winPos = ImGui::GetWindowPos();
+		winSize = ImGui::GetWindowSize();
 	ImGui::End();
 
-	camControl->onDrawUI();
+	ImGui::SetNextWindowPos({ winPos.x, winPos.y + winSize.y });
+	ImGui::Begin("FPS Camera Controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::Text("[mouse move] - Turn around");
+		ImGui::Text("[mouse scroll] - Zoom/unzoom");
+		ImGui::Text("[wasd] - Move forwards/left/backwards/right");
+		ImGui::Text("[qe] - Move up/down");
+		ImGui::Text("[rt] - Increase/Decrease camera speed");
+		ImGui::Text("[k] - Make/Stop camera keeping on the plane of walking");
+		ImGui::Text("[shift] - Hold to move twice as fast.");
+		winPos = ImGui::GetWindowPos();
+		winSize = ImGui::GetWindowSize();
+	ImGui::End();
 
+	ImGui::SetNextWindowPos({ winPos.x, winPos.y + winSize.y });
+	ImGui::Begin("FPS Edit Mode Camera Controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::Text("[alt] - Hold for movement and rotation of camera");
+		ImGui::Text("[mouse scroll] - Zoom/unzoom");
+		winPos = ImGui::GetWindowPos();
+		winSize = ImGui::GetWindowSize();
+	ImGui::End();
+	
 	if (editMode) {
+		static float editModeWinWidth = 0.f;
+
+		ImGui::SetNextWindowPos({ width - editModeWinWidth, 0 });
+		ImGuiWindowFlags flags = ImGuiWindowFlags_AlwaysAutoResize;
+		
 		ImGui::Begin("Edit mode", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-			ImGui::ListBox("G-Buffer", &showGBuffer, gBufferLabels, sizeof(gBufferLabels)/sizeof(char*));
+			ImGui::ListBox("G-Buffer", &showGBuffer, gBufferLabels, sizeof(gBufferLabels) / sizeof(char *));
 			ImGui::Checkbox("With normal mapping", &withNormalMapping);
 			ImGui::Checkbox("V-Sync", &vSyncEnabled);
+			editModeWinWidth = ImGui::GetWindowWidth();
 		ImGui::End();
 	}
 }

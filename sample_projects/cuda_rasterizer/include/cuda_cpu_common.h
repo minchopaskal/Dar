@@ -2,7 +2,7 @@
 #define CUDA_CPU_COMMON_H
 
 #ifndef __CUDACC__
-#include "d3d12_math.h"
+#include "math/dar_math.h"
 
 using float2 = Vec2;
 using float3 = Vec3;

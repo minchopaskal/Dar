@@ -1,5 +1,5 @@
 #include "fps_camera_controller.h"
-#include "d3d12_input_query.h"
+#include "framework/input_query.h"
 
 #include "imgui.h"
 #include "GLFW/glfw3.h"
@@ -95,16 +95,4 @@ void FPSCameraController::processKeyboardInput(IKeyboardInputQuery *inputQuery, 
 			speed += deltaSpeed;
 		}
 	}
-}
-
-void FPSCameraController::onDrawUI() {
-	ImGui::Begin("FPS Camera Controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-	ImGui::Text("[mouse move] - Turn around");
-	ImGui::Text("[mouse scroll] - Zoom/unzoom");
-	ImGui::Text("[wasd] - Move forwards/left/backwards/right");
-	ImGui::Text("[qe] - Move up/down");
-	ImGui::Text("[rt] - Increase/Decrease camera speed");
-	ImGui::Text("[k] - Make/Stop camera keeping on the plane of walking");
-	ImGui::Text("[shift] - Hold to move twice as fast.");
-	ImGui::End();
 }

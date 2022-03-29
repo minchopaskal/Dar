@@ -52,14 +52,15 @@ target_compile_definitions(
 
 target_link_directories(HelloTriangle PRIVATE ${LIB_DIR})
 
-target_link_libraries(HelloTriangle D3D12BaseLib "d3d12.lib" "d3dcompiler.lib" "dxgi.lib" "dxguid.lib" "glfw3.lib")
+target_link_libraries(HelloTriangle Dar "d3d12.lib" "d3dcompiler.lib" "dxgi.lib" "dxguid.lib" "glfw3.lib")
 
 target_include_directories(
 	HelloTriangle
 	PRIVATE
 	${INCLUDE_DIR}
 	${SUBMODULE_DIR}
-	${PROJECT_SOURCE_DIR}/D3D12BaseLib/include
+	${PROJECT_SOURCE_DIR}/DarE
+	${PROJECT_SOURCE_DIR}/DarE/graphics
 )
 
 copyD3D12Core(HelloTriangle)

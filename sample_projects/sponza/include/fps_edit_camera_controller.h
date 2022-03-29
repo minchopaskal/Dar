@@ -12,8 +12,6 @@ struct FPSEditModeCameraController : public FPSCameraController {
 
 	void processKeyboardInput(IKeyboardInputQuery *inputQuery, double deltaTime) override final;
 
-	void onDrawUI() override final;
-
 private:
 	bool flyMode;
 };

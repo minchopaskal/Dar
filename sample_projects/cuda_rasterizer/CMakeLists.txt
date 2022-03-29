@@ -62,7 +62,7 @@ target_compile_definitions(
 target_link_directories(CudaRasterizer PRIVATE ${LIB_DIR})
 target_link_directories(CudaRasterizer PRIVATE ${PROJECT_SPECIFIC_SUBMODULE_DIR}/lib)
 
-target_link_libraries(CudaRasterizer D3D12BaseLib CUDABaseLib "d3d12.lib" "d3dcompiler.lib" "dxgi.lib" "dxguid.lib" "glfw3.lib")
+target_link_libraries(CudaRasterizer Dar CUDABaseLib "d3d12.lib" "d3dcompiler.lib" "dxgi.lib" "dxguid.lib" "glfw3.lib")
 
 add_subdirectory(third_party)
 
@@ -71,7 +71,8 @@ target_include_directories(
 	PRIVATE
 	${INCLUDE_DIR}
 	${SUBMODULE_DIR}
-	${PROJECT_SOURCE_DIR}/D3D12BaseLib/include
+	${PROJECT_SOURCE_DIR}/DarE
+	${PROJECT_SOURCE_DIR}/DarE/graphics
 	${SUBMODULE_DIR}/imgui
 	${PROJECT_SPECIFIC_SUBMODULE_DIR}/CUDAPlayground/CUDABase/include
 )

@@ -4,11 +4,11 @@
 #include <chrono>
 #include <cstdio>
 
-#include "d3d12_app.h"
-#include "d3d12_asset_manager.h"
-#include "d3d12_pipeline_state.h"
-#include "d3d12_resource_manager.h"
-#include "d3d12_utils.h"
+#include "framework/app.h"
+#include "asset_manager/asset_manager.h"
+#include "d3d12/pipeline_state.h"
+#include "d3d12/resource_manager.h"
+#include "utils/utils.h"
 #include "geometry.h"
 
 // TODO: To make things simple, child projects should not rely on third party software
@@ -200,8 +200,8 @@ void D3D12TexturedCube::onResize(const unsigned int w, const unsigned int h) {
 		return;
 	}
 
-	this->width = std::max(1u, w);
-	this->height = std::max(1u, h);
+	this->width = dmath::max(1u, w);
+	this->height = dmath::max(1u, h);
 	viewport = { 0.f, 0.f, static_cast<float>(width), static_cast<float>(height), 0.001f, 100.f };
 	aspectRatio = static_cast<float>(width) / static_cast<float>(height);
 
@@ -468,8 +468,8 @@ bool D3D12TexturedCube::updateRenderTargetViews() {
 }
 
 bool D3D12TexturedCube::resizeDepthBuffer() {
-	width = std::max(1u, width);
-	height = std::max(1u, height);
+	width = dmath::max(1u, width);
+	height = dmath::max(1u, height);
 
 	ResourceInitData resData(ResourceType::DepthStencilBuffer);
 	resData.textureData.width = width;

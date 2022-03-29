@@ -7,7 +7,7 @@
 
 #include "MikkTSpace/mikktspace.h"
 
-#include "d3d12_defines.h"
+#include "utils/defines.h"
 
 #define USE_MIKKTSPACE
 

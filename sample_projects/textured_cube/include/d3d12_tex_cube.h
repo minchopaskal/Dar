@@ -1,10 +1,10 @@
 #pragma once
 
-#include "d3d12_app.h"
-#include "d3d12_camera.h"
-#include "d3d12_defines.h"
-#include "d3d12_math.h"
-#include "d3d12_pipeline_state.h"
+#include "framework/app.h"
+#include "framework/camera.h"
+#include "utils/defines.h"
+#include "math/dar_math.h"
+#include "d3d12/pipeline_state.h"
 
 #include "fps_camera_controller.h"
 

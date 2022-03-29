@@ -3,28 +3,6 @@
 
 #include "common.hlsli"
 
-enum LightType {
-	Invalid = -1,
-
-	Point = 0,
-	Directional,
-	Spot,
-
-	Count
-};
-
-struct LightData {
-	float3 position;
-	float3 diffuse;
-	float3 ambient;
-	float3 specular;
-	float3 attenuation;
-	float3 direction;
-	float innerCutoff;
-	float outerCutoff;
-	LightType type;
-};
-
 struct LightColors {
 	float3 diffuse;
 	float3 specular;

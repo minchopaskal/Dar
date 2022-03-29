@@ -1,13 +1,13 @@
 #pragma once
 
-#include "d3d12_app.h"
-#include "d3d12_camera.h"
-#include "d3d12_defines.h"
-#include "d3d12_depth_buffer.h"
-#include "d3d12_math.h"
-#include "d3d12_pipeline_state.h"
-#include "d3d12_scene.h"
-#include "d3d12_vertex_index_buffer.h"
+#include "framework/app.h"
+#include "framework/camera.h"
+#include "framework/scene.h"
+#include "utils/defines.h"
+#include "d3d12/depth_buffer.h"
+#include "d3d12/pipeline_state.h"
+#include "d3d12/vertex_index_buffer.h"
+#include "math/dar_math.h"
 
 #include "fps_camera_controller.h"
 #include "fps_edit_camera_controller.h"

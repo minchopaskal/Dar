@@ -7,11 +7,11 @@
 #include <d3dcompiler.h>
 #include <dxgi1_6.h>
 
-#include "d3d12_app.h"
-#include "d3d12_resource_manager.h"
-#include "d3d12_asset_manager.h"
-#include "d3d12_pipeline_state.h"
-#include "d3d12_utils.h"
+#include "asset_manager/asset_manager.h"
+#include "framework/app.h"
+#include "d3d12/resource_manager.h"
+#include "d3d12/pipeline_state.h"
+#include "utils/utils.h"
 #include "geometry.h"
 
 // TODO: To make things simple, child projects should not rely on third party software
@@ -113,8 +113,8 @@ void D3D12HelloTriangle::onResize(const unsigned int w, const unsigned int h) {
 		return;
 	}
 
-	this->width = std::max(1u, w);
-	this->height = std::max(1u, h);
+	this->width = dmath::max(1u, w);
+	this->height = dmath::max(1u, h);
 	viewport = { 0.f, 0.f, static_cast<float>(width), static_cast<float>(height) };
 	aspectRatio = width / float(height);
 
@@ -390,8 +390,8 @@ bool D3D12HelloTriangle::updateRenderTargetViews() {
 }
 
 bool D3D12HelloTriangle::resizeDepthBuffer(int width, int height) {
-	width = std::max(1, width);
-	height = std::max(1, height);
+	width = dmath::max(1, width);
+	height = dmath::max(1, height);
 
 	ResourceInitData resData(ResourceType::DepthStencilBuffer);
 	resData.textureData.width = width;

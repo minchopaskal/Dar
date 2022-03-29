@@ -25,16 +25,36 @@ struct MeshData {
 	UINT materialId;
 };
 
-#ifdef __HLSL_VERSION
 struct MaterialData {
-	float3 baseColorFactor;
+	Vec3 baseColorFactor;
 	float metallicFactor;
 	float roughnessFactor;
-	UINT baseColorIndex;
-	UINT normalsIndex;
-	UINT metallicRoughnessIndex;
-	UINT ambientOcclusionIndex;
+	UINT baseColor;
+	UINT normals;
+	UINT metallicRoughness;
+	UINT ambientOcclusion;
 };
-#endif // __HLSL_VERSION
+
+enum LightType {
+	Invalid = -1,
+
+	Point = 0,
+	Directional,
+	Spot,
+
+	Count
+};
+
+struct LightData {
+	Vec3 position;
+	Vec3 diffuse;
+	Vec3 ambient;
+	Vec3 specular;
+	Vec3 attenuation;
+	Vec3 direction;
+	float innerAngleCutoff;
+	float outerAngleCutoff;
+	int type;
+};
 
 #endif // GPU_CPU_COMMON_HLSLI
