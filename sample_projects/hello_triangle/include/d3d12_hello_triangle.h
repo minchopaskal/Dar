@@ -1,9 +1,9 @@
 #pragma once
 
-#include "d3d12_app.h"
-#include "d3d12_defines.h"
-#include "d3d12_math.h"
-#include "d3d12_resource_handle.h"
+#include "framework/app.h"
+#include "utils/defines.h"
+#include "math/dar_math.h"
+#include "graphics/d3d12/resource_handle.h"
 
 struct D3D12HelloTriangle : D3D12App {
 	D3D12HelloTriangle(UINT width, UINT height, const String &windowTitle);

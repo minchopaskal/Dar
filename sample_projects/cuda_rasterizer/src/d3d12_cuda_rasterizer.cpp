@@ -7,10 +7,10 @@
 #include <d3dcompiler.h>
 #include <dxgi1_6.h>
 
-#include "d3d12_app.h"
-#include "d3d12_resource_manager.h"
-#include "d3d12_asset_manager.h"
-#include "d3d12_utils.h"
+#include "framework/app.h"
+#include "d3d12/resource_manager.h"
+#include "asset_manager/asset_manager.h"
+#include "utils/utils.h"
 
 #include "cuda_manager.h"
 

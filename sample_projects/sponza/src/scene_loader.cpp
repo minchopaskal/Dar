@@ -7,11 +7,11 @@
 
 #include "MikkTSpace/mikktspace.h"
 
-#include "d3d12_defines.h"
+#include "utils/defines.h"
 
 #define USE_MIKKTSPACE
 
-struct MeshData {
+struct MikkTSpaceMeshData {
 	Scene *scene;
 	aiMesh *mesh;
 	Map<UINT, UINT> *indicesMapping;
@@ -20,7 +20,7 @@ struct MeshData {
 /// Helper structure for generating the tangents with the MikkTSpace algorithm
 /// as given by glTF2.0 specs.
 struct MikkTSpaceTangentSpaceGenerator {
-	void init(MeshData *meshData) {
+	void init(MikkTSpaceMeshData *meshData) {
 		tSpaceIface.m_getNumFaces = getNumFaces;
 		tSpaceIface.m_getNormal = getNormal;
 		tSpaceIface.m_getNumVerticesOfFace = getNumVerticesOfFace;
@@ -41,7 +41,7 @@ private:
 	SMikkTSpaceContext tSpaceCtx = {};
 
 	static int getNumFaces(const SMikkTSpaceContext *pContext) {
-		MeshData *meshData = static_cast<MeshData*>(pContext->m_pUserData);
+		MikkTSpaceMeshData *meshData = static_cast<MikkTSpaceMeshData *>(pContext->m_pUserData);
 		return meshData->mesh->mNumFaces;
 	}
 
@@ -50,7 +50,7 @@ private:
 	}
 
 	static void getPosition(const SMikkTSpaceContext *pContext, float fvPosOut[], const int iFace, const int iVert) {
-		MeshData *meshData = static_cast<MeshData *>(pContext->m_pUserData);
+		MikkTSpaceMeshData *meshData = static_cast<MikkTSpaceMeshData*>(pContext->m_pUserData);
 		aiMesh *mesh = meshData->mesh;
 		aiVector3D &v = mesh->mVertices[mesh->mFaces[iFace].mIndices[iVert]];
 		fvPosOut[0] = v.x;
@@ -59,7 +59,7 @@ private:
 	}
 
 	static void getNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
-		MeshData *meshData = static_cast<MeshData *>(pContext->m_pUserData);
+		MikkTSpaceMeshData *meshData = static_cast<MikkTSpaceMeshData*>(pContext->m_pUserData);
 		aiMesh *mesh = meshData->mesh;
 		aiVector3D &v = mesh->mNormals[mesh->mFaces[iFace].mIndices[iVert]];
 		fvNormOut[0] = v.x;
@@ -68,7 +68,7 @@ private:
 	}
 
 	static void getTexCoord(const SMikkTSpaceContext *pContext, float fvTexcOut[], const int iFace, const int iVert) {
-		MeshData *meshData = static_cast<MeshData *>(pContext->m_pUserData);
+		MikkTSpaceMeshData *meshData = static_cast<MikkTSpaceMeshData*>(pContext->m_pUserData);
 		aiMesh *mesh = meshData->mesh;
 		aiVector3D &uv = mesh->mTextureCoords[0][mesh->mFaces[iFace].mIndices[iVert]];
 		fvTexcOut[0] = uv.x;
@@ -76,7 +76,7 @@ private:
 	}
 
 	static void setTSpaceBasic(const SMikkTSpaceContext *pContext, const float fvTangent[], const float fSign, const int iFace, const int iVert) {
-		MeshData *meshData = static_cast<MeshData*>(pContext->m_pUserData);
+		MikkTSpaceMeshData *meshData = static_cast<MikkTSpaceMeshData*>(pContext->m_pUserData);
 		Scene &scene = *meshData->scene;
 		const aiMesh &mesh = *meshData->mesh;
 		const auto &indicesMap = *meshData->indicesMapping;
@@ -157,10 +157,10 @@ MaterialId readMaterialDataForMesh(aiMesh *mesh, const aiScene *sc, Scene &scene
 
 	// PBR model materials
 	MaterialData material;
-	material.baseColor = loadTexture(aiMat, aiTextureType_BASE_COLOR, TextureType::BaseColor, scene);
-	material.normals   = loadTexture(aiMat, aiTextureType_NORMALS, TextureType::BaseColor, scene);
-	material.metallicRoughness = loadTexture(aiMat, aiTextureType_METALNESS, TextureType::BaseColor, scene);
-	material.ambientOcclusion = loadTexture(aiMat, aiTextureType_AMBIENT_OCCLUSION, TextureType::BaseColor, scene);
+	material.baseColorIndex = loadTexture(aiMat, aiTextureType_BASE_COLOR, TextureType::BaseColor, scene);
+	material.normalsIndex = loadTexture(aiMat, aiTextureType_NORMALS, TextureType::BaseColor, scene);
+	material.metallicRoughnessIndex = loadTexture(aiMat, aiTextureType_METALNESS, TextureType::BaseColor, scene);
+	material.ambientOcclusionIndex = loadTexture(aiMat, aiTextureType_AMBIENT_OCCLUSION, TextureType::BaseColor, scene);
 
 	ai_real metallicFactor, roughnessFactor;
 	aiVector3D baseColorFactor;
@@ -191,14 +191,14 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 			}
 
 			LightNode *light = new LightNode;
-			light->position = aiVector3DToVec3(aiL->mPosition);
-			light->diffuse = aiVector3DToVec3(aiL->mColorDiffuse);
-			light->specular = aiVector3DToVec3(aiL->mColorSpecular);
-			light->ambient = aiVector3DToVec3(aiL->mColorAmbient);
-			light->direction = aiVector3DToVec3(aiL->mDirection);
-			light->attenuation = Vec3{aiL->mAttenuationConstant, aiL->mAttenuationLinear, aiL->mAttenuationQuadratic};
-			light->innerAngleCutoff = aiL->mAngleInnerCone;
-			light->outerAngleCutoff = aiL->mAngleOuterCone;
+			light->lightData.position = aiVector3DToVec3(aiL->mPosition);
+			light->lightData.diffuse = aiVector3DToVec3(aiL->mColorDiffuse);
+			light->lightData.specular = aiVector3DToVec3(aiL->mColorSpecular);
+			light->lightData.ambient = aiVector3DToVec3(aiL->mColorAmbient);
+			light->lightData.direction = aiVector3DToVec3(aiL->mDirection);
+			light->lightData.attenuation = Vec3{aiL->mAttenuationConstant, aiL->mAttenuationLinear, aiL->mAttenuationQuadratic};
+			light->lightData.innerAngleCutoff = aiL->mAngleInnerCone;
+			light->lightData.outerAngleCutoff = aiL->mAngleOuterCone;
 			
 			scene.addNewLight(light);
 		}
@@ -272,7 +272,7 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 		}
 
 		MikkTSpaceTangentSpaceGenerator tangentGenerator = {};
-		MeshData meshData = {};
+		MikkTSpaceMeshData meshData = {};
 		Map<UINT, UINT> indicesMapping;
 		if (genTangents) {
 			meshData.scene = &scene;

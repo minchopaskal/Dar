@@ -1,8 +1,8 @@
 #pragma once
 
 #include "cuda_cpu_common.h"
-#include "d3d12_defines.h"
-#include "d3d12_math.h"
+#include "utils/defines.h"
+#include "math/dar_math.h"
 
 struct CudaRasterizer;
 

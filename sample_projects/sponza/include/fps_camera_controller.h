@@ -1,6 +1,6 @@
 #pragma once
 
-#include "d3d12_camera.h"
+#include "framework/camera.h"
 
 struct Camera;
 struct GLFWwindow;
@@ -20,8 +20,6 @@ struct FPSCameraController : public ICameraController {
 	virtual void onMouseScroll(double xOffset, double yOffset, double deltaTime) override;
 
 	virtual void processKeyboardInput(IKeyboardInputQuery *inputQuery, double deltaTime) override;
-
-	virtual void onDrawUI() override;
 
 public:
 	GLFWwindow *window;

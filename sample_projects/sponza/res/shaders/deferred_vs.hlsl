@@ -3,7 +3,7 @@
 struct VSInput
 {
 	float3 position : POSITION0;
-	float3 normal: NORMAL;
+	float3 normal : NORMAL;
 	float3 tangent : TANGENT;
 	float2 uv : TEXCOORD;
 };

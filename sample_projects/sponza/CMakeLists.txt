@@ -11,6 +11,7 @@ set(HEADERS
 	${INCLUDE_DIR}/fps_camera_controller.h
 	${INCLUDE_DIR}/fps_edit_camera_controller.h
 	${INCLUDE_DIR}/sponza.h
+	${INCLUDE_DIR}/scene.h
 	${INCLUDE_DIR}/scene_loader.h
 )
 
@@ -18,6 +19,7 @@ set(SOURCES
 	${SRC_DIR}/fps_camera_controller.cpp
 	${SRC_DIR}/fps_edit_camera_controller.cpp
 	${SRC_DIR}/main.cpp
+	${SRC_DIR}/scene.cpp
 	${SRC_DIR}/scene_loader.cpp
 	${SRC_DIR}/sponza.cpp
 	${SUBMODULE_DIR}/MikkTSpace/mikktspace.c
@@ -72,10 +74,10 @@ target_compile_definitions(
 
 target_link_directories(Sponza PRIVATE ${LIB_DIR} )
 
-target_link_libraries(Sponza D3D12BaseLib "d3d12.lib" "d3dcompiler.lib" "dxgi.lib" "dxguid.lib" "glfw3.lib")
+target_link_libraries(Sponza Dar "d3d12.lib" "d3dcompiler.lib" "dxgi.lib" "dxguid.lib" "glfw3.lib")
 
 target_link_libraries(
-	D3D12BaseLib
+	Dar
 	$<$<CONFIG:Debug>:assimpd>
 	$<$<CONFIG:Release>:assimp>
 )
@@ -85,7 +87,8 @@ target_include_directories(
 	PRIVATE
 	${INCLUDE_DIR}
 	${SUBMODULE_DIR}
-	${PROJECT_SOURCE_DIR}/D3D12BaseLib/include
+	${PROJECT_SOURCE_DIR}/DarE
+	${PROJECT_SOURCE_DIR}/DarE/graphics
 	${SUBMODULE_DIR}/imgui
 	${SUBMODULE_DIR}/assimp/include
 	${SHADERS_DIR}

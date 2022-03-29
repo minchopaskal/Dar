@@ -1,6 +1,6 @@
 #pragma once
 
-#include "d3d12_scene.h"
+#include "scene.h"
 
 enum class SceneLoaderError : int {
 	Success = 0,

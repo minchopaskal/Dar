@@ -1,6 +1,6 @@
 #pragma once
 
-#include "d3d12_camera.h"
+#include "framework/camera.h"
 
 struct Camera;
 
@@ -15,8 +15,6 @@ struct FPSCameraController : public ICameraController {
 	void onMouseScroll(double xOffset, double yOffset, double deltaTime) override;
 
 	void processKeyboardInput(IKeyboardInputQuery *inputQuery, double deltaTime) override;
-
-	void onDrawUI() override {}
 
 private:
 	struct MousePos {

@@ -3,28 +3,6 @@
 
 #include "common.hlsli"
 
-enum LightType {
-	Invalid = -1,
-
-	Point = 0,
-	Directional,
-	Spot,
-
-	Count
-};
-
-struct LightData {
-	float3 position;
-	float3 diffuse;
-	float3 ambient;
-	float3 specular;
-	float3 attenuation;
-	float3 direction;
-	float innerCutoff;
-	float outerCutoff;
-	LightType type;
-};
-
 struct LightColors {
 	float3 diffuse;
 	float3 specular;
@@ -155,11 +133,11 @@ float4 evalLights(Material material, const uint lightsBufferIndex) {
 			const float3 spotDir = -sceneData.cameraDir.xyz;
 			const float theta = dot(L, spotDir);
 
-			if (theta > light.outerCutoff) {
+			if (theta > light.outerAngleCutoff) {
 				float3 spotLighting = evalOutputRadiance(material, light.diffuse, N, V, L, 1.f, roughness);
 
-				if (theta < light.innerCutoff) {
-					const float spotEdgeIntensity = (theta - light.outerCutoff) / (light.innerCutoff - light.outerCutoff);
+				if (theta < light.innerAngleCutoff) {
+					const float spotEdgeIntensity = (theta - light.outerAngleCutoff) / (light.innerAngleCutoff - light.outerAngleCutoff);
 
 					spotLighting *= spotEdgeIntensity;
 				}

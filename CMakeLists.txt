@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 
-project(D3D12Base VERSION 0.1)
+project(Dar VERSION 0.1)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -108,5 +108,5 @@ macro(compile_shaders TRG SHADER_FILES SHADER_VERSION)
 	endforeach()
 endmacro()
 
-add_subdirectory(D3D12BaseLib)
+add_subdirectory(DarE)
 add_subdirectory(sample_projects)

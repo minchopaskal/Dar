@@ -4,6 +4,7 @@
 #ifdef __HLSL_VERSION
 typedef row_major matrix Mat4;
 typedef float4 Vec4;
+typedef float3 Vec3;
 typedef uint UINT;
 #endif // __HLSL_VERSION
 
@@ -25,9 +26,8 @@ struct MeshData {
 	UINT materialId;
 };
 
-#ifdef __HLSL_VERSION
 struct MaterialData {
-	float3 baseColorFactor;
+	Vec3 baseColorFactor;
 	float metallicFactor;
 	float roughnessFactor;
 	UINT baseColorIndex;
@@ -35,6 +35,27 @@ struct MaterialData {
 	UINT metallicRoughnessIndex;
 	UINT ambientOcclusionIndex;
 };
-#endif // __HLSL_VERSION
+
+enum LightType {
+	Invalid = -1,
+
+	Point = 0,
+	Directional,
+	Spot,
+
+	Count
+};
+
+struct LightData {
+	Vec3 position;
+	Vec3 diffuse;
+	Vec3 ambient;
+	Vec3 specular;
+	Vec3 attenuation;
+	Vec3 direction;
+	float innerAngleCutoff;
+	float outerAngleCutoff;
+	int type;
+};
 
 #endif // GPU_CPU_COMMON_HLSLI

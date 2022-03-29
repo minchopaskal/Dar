@@ -1,5 +1,5 @@
 #include "fps_camera_controller.h"
-#include "d3d12_input_query.h"
+#include "framework/input_query.h"
 
 FPSCameraController::FPSCameraController(Camera *cam, double movementSpeed) : 
 	ICameraController(cam),

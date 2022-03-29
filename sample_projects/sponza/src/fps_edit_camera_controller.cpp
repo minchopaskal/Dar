@@ -1,5 +1,5 @@
 #include "fps_edit_camera_controller.h"
-#include "d3d12_input_query.h"
+#include "framework/input_query.h"
 
 #include "imgui.h"
 
@@ -33,11 +33,4 @@ void FPSEditModeCameraController::processKeyboardInput(IKeyboardInputQuery *inpu
 	}
 
 	FPSCameraController::processKeyboardInput(inputQuery, deltaTime);
-}
-
-void FPSEditModeCameraController::onDrawUI() {
-	ImGui::Begin("FPS Edit Mode Camera Controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-	ImGui::Text("[alt] - Hold for movement and rotation of camera");
-	ImGui::Text("[mouse scroll] - Zoom/unzoom");
-	ImGui::End();
 }
