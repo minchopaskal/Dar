@@ -115,7 +115,8 @@ private:
 	// Debugging
 	const char *gBufferLabels[7] = {"Render", "Diffuse", "Normals", "Metalness", "Roughness", "Occlusion", "Position"};
 	int showGBuffer = 0;
-	bool spotLightOn = false;
+	bool spotLightON = false;
 	bool editMode = true;
 	bool withNormalMapping = true;
+	bool fxaaON = false;
 };

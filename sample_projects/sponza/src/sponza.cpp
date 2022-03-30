@@ -100,12 +100,15 @@ void Sponza::update() {
 	sceneData.viewProjection = projectionMat * viewMat;
 	sceneData.cameraPosition = Vec4{ cam.getPos(), 1.f };
 	sceneData.cameraDir = Vec4{ dmath::normalized(cam.getCameraZ()), 1.f };
+	sceneData.invWidth = 1.f / width;
+	sceneData.invHeight = 1.f / height;
 	sceneData.numLights = static_cast<int>(scene.getNumLights());
 	sceneData.showGBuffer = showGBuffer;
 	sceneData.width = width;
 	sceneData.height = height;
 	sceneData.withNormalMapping = withNormalMapping;
-	sceneData.spotLightOn = spotLightOn;
+	sceneData.spotLightON = spotLightON;
+	sceneData.fxaaON = fxaaON;
 
 	/// Initialize the MVP constant buffer resource if needed
 	if (sceneDataHandle[frameIndex] == INVALID_RESOURCE_HANDLE) {
@@ -205,6 +208,7 @@ void Sponza::drawUI() {
 			ImGui::ListBox("G-Buffer", &showGBuffer, gBufferLabels, sizeof(gBufferLabels) / sizeof(char *));
 			ImGui::Checkbox("With normal mapping", &withNormalMapping);
 			ImGui::Checkbox("V-Sync", &vSyncEnabled);
+			ImGui::Checkbox("FXAA", &fxaaON);
 			editModeWinWidth = ImGui::GetWindowWidth();
 		ImGui::End();
 	}
@@ -260,7 +264,7 @@ void Sponza::onKeyboardInput(int key, int action) {
 	}
 
 	if (keyPressed[GLFW_KEY_F] && !keyRepeated[GLFW_KEY_F]) {
-		spotLightOn = !spotLightOn;
+		spotLightON = !spotLightON;
 	}
 
 	if (keyPressed[GLFW_KEY_V] && !keyRepeated[GLFW_KEY_V]) {
