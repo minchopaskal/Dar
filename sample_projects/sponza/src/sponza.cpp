@@ -370,7 +370,7 @@ bool Sponza::loadAssets() {
 	lSpot->lightData.diffuse  = Vec3{ .9f, .9f, .9f };
 	lSpot->lightData.ambient  = Vec3{ .05f, .05f, .05f };
 	lSpot->lightData.specular = Vec3{ 1.f, 1.f, 1.0f };
-	lSpot->lightData.innerAngleCutoff = dmath::radians(35.5f);
+	lSpot->lightData.innerAngleCutoff = dmath::radians(7.f);
 	lSpot->lightData.outerAngleCutoff = dmath::radians(40.f);
 	scene.addNewLight(lSpot);
 

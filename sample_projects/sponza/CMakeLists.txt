@@ -30,6 +30,7 @@ set(SHADERS
 	${SHADERS_DIR}/common.hlsli
 	${SHADERS_DIR}/deferred_ps.hlsl
 	${SHADERS_DIR}/deferred_vs.hlsl
+	${SHADERS_DIR}/fxaa.hlsli
 	${SHADERS_DIR}/lighting_common.hlsli
 	${SHADERS_DIR}/lighting_ps.hlsl
 	${SHADERS_DIR}/lighting_vs.hlsl
