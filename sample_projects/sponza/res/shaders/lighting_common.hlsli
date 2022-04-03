@@ -73,8 +73,8 @@ float geometrySchlick_SmithGGX(float3 N, float3 V, float3 L, float roughness) {
 }
 
 float3 evalOutputRadiance(Material material, float3 lightColor, float3 N, float3 V, float3 L, float attenuation, float roughness) {
-	float3 F0 = 0.04f;
 	const float metalness = material.metalnessRoughnessOcclusion.r;
+	float3 F0 = 0.04f;
 	F0 = lerp(F0, material.albedo.rgb, metalness);
 
 	const float3 H = normalize(L + V);
@@ -93,6 +93,10 @@ float3 evalOutputRadiance(Material material, float3 lightColor, float3 N, float3
 	const float NoL = max(0.f, dot(N, L));
 	const float3 radiance = lightColor * attenuation;
 	return brdf * radiance * NoL;
+}
+
+float luminance(float3 color) {
+	return 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
 }
 
 float4 evalLights(Material material, const uint lightsBufferIndex) {
@@ -126,7 +130,7 @@ float4 evalLights(Material material, const uint lightsBufferIndex) {
 			lighting += evalOutputRadiance(material, light.diffuse, N, V, L, 1.f, roughness);
 		}
 
-		if (light.type == LightType::Spot && sceneData.spotLightOn) {
+		if (light.type == LightType::Spot && sceneData.spotLightON) {
 			//const float3 lightDir = normalize(IN.fragPos.xyz - light.position);
 			//const float3 spotDir = light.direction;
 			const float3 L = normalize(V);
@@ -149,8 +153,6 @@ float4 evalLights(Material material, const uint lightsBufferIndex) {
 
 	const float3 ambient = 0.01 * material.albedo.rgb * material.metalnessRoughnessOcclusion.b;
 	float3 color = lighting+ambient;
-	color = color / (color + 1.f); // tone-mapping
-	color = pow(color, 1 / 2.2f); // gamma-correction
 
 	return float4(color, 1.f);
 }

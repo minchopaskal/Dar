@@ -12,12 +12,15 @@ struct SceneData {
 	Mat4 viewProjection;
 	Vec4 cameraPosition; // world-space
 	Vec4 cameraDir; // world-space
+	float invWidth; // needed for FXAA
+	float invHeight; // needed for FXAA
 	int numLights;
 	int showGBuffer;
 	int width;
 	int height;
 	int withNormalMapping;
-	int spotLightOn;
+	int spotLightON;
+	int fxaaON;
 };
 
 struct MeshData {
