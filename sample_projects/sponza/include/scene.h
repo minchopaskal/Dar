@@ -279,12 +279,16 @@ struct Scene {
 		return &indices[0];
 	}
 
-	const SizeType getVertexBufferSize() const {
-		return vertices.size() == 0 ? 0 : vertices.size() * sizeof(vertices[0]);
+	const UINT getVertexBufferSize() const {
+		SizeType sz = vertices.size() == 0 ? 0 : vertices.size() * sizeof(vertices[0]);
+		dassert(sz < ((SizeType(1) << 32) - 1));
+		return static_cast<UINT>(sz);
 	}
 
-	const SizeType getIndexBufferSize() const {
-		return indices.size() == 0 ? 0 : indices.size() * sizeof(indices[0]);
+	const UINT getIndexBufferSize() const {
+		SizeType sz = indices.size() == 0 ? 0 : indices.size() * sizeof(indices[0]);
+		dassert(sz < ((SizeType(1) << 32) - 1));
+		return static_cast<UINT>(sz);
 	}
 
 	Camera *getRenderCamera() {

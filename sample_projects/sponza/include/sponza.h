@@ -12,12 +12,14 @@
 #include "fps_camera_controller.h"
 #include "fps_edit_camera_controller.h"
 
+#include "async/job_system.h"
+
 struct Sponza : D3D12App {
 	Sponza(UINT width, UINT height, const String &windowTitle);
 
+private:
 	bool loadAssets();
 
-private:
 	// Inherited via D3D12App
 	int initImpl() override;
 	void deinit() override;
@@ -28,6 +30,7 @@ private:
 	void onKeyboardInput(int key, int action) override;
 	void onMouseScroll(double xOffset, double yOffset) override;
 	void onMouseMove(double xPos, double yPos) override;
+	void onWindowClose() override;
 
 private:
 	CommandList populateCommandList();
@@ -106,6 +109,7 @@ private:
 	FPSCameraController fpsModeControl = { nullptr, 200.f };
 	FPSEditModeCameraController editModeControl = { nullptr, 200.f };
 
+	Dar::JobSystem::JobDecl initJobs[2];
 
 	// timing
 	double fps = 0.0;

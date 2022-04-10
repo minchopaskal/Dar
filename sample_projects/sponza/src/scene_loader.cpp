@@ -301,7 +301,7 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 			}
 
 			// Generate normals and tangents if the mesh doesn't contain them
-			const int index = scene.indices.size() - 3;
+			const SizeType index = scene.indices.size() - 3;
 			if (!mesh->HasNormals() || !mesh->HasTangentsAndBitangents() || (genTangents && !mesh->HasNormals())) {
 				Vertex *v[3];
 				v[0] = &scene.vertices[scene.indices[index + 0]];

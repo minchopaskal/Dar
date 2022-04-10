@@ -83,6 +83,9 @@ if (cond) { \
 
 using SizeType = size_t;
 
+template <class T>
+using Atomic = std::atomic<T>;
+
 using Byte = std::byte;
 
 template <class T>

@@ -76,7 +76,7 @@ int Sponza::initImpl() {
 		return false;
 	}
 
-	return true;
+	return loadAssets();
 }
 
 void Sponza::deinit() {
@@ -86,6 +86,24 @@ void Sponza::deinit() {
 
 void Sponza::update() {
 	timeIt();
+
+	{ /* Simulate some work to test the fiber job system. */
+		auto busyWork = [](void *param) {
+			const SizeType n = reinterpret_cast<SizeType>(param);
+			for (int i = 0; i < n; ++i) {
+				const int a = 5000 * 50000;
+				const double b = sqrt(pow(a, 2.2));
+			}
+		};
+
+		Dar::JobSystem::JobDecl jobs[100];
+		for (SizeType i = 0; i < 100; ++i) {
+			jobs[i].f = busyWork;
+			jobs[i].param = reinterpret_cast<void *>(i * 1000);
+		}
+
+		Dar::JobSystem::kickJobsAndWait(jobs, 100);
+	}
 
 	camControl->processKeyboardInput(this, deltaTime);
 
@@ -316,6 +334,10 @@ void Sponza::onMouseScroll(double xOffset, double yOffset) {
 
 void Sponza::onMouseMove(double xPos, double yPos) {
 	camControl->onMouseMove(xPos, yPos, deltaTime);
+}
+
+void Sponza::onWindowClose() {
+	abort = 1;
 }
 
 bool Sponza::loadAssets() {

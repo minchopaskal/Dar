@@ -13,7 +13,7 @@ enum class BufferType {
 struct VertexIndexBufferDesc {
 	const void *data = nullptr;
 	WString name = L"GenericVertexIndexBuffer";
-	SizeType size = 0;
+	UINT size = 0;
 	union {
 		int vertexBufferStride = 0;
 		DXGI_FORMAT indexBufferFormat;
