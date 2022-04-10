@@ -6,6 +6,7 @@ set(LIB_DIR ${PROJECT_SOURCE_DIR}/lib)
 set(HEADERS
 	${LIB_SOURCE_DIR}/asset_manager/asset_manager.h
 	${LIB_SOURCE_DIR}/async/async.h
+	${LIB_SOURCE_DIR}/async/job_system.h
 	${LIB_SOURCE_DIR}/framework/app.h
 	${LIB_SOURCE_DIR}/framework/camera.h
 	${LIB_SOURCE_DIR}/framework/input_query.h
@@ -28,6 +29,7 @@ set(HEADERS
 
 set(SOURCES
 	${LIB_SOURCE_DIR}/asset_manager/asset_manager.cpp
+	${LIB_SOURCE_DIR}/async/job_system.cpp
 	${LIB_SOURCE_DIR}/framework/app.cpp
 	${LIB_SOURCE_DIR}/framework/camera.cpp
 	${LIB_SOURCE_DIR}/graphics/d3d12/command_list.cpp

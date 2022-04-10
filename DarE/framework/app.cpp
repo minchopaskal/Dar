@@ -1,5 +1,6 @@
 #include "framework/app.h"
 
+#include "async/job_system.h"
 #include "d3d12/command_list.h"
 #include "d3d12/resource_manager.h"
 #include "utils/defines.h"
@@ -24,13 +25,13 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = u8".\\D3D12
 // Global state
 /////////////////////////////////
 GLFWwindow* glfwWindow = nullptr;
-D3D12App* app = nullptr;
+static D3D12App* g_App = nullptr;
 
 ////////////
 // GLFW
 ////////////
 void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
-	app->onResize(width, height);
+	g_App->onResize(width, height);
 }
 
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
@@ -39,20 +40,20 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
 		return;
 	}
 
-	app->keyPressed[key] = (action == GLFW_PRESS);
-	app->keyReleased[key] = (action == GLFW_RELEASE);
-	app->keyRepeated[key] = (action == GLFW_REPEAT);
+	g_App->keyPressed[key] = (action == GLFW_PRESS);
+	g_App->keyReleased[key] = (action == GLFW_RELEASE);
+	g_App->keyRepeated[key] = (action == GLFW_REPEAT);
 
 	// TODO: mapping keys to engine actions
-	app->onKeyboardInput(key, action);
+	g_App->onKeyboardInput(key, action);
 }
 
 void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
-	app->onMouseScroll(xoffset, yoffset);
+	g_App->onMouseScroll(xoffset, yoffset);
 }
 
 void windowPosCallback(GLFWwindow *window, int xpos, int ypos) {
-	app->onWindowPosChange(xpos, ypos);
+	g_App->onWindowPosChange(xpos, ypos);
 }
 
 void processKeyboardInput(GLFWwindow *window) {
@@ -61,8 +62,12 @@ void processKeyboardInput(GLFWwindow *window) {
 	}
 }
 
-void cursorPositionCallback(GLFWwindow* window, double xpos, double ypos) {
-	app->onMouseMove(xpos, ypos);
+void cursorPositionCallback(GLFWwindow *window, double xpos, double ypos) {
+	g_App->onMouseMove(xpos, ypos);
+}
+
+void windowCloseCallback(GLFWwindow *window) {
+	g_App->onWindowClose();
 }
 
 ////////////
@@ -81,14 +86,17 @@ D3D12App::D3D12App(UINT width, UINT height, const char *windowTitle) :
 	allowTearing(false),
 	fullscreen(false),
 	useImGui(false),
-	imGuiShutdown(true) {
+	imGuiShutdown(true)
+{
 	strncpy(title, windowTitle, strlen(windowTitle) + 1);
 	title[strlen(windowTitle)] = '\0';
+
+	Dar::JobSystem::init();
 }
 
-D3D12App::~D3D12App() {}
+D3D12App::~D3D12App() { }
 
-void GetHardwareAdapter(
+void getHardwareAdapter(
 		IDXGIFactory1 *pFactory,
 		IDXGIAdapter1 **ppAdapter,
 		bool requestHighPerformanceAdapter
@@ -159,6 +167,21 @@ bool checkTearingSupport() {
 }
 
 int D3D12App::init() {
+	auto initJobLambda = [](void *param) {
+		D3D12App *app = reinterpret_cast<D3D12App*>(param);
+		app->initJob();
+	};
+
+	Dar::JobSystem::JobDecl initJobDecl = {};
+	initJobDecl.f = initJobLambda;
+	initJobDecl.param = this;
+
+	Dar::JobSystem::kickJobs(&initJobDecl, 1, &initJobFence, Dar::JobSystem::JobType::Windows);
+
+	return 1;
+}
+
+int D3D12App::initJob() {
 	glfwInit();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	glfwWindow = glfwCreateWindow(width, height, title, nullptr, nullptr);
@@ -171,6 +194,7 @@ int D3D12App::init() {
 	glfwSetScrollCallback(glfwWindow, scrollCallback);
 	glfwSetWindowPosCallback(glfwWindow, windowPosCallback);
 	glfwSetCursorPosCallback(glfwWindow, cursorPositionCallback);
+	glfwSetWindowCloseCallback(glfwWindow, windowCloseCallback);
 
 	window = glfwGetWin32Window(glfwWindow);
 
@@ -197,7 +221,7 @@ int D3D12App::init() {
 	);
 
 	ComPtr<IDXGIAdapter1> hardwareAdapter;
-	GetHardwareAdapter(dxgiFactory.Get(), &hardwareAdapter, false);
+	getHardwareAdapter(dxgiFactory.Get(), &hardwareAdapter, false);
 
 	RETURN_FALSE_ON_ERROR(D3D12CreateDevice(
 		hardwareAdapter.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&device)),
@@ -415,7 +439,7 @@ void D3D12App::toggleFullscreen() {
 				height,
 				SWP_FRAMECHANGED | SWP_NOACTIVATE);
 
-		app->onResize(width, height);
+		g_App->onResize(width, height);
 		::ShowWindow(hWnd, SW_MAXIMIZE);
 	} else { // restore previous dimensions
 		::SetWindowLong(hWnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
@@ -429,7 +453,7 @@ void D3D12App::toggleFullscreen() {
 				height,
 				SWP_FRAMECHANGED | SWP_NOACTIVATE);
 
-		app->onResize(width, height);
+		g_App->onResize(width, height);
 		::ShowWindow(hWnd, SW_NORMAL);
 	}
 }
@@ -446,7 +470,27 @@ void D3D12App::flush() {
 }
 
 int D3D12App::run() {
-	app = this; // save global state for glfw callbacks
+	auto mainLoop = [](void *param) {
+		D3D12App *app = reinterpret_cast<D3D12App*>(param);
+
+		Dar::JobSystem::waitFence(app->initJobFence);
+
+		app->mainLoopJob();
+	};
+
+	Dar::JobSystem::JobDecl mainLoopJobDecl = {};
+	mainLoopJobDecl.f = mainLoop;
+	mainLoopJobDecl.param = this;
+
+	Dar::JobSystem::kickJobs(&mainLoopJobDecl, 1, nullptr, Dar::JobSystem::JobType::Windows);
+
+	Dar::JobSystem::waitForAll();
+
+	return 0;
+}
+
+int D3D12App::mainLoopJob() {
+	g_App = this; // save global state for glfw callbacks
 
 	while (!abort && !glfwWindowShouldClose(glfwWindow)) {
 		processKeyboardInput(glfwWindow);
@@ -461,10 +505,14 @@ int D3D12App::run() {
 		resManager->endFrame();
 
 		glfwPollEvents();
+
+		++numRenderedFrames;
 	}
 
 	deinit();
 	glfwTerminate();
 
+	Dar::JobSystem::stop();
+	
 	return 0;
 }

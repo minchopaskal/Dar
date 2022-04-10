@@ -9,7 +9,8 @@ set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Configs" FORCE)
 
 # Enable parallel compilation for MSVC by defult.
 add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
-add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/we4834>) # ignoring result of nodiscard function
+add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/we4834>) # Make an error ignoring result of nodiscard function
+add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/wd4996>) # Ignore CRT non-conforming warnings.
 #add_compile_options($<$<CONFIG:Debug>:/WX>)
 
 set(D3D12_COMPILE_SAMPLE_PROJECTS CACHE BOOL "Compile sample projects")

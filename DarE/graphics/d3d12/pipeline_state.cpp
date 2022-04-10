@@ -201,7 +201,7 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStat
 	
 	D3D12_RT_FORMAT_ARRAY rtFormat = {};
 	rtFormat.NumRenderTargets = desc.numRenderTargets;
-	for (int i = 0; i < rtFormat.NumRenderTargets; ++i) {
+	for (UINT i = 0; i < rtFormat.NumRenderTargets; ++i) {
 		rtFormat.RTFormats[i] = desc.renderTargetFormats[i];
 	}
 	stream.insert(RTFormatsToken{ rtFormat });

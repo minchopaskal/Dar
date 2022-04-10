@@ -92,6 +92,8 @@ bool ResourceManager::deallocateHeap(HeapHandle &handle) {
 	heapHandlesPool.push(handle);
 
 	handle = INVALID_HEAP_HANDLE;
+
+	return true;
 }
 
 ResourceHandle ResourceManager::createBuffer(ResourceInitData &initData) {
@@ -294,7 +296,7 @@ unsigned int ResourceManager::getSubresourcesCount(ResourceHandle handle) {
 bool ResourceManager::getLastGlobalState(ResourceHandle handle, SubresStates &outStates) {
 	CHECK_RESOURCE_HANDLE(handle);
 
-	CriticalSectionLock lock = resources[handle].cs.lock();
+	auto lock = resources[handle].cs.lock();
 	SubresStates &states = resources[handle].subresStates;
 	outStates.resize(states.size());
 	for (int i = 0; i < states.size(); ++i) {
@@ -308,7 +310,7 @@ bool ResourceManager::getLastGlobalStateForSubres(ResourceHandle handle, D3D12_R
 	CHECK_RESOURCE_HANDLE(handle);
 
 	// TODO: Experiment with locking individual subresources
-	CriticalSectionLock lock = resources[handle].cs.lock();
+	auto lock = resources[handle].cs.lock();
 	SubresStates &states = resources[handle].subresStates;
 	if (subresIndex < 0 || states.size() <= subresIndex) {
 		return false;
@@ -321,7 +323,7 @@ bool ResourceManager::getLastGlobalStateForSubres(ResourceHandle handle, D3D12_R
 bool ResourceManager::setGlobalState(ResourceHandle handle, const D3D12_RESOURCE_STATES &state) {
 	CHECK_RESOURCE_HANDLE(handle);
 	
-	CriticalSectionLock lock = resources[handle].cs.lock();
+	auto lock = resources[handle].cs.lock();
 	SubresStates &states = resources[handle].subresStates;
 	for (int i = 0; i < states.size(); ++i) {
 		states[i] = state;
@@ -333,7 +335,7 @@ bool ResourceManager::setGlobalState(ResourceHandle handle, const D3D12_RESOURCE
 bool ResourceManager::setGlobalStateForSubres(ResourceHandle handle, const D3D12_RESOURCE_STATES &state, const unsigned int subresIndex) {
 	CHECK_RESOURCE_HANDLE(handle);
 
-	CriticalSectionLock lock = resources[handle].cs.lock();
+	auto lock = resources[handle].cs.lock();
 	SubresStates &states = resources[handle].subresStates;
 	if (subresIndex < 0 || states.size() <= subresIndex) {
 		return false;
@@ -462,12 +464,6 @@ bool initResourceManager(ComPtr<ID3D12Device8> device, const unsigned int nt) {
 		g_ResourceManager->numThreads = nt;
 		return g_ResourceManager->resourcesCS.init();
 	}
-
-	// Create a sentinel resource having index of INVALID_RESOURCE_HANDLE
-	g_ResourceManager->resources.emplace_back();
-
-	// Same for INVALID_UPLOAD_HANDLE
-	g_ResourceManager->resetCommandLists();
 
 	return true;
 }

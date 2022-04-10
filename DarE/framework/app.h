@@ -9,6 +9,11 @@
 struct GLFWwindow;
 struct ResourceManager;
 struct CommandList;
+namespace Dar {
+namespace JobSystem {
+struct Fence;
+}
+}
 
 struct D3D12App : public IKeyboardInputQuery {
 	D3D12App(UINT width, UINT height, const char *windowTitle);
@@ -27,9 +32,9 @@ struct D3D12App : public IKeyboardInputQuery {
 	/// Return height of window
 	int getHeight() const;
 
-	// Inherited by IInputQuery
+	// Inherited by IKeyboardInputQuery
 	ButtonState query(int key) override;
-	
+
 	bool queryPressed(int key) override;
 
 	bool queryReleased(int key) override;
@@ -50,16 +55,16 @@ protected:
 
 	/// Called before update()
 	virtual void beginFrame() {}
-	
+
 	/// Called after render()
 	virtual void endFrame() {}
-	
+
 	/// Any update work should go here. Update is called before render() in the main loop.
 	virtual void update() = 0;
 
 	/// Any render work should go here.
 	virtual void render() = 0;
-	
+
 	/// Any initialization work should go here. Called inside init().
 	/// @return 0 on failure, 1 on success
 	virtual int initImpl() = 0;
@@ -70,24 +75,28 @@ protected:
 
 	/// Optional. It is advised that all ImGui draw calls go here, unless it's inconvinient.
 	/// Called during renderUI().
-	virtual void drawUI() { };
+	virtual void drawUI() {};
 
 	/// Optional. Should be called before the last transition of the RTV to PRESENT state
 	/// if the app wants its ImGui draw calls rendered.
 	void renderUI(CommandList &cmdList, D3D12_CPU_DESCRIPTOR_HANDLE &rtvHandle);
 
-	GLFWwindow* getGLFWWindow() const;
+	GLFWwindow *getGLFWWindow() const;
 
-	// TODO: mouse callback, etc.
 	virtual void onResize(const unsigned int w, const unsigned int h) = 0;
 	virtual void onKeyboardInput(int key, int action) = 0;
 	virtual void onMouseScroll(double xOffset, double yOffset) = 0;
-	virtual void onMouseMove(double xOffset, double yOffset) { };
-	virtual void onWindowPosChange(int xPos, int yPos) { }
+	virtual void onMouseMove(double xOffset, double yOffset) {};
+	virtual void onWindowPosChange(int xPos, int yPos) {}
+	virtual void onWindowClose() {}
+
+private:
+	int initJob();
+	int mainLoopJob();
 
 protected:
 	static const UINT frameCount = 2;
-	
+
 	// TODO: get this out of here
 	// Input
 	static const int keysCount = GLFW_KEY_LAST;
@@ -114,15 +123,19 @@ protected:
 
 	UINT frameIndex; ///< Current backbuffer index
 
+	UINT numRenderedFrames = 0;
+
 	char title[256]; ///< Title of the window
 	UINT width, height; ///< Dimensions of the window
 
-	int abort; ///< Abort the main loop if true.
+	Atomic<int> abort; ///< Abort the main loop if true.
 
 	bool vSyncEnabled;
 	bool allowTearing;
 
 private:
+	Dar::JobSystem::Fence *initJobFence = nullptr;
+
 	HWND window; ///< Pointer to the win32 window abstraction
 	RECT windowRect; ///< Window rectangle. Not to be confused with scissor rect
 	bool fullscreen; ///< Flag indicating whether or not the applicaion is in fullscreen.
@@ -134,7 +147,8 @@ private:
 	// GLFW callbacks
 	friend void framebufferSizeCallback(GLFWwindow *window, int width, int height);
 	friend void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
-	friend void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+	friend void scrollCallback(GLFWwindow *window, double xoffset, double yoffset);
 	friend void windowPosCallback(GLFWwindow *window, int xpos, int ypos);
-	friend void cursorPositionCallback(GLFWwindow* window, double xpos, double ypos);
+	friend void cursorPositionCallback(GLFWwindow *window, double xpos, double ypos);
+	friend void windowCloseCallback(GLFWwindow *window);
 };

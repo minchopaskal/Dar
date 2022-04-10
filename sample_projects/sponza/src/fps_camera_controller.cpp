@@ -20,8 +20,8 @@ void FPSCameraController::onMouseMove(double xPos, double yPos, double deltaTime
 		return;
 	}
 
-	const double xOffset = (xPos - mousePos.x) * mouseSensitivity;
-	const double yOffset = (yPos - mousePos.y) * mouseSensitivity;
+	const float xOffset = static_cast<float>((xPos - mousePos.x) * mouseSensitivity);
+	const float yOffset = static_cast<float>((yPos - mousePos.y) * mouseSensitivity);
 	mousePos.x = xPos;
 	mousePos.y = yPos;
 
@@ -37,7 +37,7 @@ double calculateZoomFactor(double scrollOffset, double deltaTime) {
 }
 
 void FPSCameraController::onMouseScroll(double xOffset, double yOffset, double deltaTime) {
-	cam->zoom(calculateZoomFactor(yOffset, deltaTime));
+	cam->zoom(static_cast<float>(calculateZoomFactor(yOffset, deltaTime)));
 }
 
 void FPSCameraController::processKeyboardInput(IKeyboardInputQuery *inputQuery, double deltaTime) {
@@ -45,7 +45,7 @@ void FPSCameraController::processKeyboardInput(IKeyboardInputQuery *inputQuery, 
 		return;
 	}
 
-	double amount = speed * deltaTime;
+	float amount = static_cast<float>(speed * deltaTime);
 	if (inputQuery->query(GLFW_KEY_W).pressed) {
 		cam->moveForward(amount);
 	}
@@ -86,7 +86,7 @@ void FPSCameraController::processKeyboardInput(IKeyboardInputQuery *inputQuery, 
 	}
 
 	if (!shiftPressed) {
-		const float deltaSpeed = 2 * speed * deltaTime;
+		const float deltaSpeed = static_cast<float>(2 * speed * deltaTime);
 		if (inputQuery->query(GLFW_KEY_T).pressed) {
 			speed -= deltaSpeed;
 		}
