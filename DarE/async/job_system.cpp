@@ -2,6 +2,7 @@
 
 #include "async/async.h"
 #include "math/dar_math.h"
+#include "utils/profile.h"
 
 #include <thread>
 
@@ -103,6 +104,10 @@ FiberHandle getCurrentFiberHandle() {
 
 DWORD jobExecutionThread(void *param) {
 	SizeType threadIndex = reinterpret_cast<SizeType>(param);
+	char threadName[16];
+	sprintf(threadName, "Thread[%llu]", threadIndex);
+	
+	DAR_OPTICK_THREAD(threadName);
 
 	LPVOID currentFiberAddress = ConvertThreadToFiber(nullptr);
 	if (threadIndex == WINDOWS_THREAD_INDEX) {

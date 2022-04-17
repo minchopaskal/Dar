@@ -63,8 +63,9 @@ set_target_properties(Sponza PROPERTIES FOLDER SampleProjects)
 target_compile_definitions(
 	Sponza
 	PRIVATE
-	$<$<CONFIG:Debug>:D3D12_DEBUG>
-	$<$<CONFIG:Release>:D3D12_NDEBUG>
+	$<$<CONFIG:Debug>:DAR_DEBUG>
+	$<$<CONFIG:Debug>:DAR_PROFILE>
+	$<$<CONFIG:Release>:DAR_NDEBUG>
 )
 
 target_compile_definitions(
@@ -83,6 +84,8 @@ target_link_libraries(
 	$<$<CONFIG:Release>:assimp>
 )
 
+set(OPTICK_DIR ${SUBMODULE_DIR}/optick/src)
+
 target_include_directories(
 	Sponza
 	PRIVATE
@@ -93,6 +96,7 @@ target_include_directories(
 	${SUBMODULE_DIR}/imgui
 	${SUBMODULE_DIR}/assimp/include
 	${SHADERS_DIR}
+	${OPTICK_DIR}
 )
 
 copyD3D12Core(Sponza)

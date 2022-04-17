@@ -198,7 +198,7 @@ ResourceHandle ResourceManager::createBuffer(ResourceInitData &initData) {
 	SizeType size = allocInfo.SizeInBytes;
 
 	const UINT numSubresources = type == ResourceType::TextureBuffer && initData.textureData.mipLevels > 0 ? initData.textureData.mipLevels : 1;
-#ifdef D3D12_NDEBUG
+#ifdef DAR_NDEBUG
 	return registerResource(
 		resource,
 		numSubresources,
@@ -212,7 +212,7 @@ ResourceHandle ResourceManager::createBuffer(ResourceInitData &initData) {
 		initialState,
 		type
 	);
-#endif // D3D12_NDEBUG
+#endif // DAR_NDEBUG
 }
 
 UploadHandle ResourceManager::beginNewUpload() {
@@ -232,11 +232,11 @@ bool ResourceManager::uploadBufferData(UploadHandle uploadHandle, ResourceHandle
 	ID3D12Resource *destResource = getID3D12Resource(destResourceHandle);
 	ID3D12Resource *stageResource = getID3D12Resource(stagingBufferHandle);
 
-#ifdef D3D12_DEBUG
+#ifdef DAR_DEBUG
 	SubresStates states;
 	getLastGlobalState(destResourceHandle, states);
 	dassert(states.size() == 1);
-#endif // D3D12_DEBUG
+#endif // DAR_DEBUG
 
 	UINT8 *mappedBuffer = nullptr;
 	D3D12_RANGE range = { 0, 0 };
@@ -262,11 +262,11 @@ UINT64 ResourceManager::uploadTextureData(UploadHandle uploadHandle, ResourceHan
 	ID3D12Resource *destResource = getID3D12Resource(destResourceHandle);
 	ID3D12Resource *stageResource = getID3D12Resource(stagingBufferHandle);
 
-#ifdef D3D12_DEBUG
+#ifdef DAR_DEBUG
 	SubresStates states;
 	getLastGlobalState(destResourceHandle, states);
 	dassert(states.size() >= numSubresources + startSubresourceIndex);
-#endif // D3D12_DEBUG
+#endif // DAR_DEBUG
 
 	return UpdateSubresources(cmdLists[uploadHandle].get(), destResource, stageResource, 0, startSubresourceIndex, numSubresources, subresData);
 }
@@ -366,7 +366,7 @@ ResourceHandle ResourceManager::registerResourceImpl(ComPtr<ID3D12Resource> reso
 	return handle;
 }
 
-#ifdef D3D12_DEBUG
+#ifdef DAR_DEBUG
 ResourceHandle ResourceManager::registerResource(ComPtr<ID3D12Resource> resourcePtr, UINT subresourcesCount, SizeType size, D3D12_RESOURCE_STATES state, ResourceType type) {
 	ResourceHandle handle = registerResourceImpl(resourcePtr, subresourcesCount, size, state);
 	resources[handle].type = type;
@@ -376,20 +376,20 @@ ResourceHandle ResourceManager::registerResource(ComPtr<ID3D12Resource> resource
 ResourceHandle ResourceManager::registerResource(ComPtr<ID3D12Resource> resourcePtr, UINT subresourcesCount, SizeType size, D3D12_RESOURCE_STATES state) {
 	return registerResourceImpl(resourcePtr, subresourcesCount, size, state);
 }
-#endif // D3D12_DEBUG
+#endif // DAR_DEBUG
 
 bool ResourceManager::deregisterResource(ResourceHandle &handle) {
 	CHECK_RESOURCE_HANDLE(handle);
 
 	unsigned long refCount = resources[handle].res.Reset();
 
-#ifdef D3D12_DEBUG
+#ifdef DAR_DEBUG
 	ResourceType type = getResourceType(handle);
 	dassert(type != ResourceType::Invalid);
 	if (type == ResourceType::StagingBuffer) {
 		dassert(refCount == 0);
 	}
-#endif // D3D12_DEBUG
+#endif // DAR_DEBUG
 
 	{
 		auto lock = resourcesCS.lock();
@@ -446,11 +446,11 @@ bool ResourceManager::isValidHeapHandle(HeapHandle handle) const {
 	return !(handle == INVALID_HEAP_HANDLE || handle >= heaps.size() || heaps[handle].heap == nullptr);
 }
 
-#ifdef D3D12_DEBUG
+#ifdef DAR_DEBUG
 ResourceType ResourceManager::getResourceType(ResourceHandle handle) {
 	return resources[handle].type;
 }
-#endif // D3D12_DEBUG
+#endif // DAR_DEBUG
 
 ResourceManager *g_ResourceManager = nullptr;
 

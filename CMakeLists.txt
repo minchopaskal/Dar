@@ -13,7 +13,7 @@ add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/we4834>) # Make an error ignoring
 add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/wd4996>) # Ignore CRT non-conforming warnings.
 #add_compile_options($<$<CONFIG:Debug>:/WX>)
 
-set(D3D12_COMPILE_SAMPLE_PROJECTS CACHE BOOL "Compile sample projects")
+set(DAR_COMPILE_SAMPLE_PROJECTS CACHE BOOL "Compile sample projects")
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 

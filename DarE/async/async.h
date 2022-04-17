@@ -49,7 +49,7 @@ struct CriticalSection {
 
 		const int spinCount = 100; // TODO: maybe make a parameter or see which is the best value
 		BOOL res;
-#ifdef D3D12_DEBUG
+#ifdef DAR_DEBUG
 		res = InitializeCriticalSectionEx(&cs, spinCount, 0);
 		if (!res) {
 			_com_error err(GetLastError());
@@ -57,7 +57,7 @@ struct CriticalSection {
 		}
 #else
 		res = InitializeCriticalSectionEx(&cs, spinCount, CRITICAL_SECTION_NO_DEBUG_INFO);
-#endif // D3D12_DEBUG
+#endif // DAR_DEBUG
 	
 		if (res) {
 			inited = true;

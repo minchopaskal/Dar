@@ -1,5 +1,5 @@
 // Includes that fix syntax highlighting
-#ifdef D3D12_DEBUG
+#ifdef DAR_DEBUG
 #include "device_launch_parameters.h"
 #include "stdio.h"
 #include "math_functions.h"

@@ -187,7 +187,7 @@ struct ResourceManager {
 	/// Set the global state of a subresource for all of its subresources
 	bool setGlobalStateForSubres(ResourceHandle handle, const D3D12_RESOURCE_STATES &state, const unsigned int subresIndex);
 
-#ifdef D3D12_DEBUG
+#ifdef DAR_DEBUG
 	ResourceHandle registerResource(ComPtr<ID3D12Resource> resource, UINT subresourcesCount, SizeType size, D3D12_RESOURCE_STATES state, ResourceType type);
 #else
 	ResourceHandle registerResource(ComPtr<ID3D12Resource> resource, UINT subresourcesCount, SizeType size, D3D12_RESOURCE_STATES state);
@@ -214,18 +214,18 @@ private:
 
 	ResourceHandle registerResourceImpl(ComPtr<ID3D12Resource> resourcePtr, UINT subresourcesCount, SizeType size, D3D12_RESOURCE_STATES state);
 
-#ifdef D3D12_DEBUG
+#ifdef DAR_DEBUG
 	ResourceType getResourceType(ResourceHandle handle);
-#endif // D3D12_DEBUG
+#endif // DAR_DEBUG
 
 	struct Resource {
 		ComPtr<ID3D12Resource> res;
 		SubresStates subresStates;
 		CriticalSection cs;
 		SizeType size;
-#ifdef D3D12_DEBUG
+#ifdef DAR_DEBUG
 		ResourceType type = ResourceType::Invalid;
-#endif // D3D12_DEBUG
+#endif // DAR_DEBUG
 	};
 
 	struct Heap {

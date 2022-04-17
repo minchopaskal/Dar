@@ -208,11 +208,11 @@ int D3D12HelloTriangle::loadAssets() {
 		ComPtr<ID3DBlob> vertexShader;
 		ComPtr<ID3DBlob> pixelShader;
 
-#if defined(D3D12_DEBUG)
+#if defined(DAR_DEBUG)
 		UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 #else
 		UINT compileFlags = 0;
-#endif // defined(D3D12_DEBUG)
+#endif // defined(DAR_DEBUG)
 
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
@@ -377,7 +377,7 @@ bool D3D12HelloTriangle::updateRenderTargetViews() {
 		device->CreateRenderTargetView(backBuffers[i].Get(), nullptr, rtvHandle);
 
 		// Register the back buffer's resources manually since the resource manager doesn't own them, the swap chain does.
-#ifdef D3D12_DEBUG
+#ifdef DAR_DEBUG
 		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, 0, D3D12_RESOURCE_STATE_PRESENT, ResourceType::RenderTargetBuffer);
 #else
 		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, 0, D3D12_RESOURCE_STATE_PRESENT);
@@ -434,11 +434,11 @@ void D3D12HelloTriangle::timeIt() {
 
 		printf("FPS: %.2f\n", fps);
 
-#if defined(D3D12_DEBUG)
+#if defined(DAR_DEBUG)
 		char buffer[512];
 		sprintf_s(buffer, "FPS: %.2f\n", fps);
 		OutputDebugString(buffer);
-#endif // defined(D3D12_DEBUG)
+#endif // defined(DAR_DEBUG)
 
 		frameCount = 0;
 		elapsedTime = 0.0;

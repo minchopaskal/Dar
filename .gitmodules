@@ -4,3 +4,6 @@
 [submodule "cuda_base"]
 	path = sample_projects/cuda_rasterizer/third_party/CUDAPlayground
 	url = https://github.com/minchopaskal/CUDAPlayground
+[submodule "third_party/optick"]
+	path = third_party/optick
+	url = https://github.com/bombomby/optick

@@ -26,7 +26,7 @@
 #undef max
 #endif
 
-#ifdef D3D12_DEBUG
+#ifdef DAR_DEBUG
 #define RETURN_ON_ERROR_FMT(cmd, retval, msg, ...) \
 do { \
   if (!SUCCEEDED((cmd))) { \
@@ -72,7 +72,7 @@ if (cond) { \
 
 #define RETURN_ERROR_IF(cond, retval, msg) RETURN_ERROR_IF_FMT((cond), retval, (msg), )
 
-#ifdef D3D12_DEBUG
+#ifdef DAR_DEBUG
 #define dassert(exp) \
   if (!(exp)) { \
     DebugBreak(); \

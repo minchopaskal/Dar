@@ -8,8 +8,9 @@
 #include "asset_manager/asset_manager.h"
 #include "d3d12/pipeline_state.h"
 #include "d3d12/resource_manager.h"
-#include "utils/utils.h"
+#include "utils/profile.h"
 #include "utils/random.h"
+#include "utils/utils.h"
 #include "scene_loader.h"
 
 #include "gpu_cpu_common.hlsli"
@@ -89,6 +90,7 @@ void Sponza::update() {
 
 	{ /* Simulate some work to test the fiber job system. */
 		auto busyWork = [](void *param) {
+			DAR_OPTICK_EVENT("Busy work");
 			const SizeType n = reinterpret_cast<SizeType>(param);
 			for (int i = 0; i < n; ++i) {
 				const int a = 5000 * 50000;
@@ -656,7 +658,7 @@ bool Sponza::updateRenderTargetViews() {
 		postPassRTVHeap.addRTV(backBuffers[i].Get(), nullptr);
 
 		// Register the back buffer's resources manually since the resource manager doesn't own them, the swap chain does.
-#ifdef D3D12_DEBUG
+#ifdef DAR_DEBUG
 		backBuffersHandles[i] = resManager->registerResource(
 			backBuffers[i].Get(),
 			1, /*numSubresource*/
@@ -825,11 +827,11 @@ void Sponza::timeIt() {
 	if (elapsedTime > 1.0) {
 		fps = static_cast<double>(frameCount) / elapsedTime;
 
-#if defined(D3D12_DEBUG)
+#if defined(DAR_DEBUG)
 		char buffer[512];
 		sprintf_s(buffer, "FPS: %.2f\n", fps);
 		OutputDebugString(buffer);
-#endif // defined(D3D12_DEBUG)
+#endif // defined(DAR_DEBUG)
 
 		frameCount = 0;
 		elapsedTime = 0.0;

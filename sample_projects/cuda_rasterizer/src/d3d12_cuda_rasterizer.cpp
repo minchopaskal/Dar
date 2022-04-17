@@ -423,7 +423,7 @@ bool CudaRasterizer::updateRenderTargetViews() {
 		device->CreateRenderTargetView(backBuffers[i].Get(), nullptr, rtvHandle);
 
 		// Register the back buffer's resources manually since the resource manager doesn't own them, the swap chain does.
-#ifdef D3D12_DEBUG
+#ifdef DAR_DEBUG
 		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, 0, D3D12_RESOURCE_STATE_PRESENT, ResourceType::RenderTargetBuffer);
 #else
 		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, 0, D3D12_RESOURCE_STATE_PRESENT);
@@ -458,11 +458,11 @@ void CudaRasterizer::timeIt() {
 
 		printf("FPS: %.2f\n", fps);
 
-#if defined(D3D12_DEBUG)
+#if defined(DAR_DEBUG)
 		char buffer[512];
 		sprintf_s(buffer, "FPS: %.2f\n", fps);
 		OutputDebugString(buffer);
-#endif // defined(D3D12_DEBUG)
+#endif // defined(DAR_DEBUG)
 
 		frameCount = 0;
 		elapsedTime = 0.0;

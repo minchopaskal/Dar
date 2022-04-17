@@ -22,6 +22,7 @@ set(HEADERS
 	${LIB_SOURCE_DIR}/math/dar_math.h
 	${LIB_SOURCE_DIR}/utils/defines.h
 	${LIB_SOURCE_DIR}/utils/logger.h
+	${LIB_SOURCE_DIR}/utils/profile.h
 	${LIB_SOURCE_DIR}/utils/random.h
 	${LIB_SOURCE_DIR}/utils/timer.h
 	${LIB_SOURCE_DIR}/utils/utils.h
@@ -49,6 +50,8 @@ set(SUBMODULES
 
 set(IMGUI_DIR ${SUBMODULE_DIR}/imgui)
 
+set(OPTICK_DIR ${SUBMODULE_DIR}/optick/src)
+
 set(IMGUI_SRC
 	${IMGUI_DIR}/imgui.cpp
 	${IMGUI_DIR}/imgui_draw.cpp
@@ -58,19 +61,31 @@ set(IMGUI_SRC
 	${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
 )
 
+set(OPTICK_SRC
+	${OPTICK_DIR}/optick_capi.cpp
+	${OPTICK_DIR}/optick_core.cpp
+	${OPTICK_DIR}/optick_gpu.cpp
+	${OPTICK_DIR}/optick_gpu.d3d12.cpp
+	${OPTICK_DIR}/optick_message.cpp
+	${OPTICK_DIR}/optick_miniz.cpp
+	${OPTICK_DIR}/optick_serialization.cpp
+	${OPTICK_DIR}/optick_server.cpp
+)
+
 source_group("src"           FILES ${SOURCES})
 source_group("include"       FILES ${HEADERS})
 source_group("third_party"   FILES ${SUBMODULES} ${IMGUI_SRC})
 
-add_library(Dar ${HEADERS} ${SOURCES} ${SUBMODULES} ${IMGUI_SRC})
+add_library(Dar ${HEADERS} ${SOURCES} ${SUBMODULES} ${IMGUI_SRC} ${OPTICK_SRC})
 
 set_property(TARGET Dar PROPERTY VS_DEBUGGER_WORKING_DIRECTORY $<TARGET_FILE_DIR:Dar>)
 
 target_compile_definitions(
 	Dar
 	PRIVATE
-	$<$<CONFIG:Debug>:D3D12_DEBUG>
-	$<$<CONFIG:Release>:D3D12_NDEBUG>
+	$<$<CONFIG:Debug>:DAR_DEBUG>
+	$<$<CONFIG:Debug>:DAR_PROFILE>
+	$<$<CONFIG:Release>:DAR_NDEBUG>
 )
 
 target_compile_definitions(
@@ -90,4 +105,5 @@ target_include_directories(
 	${LIB_SOURCE_DIR}/graphics
 	${SUBMODULE_DIR}
 	${SUBMODULE_DIR}/imgui
+	${OPTICK_DIR}
 )

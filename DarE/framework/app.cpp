@@ -4,6 +4,7 @@
 #include "d3d12/command_list.h"
 #include "d3d12/resource_manager.h"
 #include "utils/defines.h"
+#include "utils/profile.h"
 
 #include "d3dx12.h"
 
@@ -198,7 +199,7 @@ int D3D12App::initJob() {
 
 	window = glfwGetWin32Window(glfwWindow);
 
-#if defined(D3D12_DEBUG)
+#if defined(DAR_DEBUG)
 /* Enable debug layer */
 	{
 		ComPtr<ID3D12Debug> debugLayer;
@@ -206,14 +207,14 @@ int D3D12App::initJob() {
 			debugLayer->EnableDebugLayer();
 		}
 	}
-#endif // defined(D3D12_DEBUG)
+#endif // defined(DAR_DEBUG)
 
 	/* Create the device */
 	ComPtr<IDXGIFactory4> dxgiFactory;
 	UINT createFactoryFlags = 0;
-#if defined(D3D12_DEBUG)
+#if defined(DAR_DEBUG)
 	createFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
-#endif // defined(D3D12_DEBUG)
+#endif // defined(DAR_DEBUG)
 
 	RETURN_FALSE_ON_ERROR(
 		CreateDXGIFactory2(createFactoryFlags, IID_PPV_ARGS(&dxgiFactory)),
@@ -493,6 +494,8 @@ int D3D12App::mainLoopJob() {
 	g_App = this; // save global state for glfw callbacks
 
 	while (!abort && !glfwWindowShouldClose(glfwWindow)) {
+		DAR_OPTICK_FRAME("Frame");
+
 		processKeyboardInput(glfwWindow);
 
 		beginFrame();
@@ -513,6 +516,6 @@ int D3D12App::mainLoopJob() {
 	glfwTerminate();
 
 	Dar::JobSystem::stop();
-	
+
 	return 0;
 }

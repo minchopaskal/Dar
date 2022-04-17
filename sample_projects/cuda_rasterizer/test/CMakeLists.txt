@@ -44,8 +44,8 @@ set_target_properties(CudaRasterizerTest PROPERTIES FOLDER SampleProjects/CudaRa
 target_compile_definitions(
 	CudaRasterizerTest
 	PRIVATE
-	$<$<CONFIG:Debug>:D3D12_DEBUG>
-	$<$<CONFIG:Release>:D3D12_NDEBUG>
+	$<$<CONFIG:Debug>:DAR_DEBUG>
+	$<$<CONFIG:Release>:DAR_NDEBUG>
 	_CRT_SECURE_NO_WARNINGS
 )
 

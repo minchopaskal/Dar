@@ -46,8 +46,8 @@ set_target_properties(TexturedCube PROPERTIES FOLDER SampleProjects)
 target_compile_definitions(
 	TexturedCube
 	PRIVATE
-	$<$<CONFIG:Debug>:D3D12_DEBUG>
-	$<$<CONFIG:Release>:D3D12_NDEBUG>
+	$<$<CONFIG:Debug>:DAR_DEBUG>
+	$<$<CONFIG:Release>:DAR_NDEBUG>
 )
 
 target_compile_definitions(
