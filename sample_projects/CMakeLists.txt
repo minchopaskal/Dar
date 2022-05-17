@@ -1,4 +1,4 @@
-if (D3D12_COMPILE_SAMPLE_PROJECTS)
+if (DAR_COMPILE_SAMPLE_PROJECTS)
 add_subdirectory(hello_triangle)
 add_subdirectory(textured_cube)
 add_subdirectory(cuda_rasterizer)

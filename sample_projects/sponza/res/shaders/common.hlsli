@@ -6,7 +6,7 @@
 #define PI 3.14159265f
 
 SamplerState Sampler : register(s0);
-ConstantBuffer<SceneData> sceneData : register(b0);
+ConstantBuffer<ShaderRenderData> sceneData : register(b0);
 ConstantBuffer<MeshData> meshData : register(b1);
 
 static const uint INVALID_MATERIAL_INDEX = 0xffffffff;

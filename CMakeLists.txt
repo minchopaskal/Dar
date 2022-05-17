@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.14)
 
 project(Dar VERSION 0.1)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Configs" FORCE)
@@ -10,7 +10,9 @@ set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Configs" FORCE)
 # Enable parallel compilation for MSVC by defult.
 add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
 add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/we4834>) # Make an error ignoring result of nodiscard function
+add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/we4715>) # Make an error failing to provide each path with a return value.
 add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/wd4996>) # Ignore CRT non-conforming warnings.
+add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/wd4099>) # Ignore linking wihtout PBDs.
 #add_compile_options($<$<CONFIG:Debug>:/WX>)
 
 set(DAR_COMPILE_SAMPLE_PROJECTS CACHE BOOL "Compile sample projects")

@@ -2,6 +2,8 @@
 
 #include "math/dar_math.h"
 
+namespace Dar {
+
 enum class CameraType : int {
 	Invalid = 0,
 	Perspective,
@@ -14,14 +16,13 @@ struct Camera {
 	static Camera perspectiveCamera(const Vec3 &pos, float fov, float aspectRatio, float nearPlane, float farPlane);
 	static Camera orthographicCamera(const Vec3 &pos, float renderRectWidth, float renderRectHeight, float nearPlane, float farPlane);
 
-	Camera() : fov(90.f), aspectRatio(1.f) { }
-	Camera(Vec3 forward, Vec3 up, Vec3 right) : 
+	Camera() : fov(90.f), aspectRatio(1.f) {}
+	Camera(Vec3 forward, Vec3 up, Vec3 right) :
 		fov(90.f),
 		aspectRatio(1.f),
-		forwardVector(forward), 
+		forwardVector(forward),
 		upVector(up),
-		rightVector(right)
-	{ }
+		rightVector(right) {}
 
 	/// Get the world-to-camera transformation
 	Mat4 getViewMatrix() const;
@@ -93,7 +94,7 @@ private:
 	mutable Mat4 projectionMatrix = Mat4(1.f);
 
 	Vec3 pos = Vec3(0.f, 0.f, 0.f);
-	
+
 	mutable Vec3 forwardVector = Vec3::unitZ();
 	mutable Vec3 upVector = Vec3::unitY();
 	mutable Vec3 rightVector = Vec3::unitX();
@@ -130,7 +131,7 @@ private:
 struct IKeyboardInputQuery;
 
 struct ICameraController {
-	ICameraController(Camera *cam) : cam(cam) { }
+	ICameraController(Camera *cam) : cam(cam) {}
 
 	void setCamera(Camera *cam) {
 		this->cam = cam;
@@ -143,3 +144,5 @@ struct ICameraController {
 protected:
 	Camera *cam;
 };
+
+} // namespace Dar

@@ -12,7 +12,7 @@
 
 struct CUDAManager;
 
-struct CudaRasterizer : D3D12App {
+struct CudaRasterizer : Dar::App {
 	using DrawUICallback = void(*)();
 	using UpdateFrameCallback = void(*)(CudaRasterizer &rasterizer, void *state);
 
@@ -59,7 +59,7 @@ private:
 	void initCUDAData();
 
 private:
-	using Super = D3D12App;
+	using Super = Dar::App;
 
 	static constexpr unsigned int numComps = 4;
 

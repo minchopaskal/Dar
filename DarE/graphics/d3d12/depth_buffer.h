@@ -3,6 +3,9 @@
 #include "d3d12/descriptor_heap.h"
 #include "d3d12/includes.h"
 #include "d3d12/resource_handle.h"
+#include "d3d12/texture_res.h"
+
+namespace Dar {
 
 struct DepthBuffer {
 	/// Intialize or resize the depth buffer.
@@ -27,8 +30,7 @@ struct DepthBuffer {
 
 private:
 	DescriptorHeap dsvHeap;
-	ResourceHandle bufferHandle = INVALID_RESOURCE_HANDLE;
-	DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
-	int width = 0;
-	int height = 0;
+	TextureResource depthTex;
 };
+
+} // namespace Dar

@@ -3,6 +3,8 @@
 #include "d3d12/includes.h"
 #include "d3d12/resource_manager.h"
 
+namespace Dar {
+
 enum class BufferType {
 	Vertex,
 	Index,
@@ -74,17 +76,18 @@ struct Buffer : BufferBase<T> {
 			return false;
 		}
 
-		bufferView.BufferLocation = bufferHandle->GetGPUVirtualAddress();
-		bufferView.SizeInBytes = desc.size;
-		prepareBufferSpecificData(desc);
+		this->bufferView.BufferLocation = bufferHandle->GetGPUVirtualAddress();
+		this->bufferView.SizeInBytes = desc.size;
+		this->prepareBufferSpecificData(desc);
 
 		return resManager.uploadBufferData(uploadHandle, bufferHandle, desc.data, desc.size);
 	}
 
 private:
 	void deinit() {
-		bufferHandle = INVALID_RESOURCE_HANDLE;
-		bufferView = {};
+		ResourceManager &resManager = getResourceManager();
+		resManager.deregisterResource(bufferHandle);
+		this->bufferView = {};
 	}
 
 public:
@@ -93,3 +96,5 @@ public:
 
 using VertexBuffer = Buffer<BufferType::Vertex>;
 using IndexBuffer = Buffer<BufferType::Index>;
+
+} // namespace Dar

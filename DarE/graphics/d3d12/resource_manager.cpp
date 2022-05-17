@@ -7,16 +7,18 @@
 #define CHECK_RESOURCE_HANDLE(handle) \
 do { \
 	if (handle == INVALID_RESOURCE_HANDLE || handle >= resources.size() || resources[handle].res == nullptr) { \
-		return false; \
+		return 0; \
 	} \
 } while (false)
 
 #define CHECK_HEAP_HANDLE(handle) \
 do { \
 	if (handle == INVALID_HEAP_HANDLE || handle >= heaps.size() || heaps[handle].heap == nullptr) { \
-		return false; \
+		return 0; \
 	} \
 } while (false)
+
+namespace Dar {
 
 WString getResourceNameByType(ResourceType type) {
 	switch (type) {
@@ -175,7 +177,7 @@ ResourceHandle ResourceManager::createBuffer(ResourceInitData &initData) {
 			}
 		}
 	}
-	
+
 	if (!placedResource) {
 		RETURN_ON_ERROR(
 			device->CreateCommittedResource(
@@ -202,6 +204,7 @@ ResourceHandle ResourceManager::createBuffer(ResourceInitData &initData) {
 	return registerResource(
 		resource,
 		numSubresources,
+		size,
 		initialState
 	);
 #else
@@ -240,7 +243,7 @@ bool ResourceManager::uploadBufferData(UploadHandle uploadHandle, ResourceHandle
 
 	UINT8 *mappedBuffer = nullptr;
 	D3D12_RANGE range = { 0, 0 };
-	stageResource->Map(0, &range, reinterpret_cast<void**>(&mappedBuffer));
+	stageResource->Map(0, &range, reinterpret_cast<void **>(&mappedBuffer));
 	memcpy(mappedBuffer, data, size);
 	stageResource->Unmap(0, &range);
 
@@ -322,7 +325,7 @@ bool ResourceManager::getLastGlobalStateForSubres(ResourceHandle handle, D3D12_R
 
 bool ResourceManager::setGlobalState(ResourceHandle handle, const D3D12_RESOURCE_STATES &state) {
 	CHECK_RESOURCE_HANDLE(handle);
-	
+
 	auto lock = resources[handle].cs.lock();
 	SubresStates &states = resources[handle].subresStates;
 	for (int i = 0; i < states.size(); ++i) {
@@ -381,18 +384,19 @@ ResourceHandle ResourceManager::registerResource(ComPtr<ID3D12Resource> resource
 bool ResourceManager::deregisterResource(ResourceHandle &handle) {
 	CHECK_RESOURCE_HANDLE(handle);
 
-	unsigned long refCount = resources[handle].res.Reset();
-
-#ifdef DAR_DEBUG
-	ResourceType type = getResourceType(handle);
-	dassert(type != ResourceType::Invalid);
-	if (type == ResourceType::StagingBuffer) {
-		dassert(refCount == 0);
-	}
-#endif // DAR_DEBUG
-
 	{
 		auto lock = resourcesCS.lock();
+		unsigned long refCount = resources[handle].res.Reset();
+
+#ifdef DAR_DEBUG
+		ResourceType type = getResourceType(handle);
+		dassert(type != ResourceType::Invalid);
+		if (type == ResourceType::StagingBuffer) {
+			dassert(refCount == 0);
+		}
+#endif // DAR_DEBUG
+
+
 		resourcePool.push(handle);
 	}
 
@@ -400,25 +404,25 @@ bool ResourceManager::deregisterResource(ResourceHandle &handle) {
 	return true;
 }
 
-ID3D12Resource* ResourceManager::getID3D12Resource(ResourceHandle handle) {
+ID3D12Resource *ResourceManager::getID3D12Resource(ResourceHandle handle) const {
 	CHECK_RESOURCE_HANDLE(handle);
 
 	return resources[handle].res.Get();
 }
 
-ID3D12Heap *ResourceManager::getID3D12Heap(HeapHandle handle) {
+ID3D12Heap *ResourceManager::getID3D12Heap(HeapHandle handle) const {
 	CHECK_HEAP_HANDLE(handle);
 	return heaps[handle].heap.Get();
 }
 
-HeapAlignmentType ResourceManager::getHeapAlignment(HeapHandle handle) {
+HeapAlignmentType ResourceManager::getHeapAlignment(HeapHandle handle) const {
 	if (!isValidHeapHandle(handle)) {
 		return HeapAlignmentType::Invalid;
 	}
 	return heaps[handle].alignment;
 }
 
-SizeType ResourceManager::getHeapSize(HeapHandle handle) {
+SizeType ResourceManager::getHeapSize(HeapHandle handle) const {
 	CHECK_HEAP_HANDLE(handle);
 	return heaps[handle].size;
 }
@@ -454,7 +458,7 @@ ResourceType ResourceManager::getResourceType(ResourceHandle handle) {
 
 ResourceManager *g_ResourceManager = nullptr;
 
-bool initResourceManager(ComPtr<ID3D12Device8> device, const unsigned int nt) {
+bool initResourceManager(ComPtr<ID3D12Device> device, const unsigned int nt) {
 	deinitResourceManager();
 
 	g_ResourceManager = new ResourceManager;
@@ -475,7 +479,7 @@ void deinitResourceManager() {
 	}
 }
 
-ResourceManager& getResourceManager() {
+ResourceManager &getResourceManager() {
 	if (g_ResourceManager == nullptr) {
 		dassert(false);
 	}
@@ -531,3 +535,32 @@ D3D12_RESOURCE_DESC ResourceInitData::getResourceDescriptor() {
 
 	return resDesc;
 }
+
+void ResourceInitData::init(ResourceType type) {
+	this->type = type;
+	switch (type) {
+	case ResourceType::DataBuffer:
+		size = 0;
+		break;
+	case ResourceType::TextureBuffer:
+	case ResourceType::RenderTargetBuffer:
+		textureData = {};
+		textureData.clearValue.color[0] = 0.f;
+		textureData.clearValue.color[1] = 0.f;
+		textureData.clearValue.color[2] = 0.f;
+		textureData.clearValue.color[3] = 1.f;
+		break;
+	case ResourceType::DepthStencilBuffer:
+		textureData = {};
+		textureData.clearValue.depthStencil.depth = 1.f;
+		textureData.clearValue.depthStencil.stencil = 0;
+		break;
+	case ResourceType::StagingBuffer:
+		stagingData = {};
+		break;
+	default:
+		break;
+	}
+}
+
+} // namespace Dar

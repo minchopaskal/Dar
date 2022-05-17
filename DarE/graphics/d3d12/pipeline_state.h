@@ -4,26 +4,28 @@
 #include "utils/defines.h"
 #include "d3dx12.h"
 
+namespace Dar {
+
 template <class DataType, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE D3D12Type>
-struct alignas(void*) PipelineStateStreamToken {
-	PipelineStateStreamToken() { }
+struct alignas(void *) PipelineStateStreamToken {
+	PipelineStateStreamToken() {}
 
-	PipelineStateStreamToken(const DataType &data) : token(data), type(D3D12Type) { }
+	PipelineStateStreamToken(const DataType &data) : token(data), type(D3D12Type) {}
 
-	PipelineStateStreamToken& operator=(DataType &data) {
+	PipelineStateStreamToken &operator=(DataType &data) {
 		token = data;
 		return token;
 	}
 
-	operator DataType&() {
+	operator DataType &() {
 		return token;
 	}
 
-	DataType& operator&() {
+	DataType &operator&() {
 		return token;
 	}
 
-	void* getData() {
+	const void *getData() const {
 		return this;
 	}
 
@@ -38,7 +40,7 @@ private:
 
 using StateFlagsToken = PipelineStateStreamToken<D3D12_PIPELINE_STATE_FLAGS, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_FLAGS>;
 using NodeMaskToken = PipelineStateStreamToken<UINT, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_NODE_MASK>;
-using RootSignatureToken = PipelineStateStreamToken<ID3D12RootSignature*, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_ROOT_SIGNATURE>;
+using RootSignatureToken = PipelineStateStreamToken<ID3D12RootSignature *, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_ROOT_SIGNATURE>;
 using InputLayoutToken = PipelineStateStreamToken<D3D12_INPUT_LAYOUT_DESC, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_INPUT_LAYOUT>;
 using IBStripCutValueToken = PipelineStateStreamToken<D3D12_INDEX_BUFFER_STRIP_CUT_VALUE, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_IB_STRIP_CUT_VALUE>;
 using PrimitiveTopologyToken = PipelineStateStreamToken<D3D12_PRIMITIVE_TOPOLOGY_TYPE, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_PRIMITIVE_TOPOLOGY>;
@@ -66,13 +68,13 @@ struct PipelineStateStream {
 	PipelineStateStream();
 
 	template <typename T>
-	void insert(T &token) {
+	void insert(const T &token) {
 		SizeType oldSize = data.size();
 		data.resize(data.size() + sizeof(T));
 		memcpy(data.data() + oldSize, token.getData(), sizeof(T));
 	}
 
-	void* getData();
+	void *getData();
 	SizeType getSize() const;
 
 private:
@@ -80,13 +82,13 @@ private:
 };
 
 enum ShaderInfoFlags : UINT8 {
-	shaderInfoFlags_useGeometry = (1<<0),
-	shaderInfoFlags_useDomain = (1<<1),
-	shaderInfoFlags_useHull = (1<<2),
-	shaderInfoFlags_useCompute = (1<<3),
-	shaderInfoFlags_useMesh = (1<<4),
-	shaderInfoFlags_useAmplification = (1<<5),
-	shaderInfoFlags_useVertex = (1<<6)
+	shaderInfoFlags_useGeometry = (1 << 0),
+	shaderInfoFlags_useDomain = (1 << 1),
+	shaderInfoFlags_useHull = (1 << 2),
+	shaderInfoFlags_useCompute = (1 << 3),
+	shaderInfoFlags_useMesh = (1 << 4),
+	shaderInfoFlags_useAmplification = (1 << 5),
+	shaderInfoFlags_useVertex = (1 << 6)
 };
 
 constexpr int MAX_RENDER_TARGETS = 8;
@@ -110,16 +112,18 @@ struct PipelineStateDesc {
 struct PipelineState {
 	PipelineState();
 
-	bool init(const ComPtr<ID3D12Device8> &device, PipelineStateStream &pss);
-	bool init(const ComPtr<ID3D12Device8> &device, const PipelineStateDesc &desc);
+	bool init(const ComPtr<ID3D12Device> &device, PipelineStateStream &pss);
+	bool init(const ComPtr<ID3D12Device> &device, const PipelineStateDesc &desc);
 
-	ID3D12PipelineState* getPipelineState();
-	ID3D12RootSignature* getRootSignature();
+	ID3D12PipelineState *getPipelineState() const;
+	ID3D12RootSignature *getRootSignature() const;
 
 private:
-	bool initPipeline(const ComPtr<ID3D12Device8> &device, PipelineStateStream &pss);
+	bool initPipeline(const ComPtr<ID3D12Device> &device, PipelineStateStream &pss);
 
 private:
 	ComPtr<ID3D12PipelineState> pipelineState;
 	ComPtr<ID3D12RootSignature> rootSignature;
 };
+
+} // namespace Dar

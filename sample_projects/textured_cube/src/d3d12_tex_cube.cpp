@@ -44,7 +44,7 @@ ImageData loadImage(const wchar_t *name) {
 }
 
 D3D12TexturedCube::D3D12TexturedCube(const UINT w, const UINT h, const String &windowTitle) :
-	D3D12App(w, h, windowTitle.c_str()),
+	Dar::App(w, h, windowTitle.c_str()),
 	rtvHeapHandleIncrementSize(0),
 	vertexBufferHandle(INVALID_RESOURCE_HANDLE),
 	indexBufferHandle(INVALID_RESOURCE_HANDLE),

@@ -4,6 +4,8 @@
 #include "d3d12/command_queue.h"
 #include "d3d12/resource_handle.h"
 
+namespace Dar {
+
 using SubresStates = Vector<D3D12_RESOURCE_STATES>;
 using UploadHandle = SizeType;
 using HeapHandle = SizeType;
@@ -35,24 +37,24 @@ struct HeapInfo {
 	SizeType offset; ///< Offset in the heap memory in bytes.
 };
 
-struct ResourceInitData {
-	struct TextureData {
-		UINT width = 0;
-		UINT height = 0;
-		UINT mipLevels = 0;
-		UINT samplesCount = 1;
-		UINT samplesQuality = 0;
-		DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM;
-		union {
-			FLOAT color[4];
-			struct {
-				FLOAT depth;
-				UINT8 stencil;
-			} depthStencil;
-		} clearValue;
-	};
+struct TextureInitData {
+	UINT width = 0;
+	UINT height = 0;
+	UINT mipLevels = 0;
+	UINT samplesCount = 1;
+	UINT samplesQuality = 0;
+	DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	union {
+		FLOAT color[4];
+		struct {
+			FLOAT depth;
+			UINT8 stencil;
+		} depthStencil;
+	} clearValue;
+};
 
-	struct StagingData {
+struct ResourceInitData {
+	struct StagingInitData {
 		ResourceHandle destResource;
 		UINT numSubresources = 1;
 		UINT firstSubresourceIndex = 0;
@@ -61,15 +63,15 @@ struct ResourceInitData {
 	HeapInfo *heapInfo = nullptr;
 	ResourceType type = ResourceType::DataBuffer;
 	union {
-		SizeType size; ///< Size used when DataBuffer is created
-		TextureData textureData; ///< Used when creating Texture/DepthStencil Buffer
-		StagingData stagingData; ///< Used when creating staging buffer
+		SizeType size; ///< Used when DataBuffer is created
+		TextureInitData textureData; ///< Used when creating Texture/DepthStencil Buffer
+		StagingInitData stagingData; ///< Used when creating staging buffer
 	};
 	D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COPY_DEST; ///< Used only when creating Data/Texture Buffer resource
 	WString name = L""; ///< Empty name will result in setting default name corresponding to the type of the resource
 	D3D12_HEAP_FLAGS heapFlags = D3D12_HEAP_FLAG_NONE;
 
-	ResourceInitData() : size(0) {}
+	ResourceInitData() : type(ResourceType::Invalid), size(0) {}
 
 	ResourceInitData(ResourceType type) : type(type), size(0) {
 		init(type);
@@ -77,32 +79,7 @@ struct ResourceInitData {
 
 	D3D12_RESOURCE_DESC getResourceDescriptor();
 
-	void init(ResourceType type) {
-		this->type = type;
-		switch (type) {
-		case ResourceType::DataBuffer:
-			size = 0;
-			break;
-		case ResourceType::TextureBuffer:
-		case ResourceType::RenderTargetBuffer:
-			textureData = {};
-			textureData.clearValue.color[0] = 0.f;
-			textureData.clearValue.color[1] = 0.f;
-			textureData.clearValue.color[2] = 0.f;
-			textureData.clearValue.color[3] = 1.f;
-			break;
-		case ResourceType::DepthStencilBuffer:
-			textureData = {};
-			textureData.clearValue.depthStencil.depth = 1.f;
-			textureData.clearValue.depthStencil.stencil = 0;
-			break;
-		case ResourceType::StagingBuffer:
-			stagingData = {};
-			break;
-		default:
-			break;
-		}
-	}
+	void init(ResourceType type);
 };
 
 struct ResourceManager {
@@ -151,7 +128,7 @@ struct ResourceManager {
 	/// @param data Pointer to CPU memory holding the data we wish to upload
 	/// @param size Size in bytes of the data we wish to upload
 	bool uploadBufferData(UploadHandle uploadHandle, ResourceHandle destResource, const void *data, SizeType size);
-	
+
 	/// Upload 2D data to the specified GPU resource. Array data is not supported!
 	/// Implicitly creates a staging buffer which
 	/// is destroyed after the actual upload happens via uploadBuffers().
@@ -162,7 +139,7 @@ struct ResourceManager {
 	/// @param startSubresourceIndex Index of the first subresource we wish to upload.
 	/// @return Size of the uploaded texture. Useful when uploading to a heap, so we know how much the next resource will be offset in the heap.
 	UINT64 uploadTextureData(UploadHandle uploadHandle, ResourceHandle destResource, D3D12_SUBRESOURCE_DATA *subresData, UINT numSubresources, UINT startSubresourceIndex);
-	
+
 	/// NOTE!!! Not thread safe!
 	/// Should be called after all calls to upload*Data to actually submit the data to the GPU.
 	/// Submits all command lists created for each upload handle
@@ -196,27 +173,27 @@ struct ResourceManager {
 	/// Release resource's data. All work with the resource is expected to have completed.
 	bool deregisterResource(ResourceHandle &handle);
 
-	ID3D12Resource* getID3D12Resource(ResourceHandle handle);
+	ID3D12Resource *getID3D12Resource(ResourceHandle handle) const;
 	SizeType getResourceSize(ResourceHandle handle) const;
 
-	ID3D12Heap *getID3D12Heap(HeapHandle handle);
-	HeapAlignmentType getHeapAlignment(HeapHandle handle);
-	SizeType getHeapSize(HeapHandle handle);
+	ID3D12Heap *getID3D12Heap(HeapHandle handle) const;
+	HeapAlignmentType getHeapAlignment(HeapHandle handle) const;
+	SizeType getHeapSize(HeapHandle handle) const;
 
 	void endFrame();
 
+#ifdef DAR_DEBUG
+	[[nodiscard]] ResourceType getResourceType(ResourceHandle handle);
+#endif // DAR_DEBUG
+
 private:
-	ResourceManager() : copyQueue(D3D12_COMMAND_LIST_TYPE_COPY), numThreads(1) { }
+	ResourceManager() : copyQueue(D3D12_COMMAND_LIST_TYPE_COPY), numThreads(1) {}
 
 	void resetCommandLists();
 
 	bool isValidHeapHandle(HeapHandle handle) const;
 
 	ResourceHandle registerResourceImpl(ComPtr<ID3D12Resource> resourcePtr, UINT subresourcesCount, SizeType size, D3D12_RESOURCE_STATES state);
-
-#ifdef DAR_DEBUG
-	ResourceType getResourceType(ResourceHandle handle);
-#endif // DAR_DEBUG
 
 	struct Resource {
 		ComPtr<ID3D12Resource> res;
@@ -234,7 +211,7 @@ private:
 		HeapAlignmentType alignment;
 	};
 
-	ComPtr<ID3D12Device8> device;
+	ComPtr<ID3D12Device> device;
 	CommandQueue copyQueue;
 	Vector<CommandList> cmdLists;
 
@@ -248,10 +225,12 @@ private:
 	CriticalSection resourcesCS;
 	unsigned int numThreads;
 
-	friend bool initResourceManager(ComPtr<ID3D12Device8> device, const unsigned int numThreads);
+	friend bool initResourceManager(ComPtr<ID3D12Device> device, const unsigned int numThreads);
 	friend void deinitResourceManager();
 };
 
-bool initResourceManager(ComPtr<ID3D12Device8> device, const unsigned int numThreads);
+bool initResourceManager(ComPtr<ID3D12Device> device, const unsigned int numThreads);
 void deinitResourceManager();
-ResourceManager& getResourceManager();
+ResourceManager &getResourceManager();
+
+} // namespace Dar

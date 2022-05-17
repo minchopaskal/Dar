@@ -1,6 +1,8 @@
 #include "d3d12/descriptor_heap.h"
 #include "utils/defines.h"
 
+namespace Dar {
+
 DescriptorHeap::DescriptorHeap() :
 	device(nullptr),
 	type(D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES),
@@ -11,7 +13,7 @@ DescriptorHeap::DescriptorHeap() :
 	initted(false)
 { }
 
-void DescriptorHeap::init(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type, int numDesctiptors, bool shaderVisible) {
+void DescriptorHeap::init(ID3D12Device *device, D3D12_DESCRIPTOR_HEAP_TYPE type, int numDesctiptors, bool shaderVisible) {
 	dassert(device != nullptr);
 
 	this->device = device;
@@ -39,10 +41,11 @@ void DescriptorHeap::init(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE type,
 }
 
 void DescriptorHeap::reset() {
+	// TODO: What to do with the already created views
 	cpuHandleRunning = cpuHandleStart;
 }
 
-void DescriptorHeap::addTexture2DSRV(ID3D12Resource* resource, DXGI_FORMAT format) {
+void DescriptorHeap::addTexture2DSRV(ID3D12Resource *resource, DXGI_FORMAT format) {
 	dassert(type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
@@ -55,7 +58,7 @@ void DescriptorHeap::addTexture2DSRV(ID3D12Resource* resource, DXGI_FORMAT forma
 	cpuHandleRunning.ptr += handleIncrementSize;
 }
 
-void DescriptorHeap::addBufferSRV(ID3D12Resource* resource, int numElements, int elementSize) {
+void DescriptorHeap::addBufferSRV(ID3D12Resource *resource, int numElements, int elementSize) {
 	dassert(type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
@@ -70,14 +73,14 @@ void DescriptorHeap::addBufferSRV(ID3D12Resource* resource, int numElements, int
 	cpuHandleRunning.ptr += handleIncrementSize;
 }
 
-void DescriptorHeap::addRTV(ID3D12Resource* resource, D3D12_RENDER_TARGET_VIEW_DESC* rtvDesc) {
+void DescriptorHeap::addRTV(ID3D12Resource *resource, D3D12_RENDER_TARGET_VIEW_DESC *rtvDesc) {
 	dassert(type == D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
 	device->CreateRenderTargetView(resource, rtvDesc, cpuHandleRunning);
 	cpuHandleRunning.ptr += handleIncrementSize;
 }
 
-void DescriptorHeap::addDSV(ID3D12Resource* resource, DXGI_FORMAT format) {
+void DescriptorHeap::addDSV(ID3D12Resource *resource, DXGI_FORMAT format) {
 	dassert(type == D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsDesc = {};
@@ -90,3 +93,4 @@ void DescriptorHeap::addDSV(ID3D12Resource* resource, DXGI_FORMAT format) {
 	cpuHandleRunning.ptr += handleIncrementSize;
 }
 
+} // namespace Dar

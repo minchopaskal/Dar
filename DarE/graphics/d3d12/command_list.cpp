@@ -5,19 +5,24 @@
 
 #include "d3dx12.h"
 
-CommandList::CommandList() : valid(false), type(D3D12_COMMAND_LIST_TYPE::D3D12_COMMAND_LIST_TYPE_DIRECT) { }
+namespace Dar {
+
+CommandList::CommandList() : valid(false), type(D3D12_COMMAND_LIST_TYPE::D3D12_COMMAND_LIST_TYPE_DIRECT) {}
 
 bool CommandList::isValid() const {
 	return valid;
 }
 
-bool CommandList::init(const ComPtr<ID3D12Device8> &device, const ComPtr<ID3D12CommandAllocator> &cmdAllocator, D3D12_COMMAND_LIST_TYPE type) {
+bool CommandList::init(const ComPtr<ID3D12Device> &device, const ComPtr<ID3D12CommandAllocator> &cmdAllocator, D3D12_COMMAND_LIST_TYPE type) {
 	this->type = type;
 
 	cmdList.Reset();
 
+	ComPtr<ID3D12Device4> device4;
+	RETURN_FALSE_ON_ERROR(device.As(&device4), "Failed to aquire ID3D12Device4 interface from device!");
+
 	RETURN_FALSE_ON_ERROR(
-		device->CreateCommandList1(0, type, D3D12_COMMAND_LIST_FLAG_NONE, IID_PPV_ARGS(&cmdList)),
+		device4->CreateCommandList1(0, type, D3D12_COMMAND_LIST_FLAG_NONE, IID_PPV_ARGS(&cmdList)),
 		"Failed to create command list!"
 	);
 
@@ -55,7 +60,7 @@ void CommandList::transition(ResourceHandle resource, D3D12_RESOURCE_STATES stat
 		}
 		return false;
 	};
-	
+
 	if (lastStates.find(resource) != lastStates.end()) { // the resource was already transitioned once
 		SubresStates &states = lastStates[resource];
 		for (int i = 0; i < states.size(); ++i) {	// Check whether the subresource was transitioned
@@ -102,12 +107,8 @@ void CommandList::transition(ResourceHandle resource, D3D12_RESOURCE_STATES stat
 	}
 }
 
-void CommandList::setMVPBuffer(ResourceHandle mvpBufferHandle) {
-	cmdList->SetGraphicsRootConstantBufferView(0, mvpBufferHandle->GetGPUVirtualAddress());
-}
-
 void CommandList::setConstantBufferView(unsigned int index, ResourceHandle constBufferHandle) {
-	dassert(index > 0);
+	dassert(index >= 0);
 	cmdList->SetGraphicsRootConstantBufferView(index, constBufferHandle->GetGPUVirtualAddress());
 }
 
@@ -122,6 +123,8 @@ void CommandList::resolveLastStates() {
 	lastStates.clear();
 }
 
-Vector<PendingResourceBarrier>& CommandList::getPendingResourceBarriers() {
+Vector<PendingResourceBarrier> &CommandList::getPendingResourceBarriers() {
 	return pendingBarriers;
 }
+
+} // namespace Dar

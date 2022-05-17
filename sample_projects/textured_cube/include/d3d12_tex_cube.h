@@ -8,7 +8,7 @@
 
 #include "fps_camera_controller.h"
 
-struct D3D12TexturedCube : D3D12App {
+struct D3D12TexturedCube : Dar::App {
 	D3D12TexturedCube(UINT width, UINT height, const String &windowTitle);
 
 	int loadAssets();
@@ -33,7 +33,7 @@ private:
 	void timeIt();
 
 private:
-	using Super = D3D12App;
+	using Super = Dar::App;
 
 	enum class ProjectionType {
 		Perspective,

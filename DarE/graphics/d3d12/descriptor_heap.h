@@ -2,11 +2,13 @@
 
 #include "d3d12/includes.h"
 
+namespace Dar {
+
 struct DescriptorHeap {
 	DescriptorHeap();
 
 	void init(
-		ID3D12Device* device,
+		ID3D12Device *device,
 		D3D12_DESCRIPTOR_HEAP_TYPE type,
 		int numDesctiptors,
 		bool shaderVisible
@@ -19,13 +21,13 @@ struct DescriptorHeap {
 	void addTexture2DSRV(ID3D12Resource *resource, DXGI_FORMAT format);
 
 	/// Add a buffer SRV at the end of the heap.
-	void addBufferSRV(ID3D12Resource* resource, int numElements, int elementSize);
+	void addBufferSRV(ID3D12Resource *resource, int numElements, int elementSize);
 
-	void addRTV(ID3D12Resource* resource, D3D12_RENDER_TARGET_VIEW_DESC* rtvDesc);
+	void addRTV(ID3D12Resource *resource, D3D12_RENDER_TARGET_VIEW_DESC *rtvDesc);
 
-	void addDSV(ID3D12Resource* resource, DXGI_FORMAT foramt);
+	void addDSV(ID3D12Resource *resource, DXGI_FORMAT foramt);
 
-	ID3D12DescriptorHeap* const* getAddressOf() const {
+	ID3D12DescriptorHeap *const *getAddressOf() const {
 		return heap.GetAddressOf();
 	}
 
@@ -47,7 +49,7 @@ struct DescriptorHeap {
 
 private:
 	ComPtr<ID3D12DescriptorHeap> heap;
-	ID3D12Device* device; /// Non-owning pointer to the device.
+	ID3D12Device *device; /// Non-owning pointer to the device.
 
 	D3D12_DESCRIPTOR_HEAP_TYPE type;
 
@@ -59,3 +61,5 @@ private:
 
 	bool initted;
 };
+
+} // namespace Dar

@@ -5,6 +5,8 @@
 #include <cassert>
 #endif DAR_DEBUG
 
+namespace Dar {
+
 WString getAssetFullPath(const wchar_t *assetName, AssetType assetType) {
 	WString path;
 
@@ -28,3 +30,5 @@ WString getAssetFullPath(const wchar_t *assetName, AssetType assetType) {
 
 	return path;
 }
+
+} // namespace Dar

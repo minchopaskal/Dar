@@ -19,7 +19,7 @@
 #include <glfw/glfw3.h> // keyboard input
 
 D3D12HelloTriangle::D3D12HelloTriangle(UINT width, UINT height, const String &windowTitle) :
-	D3D12App(width, height, windowTitle.c_str()),
+	Dar::App(width, height, windowTitle.c_str()),
 	rtvHeapHandleIncrementSize(0),
 	viewport{ 0.f, 0.f, static_cast<float>(width), static_cast<float>(height) },
 	scissorRect{ 0, 0, LONG_MAX, LONG_MAX }, // always render on the entire screen

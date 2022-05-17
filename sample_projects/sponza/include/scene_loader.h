@@ -1,6 +1,8 @@
 #pragma once
 
-#include "scene.h"
+#include "utils/defines.h"
+
+struct Scene;
 
 enum class SceneLoaderError : int {
 	Success = 0,

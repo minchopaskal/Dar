@@ -18,7 +18,7 @@ struct ImageData {
 
 ImageData loadImage(const String &imgPath) {
 	WString imgPathWStr(imgPath.begin(), imgPath.end());
-	const WString fullPathWStr = getAssetFullPath(imgPathWStr.c_str(), AssetType::Texture);
+	const WString fullPathWStr = Dar::getAssetFullPath(imgPathWStr.c_str(), Dar::AssetType::Texture);
 	const SizeType bufferLen = fullPathWStr.size() * sizeof(wchar_t) + 1;
 	char *path = new char[bufferLen];
 	stbi_convert_wchar_to_utf8(path, bufferLen, fullPathWStr.c_str());
@@ -30,25 +30,21 @@ ImageData loadImage(const String &imgPath) {
 	return result;
 }
 
-// TODO: move d3d12_scene to Sponza(future Renderer project).
-// Then the MeshData will be taken from gpu_cpu_common.hlsli
-
-
-void Mesh::uploadMeshData(UploadHandle uploadHandle) const {
+void Mesh::uploadMeshData(Dar::UploadHandle uploadHandle) const {
 	// Only upload the data if needed
 	if (modelMatrix == cache && meshDataHandle != INVALID_RESOURCE_HANDLE) {
 		return;
 	}
 
 	MeshData md = { modelMatrix, modelMatrix.inverse().transpose(), static_cast<unsigned int>(mat) };
-	
-	ResourceManager &resManager = getResourceManager();
+
+	Dar::ResourceManager &resManager = Dar::getResourceManager();
 	if (meshDataHandle != INVALID_RESOURCE_HANDLE) {
 		resManager.deregisterResource(meshDataHandle);
 		meshDataHandle = INVALID_RESOURCE_HANDLE;
 	}
 
-	ResourceInitData resInit(ResourceType::DataBuffer);
+	Dar::ResourceInitData resInit(Dar::ResourceType::DataBuffer);
 	resInit.size = sizeof(MeshData);
 	meshDataHandle = resManager.createBuffer(resInit);
 	resManager.uploadBufferData(uploadHandle, meshDataHandle, &md, sizeof(MeshData));
@@ -58,8 +54,8 @@ void Mesh::uploadMeshData(UploadHandle uploadHandle) const {
 }
 
 void ModelNode::updateMeshDataHandles() const {
-	ResourceManager &resManager = getResourceManager();
-	UploadHandle handle = resManager.beginNewUpload();
+	Dar::ResourceManager &resManager = Dar::getResourceManager();
+	Dar::UploadHandle handle = resManager.beginNewUpload();
 
 	for (int i = 0; i < meshes.size(); ++i) {
 		meshes[i].uploadMeshData(handle);
@@ -68,7 +64,7 @@ void ModelNode::updateMeshDataHandles() const {
 	resManager.uploadBuffers();
 }
 
-void ModelNode::draw(CommandList &cmdList, const Scene &scene) const {
+void ModelNode::draw(Dar::CommandList &cmdList, const Scene &scene) const {
 	const SizeType numMeshes = meshes.size();
 
 	updateMeshDataHandles();
@@ -82,14 +78,12 @@ void ModelNode::draw(CommandList &cmdList, const Scene &scene) const {
 	}
 }
 
-Scene::Scene(ComPtr<ID3D12Device8> &device) :
+Scene::Scene() :
 	sceneBox(BBox::invalidBBox()),
-	device(device),
 	texturesNeedUpdate(true),
 	lightsNeedUpdate(true),
 	materialsNeedUpdate(true),
-	changesSinceLastCheck(true)
-{ }
+	changesSinceLastCheck(true) {}
 
 Scene::~Scene() {
 	for (int i = 0; i < nodes.size(); ++i) {
@@ -99,7 +93,7 @@ Scene::~Scene() {
 	nodes.clear();
 }
 
-bool Scene::uploadSceneData(UploadHandle uploadHandle) {
+bool Scene::uploadSceneData(Dar::UploadHandle uploadHandle) {
 	if (!lightsNeedUpdate && !materialsNeedUpdate && !texturesNeedUpdate) {
 		return true;
 	}
@@ -131,7 +125,7 @@ bool Scene::uploadSceneData(UploadHandle uploadHandle) {
 	return true;
 }
 
-void Scene::draw(CommandList &cmdList) const {
+void Scene::draw(Dar::CommandList &cmdList) const {
 	const SizeType numNodes = nodes.size();
 	DynamicBitset drawnNodes(numNodes);
 	for (int i = 0; i < numNodes; ++i) {
@@ -139,7 +133,7 @@ void Scene::draw(CommandList &cmdList) const {
 	}
 }
 
-void Scene::drawNodeImpl(Node *node, CommandList &cmdList, const Scene &scene, DynamicBitset &drawnNodes) const {
+void Scene::drawNodeImpl(Node *node, Dar::CommandList &cmdList, const Scene &scene, DynamicBitset &drawnNodes) const {
 	if (drawnNodes[node->id]) {
 		return;
 	}
@@ -154,14 +148,14 @@ void Scene::drawNodeImpl(Node *node, CommandList &cmdList, const Scene &scene, D
 	}
 }
 
-bool Scene::uploadLightData(UploadHandle uploadHandle) {
+bool Scene::uploadLightData(Dar::UploadHandle uploadHandle) {
 	SizeType numLights = getNumLights();
 	if (numLights == 0) {
 		return true;
 	}
 
 	SizeType lightsDataSize = numLights * sizeof(LightData);
-	Byte *lightsMemory = (Byte*)malloc(lightsDataSize);
+	Byte *lightsMemory = (Byte *)malloc(lightsDataSize);
 	if (lightsMemory == nullptr) {
 		return false;
 	}
@@ -170,7 +164,7 @@ bool Scene::uploadLightData(UploadHandle uploadHandle) {
 		LightId currLightIdx = lightIndices[i];
 		dassert(nodes[currLightIdx]->getNodeType() == NodeType::Light);
 
-		LightNode *light = dynamic_cast<LightNode*>(nodes[currLightIdx]);
+		LightNode *light = dynamic_cast<LightNode *>(nodes[currLightIdx]);
 		if (light) {
 			// Do as much preprocessing as possible
 			LightData &gpuLight = light->lightData;
@@ -181,13 +175,13 @@ bool Scene::uploadLightData(UploadHandle uploadHandle) {
 		}
 	}
 
-	ResourceManager &resManager = getResourceManager();
+	Dar::ResourceManager &resManager = Dar::getResourceManager();
 
 	SizeType lightsOldBufferSize = resManager.getResourceSize(lightsHandle);
 	if (lightsDataSize > lightsOldBufferSize) {
 		resManager.deregisterResource(lightsHandle);
 
-		ResourceInitData resData(ResourceType::DataBuffer);
+		Dar::ResourceInitData resData(Dar::ResourceType::DataBuffer);
 		resData.size = lightsDataSize;
 		resData.name = L"LightsData";
 		lightsHandle = resManager.createBuffer(resData);
@@ -202,14 +196,14 @@ bool Scene::uploadLightData(UploadHandle uploadHandle) {
 	return true;
 }
 
-bool Scene::uploadMaterialData(UploadHandle uploadHandle) {
+bool Scene::uploadMaterialData(Dar::UploadHandle uploadHandle) {
 	SizeType numMaterials = getNumMaterials();
 	if (numMaterials == 0) {
 		return true;
 	}
 
 	SizeType materialsDataSize = numMaterials * sizeof(MaterialData);
-	Byte *materialsMemory = ( Byte* )malloc(materialsDataSize);
+	Byte *materialsMemory = (Byte *)malloc(materialsDataSize);
 	if (materialsMemory == nullptr) {
 		return false;
 	}
@@ -219,13 +213,13 @@ bool Scene::uploadMaterialData(UploadHandle uploadHandle) {
 		memcpy(materialsMemory + i * sizeof(MaterialData), &m.materialData, sizeof(MaterialData));
 	}
 
-	ResourceManager &resManager = getResourceManager();
+	Dar::ResourceManager &resManager = Dar::getResourceManager();
 
 	SizeType materialsOldBufferSize = resManager.getResourceSize(materialsHandle);
 	if (materialsDataSize > materialsOldBufferSize) {
 		resManager.deregisterResource(materialsHandle);
 
-		ResourceInitData resData(ResourceType::DataBuffer);
+		Dar::ResourceInitData resData(Dar::ResourceType::DataBuffer);
 		resData.size = materialsDataSize;
 		resData.name = L"MaterialsData";
 		materialsHandle = resManager.createBuffer(resData);
@@ -241,16 +235,16 @@ bool Scene::uploadMaterialData(UploadHandle uploadHandle) {
 	return true;
 }
 
-bool Scene::uploadTextureData(UploadHandle uploadHandle) {
-	ResourceManager &resManager = getResourceManager();
+bool Scene::uploadTextureData(Dar::UploadHandle uploadHandle) {
+	Dar::ResourceManager &resManager = Dar::getResourceManager();
 
 	SizeType numTextures = getNumTextures();
 
 	std::for_each(
 		textureHandles.begin(),
 		textureHandles.end(),
-		[&resManager](ResourceHandle handle) {
-			resManager.deregisterResource(handle); 
+		[&resManager](Dar::ResourceHandle handle) {
+			resManager.deregisterResource(handle);
 		}
 	);
 
@@ -258,16 +252,16 @@ bool Scene::uploadTextureData(UploadHandle uploadHandle) {
 
 	Vector<ImageData> texData(numTextures);
 	Vector<D3D12_RESOURCE_DESC> texDescs(numTextures);
-	Vector<ResourceInitData> texInitDatas(numTextures);
+	Vector<Dar::ResourceInitData> texInitDatas(numTextures);
 	for (int i = 0; i < numTextures; ++i) {
-		Texture &tex = textures[i];
+		TextureDesc &tex = textures[i];
 		texData[i] = loadImage(tex.path);
 		tex.format = texData[i].ncomp == 4 ? TextureFormat::RGBA_8BIT : TextureFormat::Invalid;
 		wchar_t textureName[32] = L"";
 		swprintf(textureName, 32, L"Texture[%d]", i);
 
-		ResourceInitData &texInitData = texInitDatas[i];
-		texInitData.init(ResourceType::TextureBuffer);
+		Dar::ResourceInitData &texInitData = texInitDatas[i];
+		texInitData.init(Dar::ResourceType::TextureBuffer);
 		texInitData.textureData.width = texData[i].width;
 		texInitData.textureData.height = texData[i].height;
 		texInitData.textureData.format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -284,7 +278,7 @@ bool Scene::uploadTextureData(UploadHandle uploadHandle) {
 
 	SizeType heapOffset = 0;
 	for (int i = 0; i < numTextures; ++i) {
-		HeapInfo heapInfo = {};
+		Dar::HeapInfo heapInfo = {};
 		heapInfo.handle = texturesHeap;
 		heapInfo.offset = heapOffset;
 		texInitDatas[i].heapInfo = &heapInfo;
@@ -293,7 +287,7 @@ bool Scene::uploadTextureData(UploadHandle uploadHandle) {
 
 		D3D12_SUBRESOURCE_DATA textureSubresources = {};
 		textureSubresources.pData = texData[i].data;
-		textureSubresources.RowPitch = static_cast< UINT64 >(texData[i].width) * static_cast< UINT64 >(texData[i].ncomp);
+		textureSubresources.RowPitch = static_cast<UINT64>(texData[i].width) * static_cast<UINT64>(texData[i].ncomp);
 		textureSubresources.SlicePitch = textureSubresources.RowPitch * texData[i].height;
 		UINT64 size = resManager.uploadTextureData(uploadHandle, textureHandles[i], &textureSubresources, 1, 0);
 

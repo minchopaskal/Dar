@@ -9,6 +9,8 @@
 
 #include "utils/defines.h"
 
+#include "scene.h"
+
 #define USE_MIKKTSPACE
 
 struct MikkTSpaceMeshData {
@@ -209,10 +211,10 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 				continue;
 			}
 
-			Camera cam;
+			Dar::Camera cam;
 
 			if (std::fabs(aiCam->mOrthographicWidth) < 1e-6f) {
-				cam = Camera::perspectiveCamera(
+				cam = Dar::Camera::perspectiveCamera(
 					aiVector3DToVec3(aiCam->mPosition),
 					aiCam->mHorizontalFOV,
 					aiCam->mAspect,
@@ -220,7 +222,7 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 					aiCam->mClipPlaneFar
 				);
 			} else {
-				cam = Camera::orthographicCamera(
+				cam = Dar::Camera::orthographicCamera(
 					aiVector3DToVec3(aiCam->mPosition),
 					2 * aiCam->mOrthographicWidth,
 					2 * aiCam->mOrthographicWidth / aiCam->mAspect,

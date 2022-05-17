@@ -6,15 +6,17 @@
 
 #include "d3dx12.h"
 
+namespace Dar {
+
 CommandQueue::CommandQueue(D3D12_COMMAND_LIST_TYPE type) :
 	device(nullptr),
 	fenceValue(0),
 	fenceEvent(nullptr),
-	type(type) { }
+	type(type) {}
 
-void CommandQueue::init(ComPtr<ID3D12Device8> device) {
+void CommandQueue::init(ComPtr<ID3D12Device> device) {
 	this->device = device;
-	
+
 	D3D12_COMMAND_QUEUE_DESC cqDesc = {};
 	cqDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 	cqDesc.Type = type;
@@ -95,11 +97,11 @@ UINT64 CommandQueue::executeCommandLists() {
 
 	// The command lists in the pending command lists queue will go here
 	// to be executed together.
-	Vector<ID3D12CommandList*> pendingCmdListsToExecute;
+	Vector<ID3D12CommandList *> pendingCmdListsToExecute;
 
 	// Each command list's allocator we will execute in this method
 	// will be cached at the end of the function for reuse in future command lists.
-	Vector<ID3D12CommandAllocator*> cmdAllocators;
+	Vector<ID3D12CommandAllocator *> cmdAllocators;
 
 	// Array of the resource barriers we want to execute before submitting
 	// the pending command lists.
@@ -274,3 +276,5 @@ CommandList CommandQueue::createCommandList(const ComPtr<ID3D12CommandAllocator>
 
 	return cmdList;
 }
+
+} // namespace Dar

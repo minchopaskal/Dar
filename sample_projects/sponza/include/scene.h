@@ -71,7 +71,7 @@ enum class TextureFormat : unsigned int {
 	Count
 };
 
-struct Texture {
+struct TextureDesc {
 	String path;
 	TextureId id = INVALID_TEXTURE_ID;
 	TextureType type = TextureType::Invalid;
@@ -80,12 +80,12 @@ struct Texture {
 
 struct Mesh {
 	Mat4 modelMatrix = Mat4(1.f);
-	mutable ResourceHandle meshDataHandle = INVALID_RESOURCE_HANDLE;
+	mutable Dar::ResourceHandle meshDataHandle = INVALID_RESOURCE_HANDLE;
 	MaterialId mat = INVALID_MATERIAL_ID;
 	SizeType indexOffset = 0;
 	SizeType numIndices = 0;
 
-	void uploadMeshData(UploadHandle uploadHandle) const;
+	void uploadMeshData(Dar::UploadHandle uploadHandle) const;
 
 private:
 	mutable Mat4 cache = Mat4(1.f);
@@ -109,7 +109,7 @@ struct Node {
 
 	virtual ~Node() {}
 
-	virtual void draw(CommandList &cmdList, const Scene &scene) const = 0;
+	virtual void draw(Dar::CommandList &cmdList, const Scene &scene) const = 0;
 
 	NodeType getNodeType() const {
 		return nodeType;
@@ -126,13 +126,11 @@ struct ModelNode : Node {
 		nodeType = NodeType::Model;
 	}
 
-	void draw(CommandList &cmdList, const Scene &scene) const override;
+	void draw(Dar::CommandList &cmdList, const Scene &scene) const override;
 
 private:
 	void updateMeshDataHandles() const;
 };
-
-
 
 struct LightNode : Node {
 	LightData lightData;
@@ -142,7 +140,7 @@ struct LightNode : Node {
 		nodeType = NodeType::Light;
 	}
 
-	void draw(CommandList&, const Scene &scene) const override final {
+	void draw(Dar::CommandList &, const Scene &scene) const override final {
 		// TODO: debug draw point lights
 		// IDEA: debug draw dir lights by giving them position
 	}
@@ -150,19 +148,19 @@ struct LightNode : Node {
 
 // TODO: camera node should be able to be attached to a parent node, controlling it's position
 struct CameraNode : Node {
-	CameraNode(Camera &&camera) {
+	CameraNode(Dar::Camera &&camera) {
 		nodeType = NodeType::Camera;
 		this->camera = std::move(camera);
 	}
-	
-	virtual void draw(CommandList &, const Scene&) const override final { }
 
-	Camera* getCamera() {
+	virtual void draw(Dar::CommandList &, const Scene &) const override final {}
+
+	Dar::Camera *getCamera() {
 		return &camera;
 	}
 
 private:
-	Camera camera;
+	Dar::Camera camera;
 };
 
 struct Vertex {
@@ -172,34 +170,32 @@ struct Vertex {
 	Vec2 uv;
 };
 
-struct ID3D12DDescriptorHeap;
-
 // TODO: encapsulate members
 struct Scene {
-	Vector<Node*> nodes; ///< Vector with pointers to all nodes in the scene
+	Vector<Node *> nodes; ///< Vector with pointers to all nodes in the scene
 	Vector<LightId> lightIndices; ///< Indices of the lights in the nodes vector
 	Vector<CameraId> cameraIndices; ///< Indices of the cameras in the nodes vector
 	Vector<Material> materials; ///< Vector with all materials in the scene
-	Vector<Texture> textures; ///< Vector with all textures in the scene. Meshes could share texture ids.
+	Vector<TextureDesc> textures; ///< Vector with all textures in the scene. Meshes could share texture ids.
 	Vector<Vertex> vertices; ///< All vertices in the scene.
 	Vector<unsigned int> indices; ///< All indices for all meshes, indexing in the vertices array.
-	Vector<ResourceHandle> textureHandles;
-	ResourceHandle materialsHandle; ///< Handle to the GPU buffer holding all materials' data.
-	ResourceHandle lightsHandle; ///< Handle to the GPU buffer holding all lights' data.
+	Vector<Dar::ResourceHandle> textureHandles;
+	Dar::ResourceHandle materialsHandle; ///< Handle to the GPU buffer holding all materials' data.
+	Dar::ResourceHandle lightsHandle; ///< Handle to the GPU buffer holding all lights' data.
 	BBox sceneBox;
 	unsigned int renderCamera = 0; ///< Id of the camera used for rendering
 
-	Scene(ComPtr<ID3D12Device8> &device);
+	Scene();
 	~Scene();
 
-	bool setCameraForCameraController(ICameraController &controller) {
+	bool setCameraForCameraController(Dar::ICameraController &controller) {
 		static const int activeCameraIdx = 0; // TODO: this should not be hardcoded
 
 		if (cameraIndices.empty()) {
 			return false;
 		}
 
-		CameraNode *camNode = dynamic_cast<CameraNode*>(nodes[cameraIndices[activeCameraIdx]]);
+		CameraNode *camNode = dynamic_cast<CameraNode *>(nodes[cameraIndices[activeCameraIdx]]);
 		if (camNode == nullptr) {
 			return false;
 		}
@@ -214,7 +210,7 @@ struct Scene {
 
 	LightId addNewLight(LightNode *l) {
 		LightId id = nodes.size();
-		
+
 		l->id = id;
 		nodes.push_back(l);
 		lightIndices.push_back(id);
@@ -252,7 +248,7 @@ struct Scene {
 			}
 		}
 
-		Texture res = { String{path}, static_cast<unsigned int>(textures.size()), type };
+		TextureDesc res = { String{path}, static_cast<unsigned int>(textures.size()), type };
 		textures.push_back(res);
 		textureHandles.push_back({});
 
@@ -261,21 +257,21 @@ struct Scene {
 		return res.id;
 	}
 
-	const Material& getMaterial(MaterialId id) const {
+	const Material &getMaterial(MaterialId id) const {
 		dassert(id >= 0 && id < materials.size() && id != INVALID_MATERIAL_ID);
 		return materials[id];
 	}
 
-	const Texture& getTexture(TextureId id) const {
+	const TextureDesc &getTexture(TextureId id) const {
 		dassert(id >= 0 && id < textures.size() && id != INVALID_TEXTURE_ID);
 		return textures[id];
 	}
 
-	const void* getVertexBuffer() const {
+	const void *getVertexBuffer() const {
 		return &vertices[0];
 	}
 
-	const void* getIndexBuffer() const {
+	const void *getIndexBuffer() const {
 		return &indices[0];
 	}
 
@@ -291,8 +287,8 @@ struct Scene {
 		return static_cast<UINT>(sz);
 	}
 
-	Camera *getRenderCamera() {
-		return dynamic_cast<CameraNode*>(nodes[cameraIndices[renderCamera]])->getCamera();
+	Dar::Camera *getRenderCamera() {
+		return dynamic_cast<CameraNode *>(nodes[cameraIndices[renderCamera]])->getCamera();
 	}
 
 	const SizeType getNumNodes() const {
@@ -307,9 +303,9 @@ struct Scene {
 		return materials.size();
 	}
 
-	bool uploadSceneData(UploadHandle uploadHandle);
+	bool uploadSceneData(Dar::UploadHandle uploadHandle);
 
-	void draw(CommandList &cmdList) const;
+	void draw(Dar::CommandList &cmdList) const;
 
 	bool hadChangesSinceLastCheck() const {
 		bool result = changesSinceLastCheck;
@@ -319,15 +315,14 @@ struct Scene {
 	}
 
 private:
-	bool uploadLightData(UploadHandle uploadHandle);
-	bool uploadMaterialData(UploadHandle uploadHandle);
-	bool uploadTextureData(UploadHandle uploadHandle);
+	bool uploadLightData(Dar::UploadHandle uploadHandle);
+	bool uploadMaterialData(Dar::UploadHandle uploadHandle);
+	bool uploadTextureData(Dar::UploadHandle uploadHandle);
 
-	void drawNodeImpl(Node *node, CommandList &cmdList, const Scene &scene, DynamicBitset &drawnNodes) const;
+	void drawNodeImpl(Node *node, Dar::CommandList &cmdList, const Scene &scene, DynamicBitset &drawnNodes) const;
 
 private:
-	ComPtr<ID3D12Device8> &device;
-	HeapHandle texturesHeap; ///< Heap of the memory holding the textures' data
+	Dar::HeapHandle texturesHeap; ///< Heap of the memory holding the textures' data
 
 	bool texturesNeedUpdate; ///< Indicates textures have been changed and need to be reuploaded to the GPU.
 	bool lightsNeedUpdate; ///< Indicates lights have been changed and need to be reuploaded to the GPU.

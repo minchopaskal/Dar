@@ -21,7 +21,7 @@
 #include "imgui.h"
 
 CudaRasterizer::CudaRasterizer(Vector<String> &shaders, const String &windowTitle, UINT width, UINT height) :
-	D3D12App(width, height, windowTitle.c_str()),
+	Dar::App(width, height, windowTitle.c_str()),
 	rtvHeapHandleIncrementSize(0),
 	viewport{ 0.f, 0.f, static_cast<float>(width), static_cast<float>(height) },
 	scissorRect{ 0, 0, LONG_MAX, LONG_MAX }, // always render on the entire screen
@@ -353,8 +353,10 @@ CUDAError CudaRasterizer::clearDepthBuffer() {
 
 int CudaRasterizer::loadAssets() {
 	// Create the pipeline state
+	auto staticSamplerDesc = CD3DX12_STATIC_SAMPLER_DESC(0);
+
 	PipelineStateDesc desc;
-	desc.staticSamplerDesc = &CD3DX12_STATIC_SAMPLER_DESC(0);
+	desc.staticSamplerDesc = &staticSamplerDesc;
 	desc.shaderName = L"screen_quad";
 	desc.shadersMask = shaderInfoFlags_useVertex;
 	desc.numTextures = 1;

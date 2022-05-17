@@ -19,9 +19,9 @@ set(SOURCES
 	${SRC_DIR}/fps_camera_controller.cpp
 	${SRC_DIR}/fps_edit_camera_controller.cpp
 	${SRC_DIR}/main.cpp
+	${SRC_DIR}/sponza.cpp
 	${SRC_DIR}/scene.cpp
 	${SRC_DIR}/scene_loader.cpp
-	${SRC_DIR}/sponza.cpp
 	${SUBMODULE_DIR}/MikkTSpace/mikktspace.c
 )
 
@@ -94,9 +94,9 @@ target_include_directories(
 	${PROJECT_SOURCE_DIR}/DarE
 	${PROJECT_SOURCE_DIR}/DarE/graphics
 	${SUBMODULE_DIR}/imgui
-	${SUBMODULE_DIR}/assimp/include
 	${SHADERS_DIR}
 	${OPTICK_DIR}
+	${SUBMODULE_DIR}/assimp/include
 )
 
 copyD3D12Core(Sponza)

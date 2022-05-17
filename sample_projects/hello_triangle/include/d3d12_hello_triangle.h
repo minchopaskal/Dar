@@ -5,7 +5,7 @@
 #include "math/dar_math.h"
 #include "graphics/d3d12/resource_handle.h"
 
-struct D3D12HelloTriangle : D3D12App {
+struct D3D12HelloTriangle : Dar::App {
 	D3D12HelloTriangle(UINT width, UINT height, const String &windowTitle);
 
 	int loadAssets();
@@ -28,7 +28,7 @@ private:
 	void timeIt();
 
 private:
-	using Super = D3D12App;
+	using Super = Dar::App;
 
 	ComPtr<ID3D12RootSignature> rootSignature;
 	ComPtr<ID3D12PipelineState> pipelineState;
