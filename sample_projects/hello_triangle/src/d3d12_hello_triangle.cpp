@@ -19,54 +19,16 @@
 #include <glfw/glfw3.h> // keyboard input
 
 D3D12HelloTriangle::D3D12HelloTriangle(UINT width, UINT height, const String &windowTitle) :
-	D3D12App(width, height, windowTitle.c_str()),
-	rtvHeapHandleIncrementSize(0),
-	viewport{ 0.f, 0.f, static_cast<float>(width), static_cast<float>(height) },
-	scissorRect{ 0, 0, LONG_MAX, LONG_MAX }, // always render on the entire screen
+	Dar::App(width, height, windowTitle.c_str()),
 	aspectRatio(width / float(height)),
-	fenceValues{ 0 },
-	FOV(45.0),
-	fps(0.0),
-	totalTime(0.0)
-{ }
+	FOV(45.0) { }
 
 int D3D12HelloTriangle::initImpl() {
-	/* Create a descriptor heap for RTVs */
-	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = { };
-	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	rtvHeapDesc.NumDescriptors = frameCount;
-	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	// TODO: 0 since using only one device. Look into that.
-	rtvHeapDesc.NodeMask = 0;
-
-	RETURN_FALSE_ON_ERROR(
-		device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&rtvHeap)),
-		"Failed to create RTV descriptor heap!"
-	);
-
-	rtvHeapHandleIncrementSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	
-	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = { };
-	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-	dsvHeapDesc.NumDescriptors = 1;
-	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	// TODO: 0 since using only one device. Look into that.
-	dsvHeapDesc.NodeMask = 0;
-
-	RETURN_FALSE_ON_ERROR(
-		device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&dsvHeap)),
-		"Failed to create DSV descriptor heap!"
-	);
-	
 	if (!resizeDepthBuffer(this->width, this->height)) {
 		return false;
 	}
 
-	if (!updateRenderTargetViews()) {
-		return false;
-	}
-
-	return true;
+	return loadAssets();
 }
 
 void D3D12HelloTriangle::deinit() {
@@ -75,37 +37,43 @@ void D3D12HelloTriangle::deinit() {
 }
 
 void D3D12HelloTriangle::update() {
-	timeIt();
-
 	// Update MVP matrices
-	float angle = static_cast<float>(totalTime * 90.0);
-	const Vec3 rotationAxis = Vec3(0, 1, 0);
+	//float angle = static_cast<float>(totalTime * 90.0);
+	//const Vec3 rotationAxis = Vec3(0, 1, 0);
 	Mat4 modelMat = Mat4(1.f);
-	modelMat = modelMat.rotate(rotationAxis, angle);
-	modelMat = modelMat.translate({ 1, 0, 0 });
+	//modelMat = modelMat.rotate(rotationAxis, angle);
+	//modelMat = modelMat.translate({ 1, 0, 0 });
 
-	const Vec3 eyePosition = Vec3(1, 0, -10);
-	const Vec3 focusPoint  = Vec3(1, 0, 0);
+	const Vec3 eyePosition = Vec3(0, 0, -10);
+	const Vec3 focusPoint  = Vec3(0, 0, 0);
 	const Vec3 upDirection = Vec3(0, 1, 0);
 	Mat4 viewMat = dmath::lookAt(focusPoint, eyePosition, upDirection);
 	Mat4 projectionMat = dmath::perspective(FOV, aspectRatio, 0.1f, 100.f);
 
 	MVP = projectionMat * viewMat * modelMat;
-}
 
-void D3D12HelloTriangle::render() {
-	CommandList cmdList = populateCommandList();
-	commandQueueDirect.addCommandListForExecution(std::move(cmdList));
-	fenceValues[frameIndex] = commandQueueDirect.executeCommandLists();
+	auto &resManager = Dar::getResourceManager();
+	const int frameIndex = renderer.getBackbufferIndex();
+	if (mvpResourceHandle[frameIndex] == INVALID_RESOURCE_HANDLE) {
+		Dar::ResourceInitData resInitData(Dar::ResourceType::DataBuffer);
+		resInitData.size = sizeof(MVP);
+		resInitData.name = L"MVP matrix";
+		mvpResourceHandle[frameIndex] = resManager.createBuffer(resInitData);
+	}
 
-	UINT syncInterval = vSyncEnabled ? 1 : 0;
-	UINT presentFlags = allowTearing && !vSyncEnabled ? DXGI_PRESENT_ALLOW_TEARING : 0;
-	RETURN_ON_ERROR(swapChain->Present(syncInterval, presentFlags), ,"Failed to execute command list!");
-	
-	frameIndex = swapChain->GetCurrentBackBufferIndex();
+	Dar::UploadHandle uploadHandle = resManager.beginNewUpload();
+	resManager.uploadBufferData(uploadHandle, mvpResourceHandle[frameIndex], &MVP, sizeof(MVP));
+	resManager.uploadBuffers();
 
-	// wait for the next frame's buffer
-	commandQueueDirect.waitForFenceValue(fenceValues[frameIndex]);
+	Dar::ConstantBuffer cb = { };
+	cb.bufferHandle = mvpResourceHandle[frameIndex];
+	cb.rootParameterIndex = 0;
+
+	Dar::FrameData &fd = frameData[renderer.getBackbufferIndex()];
+	fd.clear();
+	fd.vertexBuffer = &vertexBuffer;
+	fd.indexBuffer = &indexBuffer;
+	fd.constantBuffers.push_back(cb);
 }
 
 void D3D12HelloTriangle::onResize(const unsigned int w, const unsigned int h) {
@@ -115,37 +83,11 @@ void D3D12HelloTriangle::onResize(const unsigned int w, const unsigned int h) {
 
 	this->width = dmath::max(1u, w);
 	this->height = dmath::max(1u, h);
-	viewport = { 0.f, 0.f, static_cast<float>(width), static_cast<float>(height) };
 	aspectRatio = width / float(height);
 
 	flush();
 
-	for (int i = 0; i < frameCount; ++i) {
-		backBuffers[i].Reset();
-		resManager->deregisterResource(backBuffersHandles[i]);
-	}
-
-	resManager->deregisterResource(depthBufferHandle);
-
-	DXGI_SWAP_CHAIN_DESC scDesc = { };
-	RETURN_ON_ERROR(
-		swapChain->GetDesc(&scDesc), ,
-		"Failed to retrieve swap chain's description"
-	);
-	RETURN_ON_ERROR(
-		swapChain->ResizeBuffers(
-			frameCount,
-			this->width,
-			this->height,
-			scDesc.BufferDesc.Format,
-			scDesc.Flags
-		), ,
-		"Failed to resize swap chain buffer"
-	);
-
-	frameIndex = swapChain->GetCurrentBackBufferIndex();
-
-	updateRenderTargetViews();
+	renderer.resizeBackBuffers();
 
 	resizeDepthBuffer(this->width, this->height);
 }
@@ -155,8 +97,10 @@ void D3D12HelloTriangle::onKeyboardInput(int key, int action) {
 		toggleFullscreen();
 	}
 
+	auto &rs = renderer.getSettings();
+
 	if (keyPressed[GLFW_KEY_V] && !keyRepeated[GLFW_KEY_V]) {
-		vSyncEnabled = !vSyncEnabled;
+		rs.vSyncEnabled = !rs.vSyncEnabled;
 	}
 }
 
@@ -166,118 +110,37 @@ void D3D12HelloTriangle::onMouseScroll(double xOffset, double yOffset) {
 	FOV = dmath::min(dmath::max(30.f, FOV), 120.f);
 }
 
+Dar::FrameData &D3D12HelloTriangle::getFrameData() {
+	return frameData[renderer.getBackbufferIndex()];
+}
+
 int D3D12HelloTriangle::loadAssets() {
-	/* Create root signature */
-	{
-		D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
-		featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
-		if (FAILED(device->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData)))) {
-			featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
-		}
-
-		// Allow input layout and deny unnecessary access to certain pipeline stages.
-		D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
-			D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
-			D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
-			D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
-			D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS |
-			D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS;
-
-		CD3DX12_ROOT_PARAMETER1 rootParameters[1] = { {} };
-		rootParameters[0].InitAsConstants(sizeof(Mat4) / sizeof(float), 0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
-
-		CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
-		rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 0, nullptr, rootSignatureFlags);
-
-		ComPtr<ID3DBlob> signature;
-		ComPtr<ID3DBlob> error;
-		// TODO: read error if any
-		RETURN_FALSE_ON_ERROR(
-			D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, featureData.HighestVersion, &signature, &error),
-			"Failed to create root signature!"
-		);
-
-		RETURN_FALSE_ON_ERROR(
-			device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature)),
-			"Failed to create root signature!"
-		);
-	}
-
-	/* Load the shaders */
-	{
-		ComPtr<ID3DBlob> vertexShader;
-		ComPtr<ID3DBlob> pixelShader;
-
-#if defined(DAR_DEBUG)
-		UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#else
-		UINT compileFlags = 0;
-#endif // defined(DAR_DEBUG)
-
-		RETURN_FALSE_ON_ERROR(
-			D3DReadFileToBlob(
-			getAssetFullPath(L"basic_vs.bin", AssetType::Shader).c_str(),
-			&vertexShader
-		),
-			"Failed to load vertex shader!"
-		);
-
-		RETURN_FALSE_ON_ERROR(
-			D3DReadFileToBlob(
-			getAssetFullPath(L"basic_ps.bin", AssetType::Shader).c_str(),
-			&pixelShader
-		),
-			"Failed to load pixel shader!"
-		);
-
-		// TODO: find a better way 
-		// (idea: struct with all tokens - set all wanted tokens and init a stream object with all non null tokens)
-		PipelineStateStream pipelineStateStream;
-
-		RootSignatureToken rootSignatureToken = rootSignature.Get();
-		
-		D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
+	CD3DX12_STATIC_SAMPLER_DESC sampler{ 0, D3D12_FILTER_MIN_MAG_MIP_LINEAR };
+	D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 			{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-		};
-		InputLayoutToken inputLayoutToken = D3D12_INPUT_LAYOUT_DESC{ inputLayouts, _countof(inputLayouts) };
-		
-		VertexShaderToken vsToken = D3D12_SHADER_BYTECODE{ vertexShader->GetBufferPointer(), vertexShader->GetBufferSize() };
-		
-		PixelShaderToken psToken = D3D12_SHADER_BYTECODE{ pixelShader->GetBufferPointer(), pixelShader->GetBufferSize() };
-		
-		PrimitiveTopologyToken topologyToken = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-		
-		D3D12_RT_FORMAT_ARRAY rtFormat = {};
-		rtFormat.NumRenderTargets = 1;
-		rtFormat.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-		RTFormatsToken rtFormatToken = rtFormat;
-		
-		DepthStencilFormatToken dsFormatToken = DXGI_FORMAT_D32_FLOAT;
+	};
 
-		D3D12_RASTERIZER_DESC rasterizerDesc = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-		rasterizerDesc.CullMode = D3D12_CULL_MODE_NONE;
+	Dar::RenderPassDesc renderPassDesc = {};
+	Dar::PipelineStateDesc &psDesc = renderPassDesc.psoDesc;
+	psDesc.shaderName = L"basic";
+	psDesc.shadersMask = Dar::shaderInfoFlags_useVertex;
+	psDesc.numRenderTargets = 1;
+	psDesc.renderTargetFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	psDesc.inputLayouts = inputLayouts;
+	psDesc.numInputLayouts = _countof(inputLayouts);
+	psDesc.staticSamplerDesc = &sampler;
+	psDesc.depthStencilBufferFormat = depthBuffer.getFormatAsDepthBuffer();
+	psDesc.numConstantBufferViews = 1;
+	renderPassDesc.drawCb = [](Dar::CommandList &cmdList, void *args) {
+		cmdList->DrawIndexedInstanced(3, 1, 0, 0, 0);
+	};
+	
+	renderPassDesc.attach(Dar::RenderPassAttachment::renderTargetBackbuffer());
+	renderPassDesc.attach(Dar::RenderPassAttachment::depthStencil(&depthBuffer, true));
+	renderer.addRenderPass(renderPassDesc);
 
-		RasterizerDescToken rasterizerToken = rasterizerDesc;
-
-		pipelineStateStream.insert(rootSignatureToken);
-		pipelineStateStream.insert(inputLayoutToken);
-		pipelineStateStream.insert(vsToken);
-		pipelineStateStream.insert(psToken);
-		pipelineStateStream.insert(topologyToken);
-		pipelineStateStream.insert(rtFormatToken);
-		pipelineStateStream.insert(dsFormatToken);
-		pipelineStateStream.insert(rasterizerToken);
-
-		D3D12_PIPELINE_STATE_STREAM_DESC pipelineDesc = {};
-		pipelineDesc.pPipelineStateSubobjectStream = pipelineStateStream.getData();
-		pipelineDesc.SizeInBytes = pipelineStateStream.getSize();
-
-		RETURN_FALSE_ON_ERROR(
-			device->CreatePipelineState(&pipelineDesc, IID_PPV_ARGS(&pipelineState)),
-			"Failed to create pipeline state!"
-		);
-	}
+	renderer.compilePipeline();
 
 	/* Create and copy data to the vertex buffer*/
 	{
@@ -291,156 +154,29 @@ int D3D12HelloTriangle::loadAssets() {
 		static WORD triangleIndices[] = { 0, 1, 2 };
 		const UINT indexBufferSize = sizeof(triangleIndices);
 
-		CommandList commandList = commandQueueDirect.getCommandList();
 
-		ResourceInitData vertData(ResourceType::DataBuffer);
-		vertData.size = vertexBufferSize;
-		vertData.name = L"VertexBuffer";
-		if (!(vertexBufferHandle = resManager->createBuffer(vertData))) {
-			return false;
-		}
+		Dar::UploadHandle uploadHandle = resManager->beginNewUpload();
 
-		ResourceInitData indexBufferData(ResourceType::DataBuffer);
-		indexBufferData.size = indexBufferSize;
-		indexBufferData.name = L"IndexBuffer";
-		if (!(indexBufferHandle = resManager->createBuffer(indexBufferData))) {
-			return false;
-		}
+		Dar::VertexIndexBufferDesc vertexDesc = {};
+		vertexDesc.data = triangleVertices;
+		vertexDesc.name = L"VertexBuffer";
+		vertexDesc.size = vertexBufferSize;
+		vertexDesc.vertexBufferStride = sizeof(Vertex);
+		vertexBuffer.init(vertexDesc, uploadHandle);
 
-		UploadHandle uploadHandle = resManager->beginNewUpload();
-		resManager->uploadBufferData(uploadHandle, vertexBufferHandle, reinterpret_cast<void*>(triangleVertices), vertexBufferSize);
-		resManager->uploadBufferData(uploadHandle, indexBufferHandle, reinterpret_cast<void*>(triangleIndices), indexBufferSize);
+		Dar::VertexIndexBufferDesc indexDesc = {};
+		indexDesc.data = triangleIndices;
+		indexDesc.size = indexBufferSize;
+		indexDesc.name = L"IndexBuffer";
+		indexDesc.indexBufferFormat = DXGI_FORMAT_R16_UINT;
+		indexBuffer.init(indexDesc, uploadHandle);
+
 		resManager->uploadBuffers();
-
-		vertexBufferView.BufferLocation = vertexBufferHandle->GetGPUVirtualAddress();
-		vertexBufferView.SizeInBytes = vertexBufferSize;
-		vertexBufferView.StrideInBytes = sizeof(Vertex);
-
-		indexBufferView.BufferLocation = indexBufferHandle->GetGPUVirtualAddress();
-		indexBufferView.SizeInBytes = indexBufferSize;
-		indexBufferView.Format = DXGI_FORMAT_R16_UINT;
-	}
-
-	return true;
-}
-
-CommandList D3D12HelloTriangle::populateCommandList() {
-	CommandList commandList = commandQueueDirect.getCommandList();
-
-	commandList->SetPipelineState(pipelineState.Get());
-	commandList->SetGraphicsRootSignature(rootSignature.Get());
-	commandList->RSSetViewports(1, &viewport);
-	commandList->RSSetScissorRects(1, &scissorRect);
-
-	CD3DX12_RESOURCE_BARRIER resBarrierPresetToRT = CD3DX12_RESOURCE_BARRIER::Transition(
-		backBuffers[frameIndex].Get(),
-		D3D12_RESOURCE_STATE_PRESENT,
-		D3D12_RESOURCE_STATE_RENDER_TARGET
-	);
-	commandList->ResourceBarrier(1, &resBarrierPresetToRT);
-
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(rtvHeap->GetCPUDescriptorHandleForHeapStart(), frameIndex, rtvHeapHandleIncrementSize);
-	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = dsvHeap->GetCPUDescriptorHandleForHeapStart();
-
-	const float blue[] = { 0.2f, 0.2f, 0.8f, 1.f };
-	const float red[] = { 1.f, 0.2f, 0.2f, 1.f };
-	const float *clearColor = blue;
-	commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
-	commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
-	
-	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
-	commandList->IASetIndexBuffer(&indexBufferView);
-
-	commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
-	commandList->SetGraphicsRoot32BitConstants(0, sizeof(Mat4) / sizeof(float), MVP.data, 0);
-	commandList->DrawIndexedInstanced(3, 1, 0, 0, 0);
-
-	CD3DX12_RESOURCE_BARRIER resBarrierRTtoPresent = CD3DX12_RESOURCE_BARRIER::Transition(
-		backBuffers[frameIndex].Get(),
-		D3D12_RESOURCE_STATE_RENDER_TARGET,
-		D3D12_RESOURCE_STATE_PRESENT
-	);
-	commandList->ResourceBarrier(1, &resBarrierRTtoPresent);
-
-	return commandList;
-}
-
-bool D3D12HelloTriangle::updateRenderTargetViews() {
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(rtvHeap->GetCPUDescriptorHandleForHeapStart());
-
-	for (UINT i = 0; i < frameCount; ++i) {
-		RETURN_FALSE_ON_ERROR_FMT(
-			swapChain->GetBuffer(i, IID_PPV_ARGS(&backBuffers[i])),
-			"Failed to create Render-Target-View for buffer %u!", i
-		);
-		device->CreateRenderTargetView(backBuffers[i].Get(), nullptr, rtvHandle);
-
-		// Register the back buffer's resources manually since the resource manager doesn't own them, the swap chain does.
-#ifdef DAR_DEBUG
-		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, 0, D3D12_RESOURCE_STATE_PRESENT, ResourceType::RenderTargetBuffer);
-#else
-		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, 0, D3D12_RESOURCE_STATE_PRESENT);
-#endif
-
-		rtvHandle.Offset(rtvHeapHandleIncrementSize);
 	}
 
 	return true;
 }
 
 bool D3D12HelloTriangle::resizeDepthBuffer(int width, int height) {
-	width = dmath::max(1, width);
-	height = dmath::max(1, height);
-
-	ResourceInitData resData(ResourceType::DepthStencilBuffer);
-	resData.textureData.width = width;
-	resData.textureData.height = height;
-	resData.textureData.format = DXGI_FORMAT_D32_FLOAT;
-
-	depthBufferHandle = resManager->createBuffer(resData);
-
-	D3D12_DEPTH_STENCIL_VIEW_DESC dsDesc = {};
-	dsDesc.Format = DXGI_FORMAT_D32_FLOAT;
-	dsDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-	dsDesc.Flags = D3D12_DSV_FLAG_NONE;
-	dsDesc.Texture2D.MipSlice = 0;
-
-	device->CreateDepthStencilView(depthBufferHandle.get(), &dsDesc, dsvHeap->GetCPUDescriptorHandleForHeapStart());
-
-	return true;
-}
-
-void D3D12HelloTriangle::timeIt() {
-	using std::chrono::duration_cast;
-	using HRC = std::chrono::high_resolution_clock;
-	
-	static constexpr double SECONDS_IN_NANOSECOND = 1e-9;
-	static UINT64 frameCount = 0;
-	static double elapsedTime = 0.0;
-	static HRC clock;
-	static HRC::time_point t0 = clock.now();
-
-	HRC::time_point t1 = clock.now();
-	deltaTime = (t1 - t0).count() * SECONDS_IN_NANOSECOND;
-	elapsedTime += deltaTime;
-	totalTime += deltaTime;
-	
-	++frameCount;
-	t0 = t1;
-
-	if (elapsedTime > 1.0) {
-		fps = frameCount / elapsedTime;
-
-		printf("FPS: %.2f\n", fps);
-
-#if defined(DAR_DEBUG)
-		char buffer[512];
-		sprintf_s(buffer, "FPS: %.2f\n", fps);
-		OutputDebugString(buffer);
-#endif // defined(DAR_DEBUG)
-
-		frameCount = 0;
-		elapsedTime = 0.0;
-	}
+	return depthBuffer.init(renderer.getDevice(), width, height, DXGI_FORMAT_D32_FLOAT);
 }

@@ -1,6 +1,8 @@
 #include "framework/camera.h"
 #include "utils/defines.h"
 
+namespace Dar {
+
 Mat4 Camera::getViewMatrix() const {
 	if (type == CameraType::Invalid) {
 		dassert(false);
@@ -166,3 +168,5 @@ Mat4 Camera::getProjectionMatrix() const {
 	projectionMatrixValid = true;
 	return projectionMatrix;
 }
+
+} // namespace Dar

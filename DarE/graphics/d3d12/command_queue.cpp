@@ -6,15 +6,17 @@
 
 #include "d3dx12.h"
 
+namespace Dar {
+
 CommandQueue::CommandQueue(D3D12_COMMAND_LIST_TYPE type) :
 	device(nullptr),
 	fenceValue(0),
 	fenceEvent(nullptr),
-	type(type) { }
+	type(type) {}
 
-void CommandQueue::init(ComPtr<ID3D12Device8> device) {
+void CommandQueue::init(ComPtr<ID3D12Device> device) {
 	this->device = device;
-	
+
 	D3D12_COMMAND_QUEUE_DESC cqDesc = {};
 	cqDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 	cqDesc.Type = type;
@@ -274,3 +276,5 @@ CommandList CommandQueue::createCommandList(const ComPtr<ID3D12CommandAllocator>
 
 	return cmdList;
 }
+
+} // namespace Dar

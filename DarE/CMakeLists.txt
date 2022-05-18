@@ -18,7 +18,9 @@ set(HEADERS
 	${LIB_SOURCE_DIR}/graphics/d3d12/pipeline_state.h
 	${LIB_SOURCE_DIR}/graphics/d3d12/resource_handle.h
 	${LIB_SOURCE_DIR}/graphics/d3d12/resource_manager.h
+	${LIB_SOURCE_DIR}/graphics/d3d12/texture_res.h
 	${LIB_SOURCE_DIR}/graphics/d3d12/vertex_index_buffer.h
+	${LIB_SOURCE_DIR}/graphics/renderer.h
 	${LIB_SOURCE_DIR}/math/dar_math.h
 	${LIB_SOURCE_DIR}/utils/defines.h
 	${LIB_SOURCE_DIR}/utils/logger.h
@@ -40,6 +42,8 @@ set(SOURCES
 	${LIB_SOURCE_DIR}/graphics/d3d12/pipeline_state.cpp
 	${LIB_SOURCE_DIR}/graphics/d3d12/resource_manager.cpp
 	${LIB_SOURCE_DIR}/graphics/d3d12/resource_handle.cpp
+	${LIB_SOURCE_DIR}/graphics/d3d12/texture_res.cpp
+	${LIB_SOURCE_DIR}/graphics/renderer.cpp
 	${LIB_SOURCE_DIR}/utils/logger.cpp
 	${LIB_SOURCE_DIR}/utils/utils.cpp
 )
@@ -72,9 +76,9 @@ set(OPTICK_SRC
 	${OPTICK_DIR}/optick_server.cpp
 )
 
-source_group("src"           FILES ${SOURCES})
-source_group("include"       FILES ${HEADERS})
-source_group("third_party"   FILES ${SUBMODULES} ${IMGUI_SRC})
+source_group("src"         FILES ${SOURCES})
+source_group("include"     FILES ${HEADERS})
+source_group("third_party" FILES ${SUBMODULES} ${IMGUI_SRC} ${OPTICK_SRC})
 
 add_library(Dar ${HEADERS} ${SOURCES} ${SUBMODULES} ${IMGUI_SRC} ${OPTICK_SRC})
 

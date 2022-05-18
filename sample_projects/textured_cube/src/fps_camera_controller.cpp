@@ -1,7 +1,7 @@
 #include "fps_camera_controller.h"
 #include "framework/input_query.h"
 
-FPSCameraController::FPSCameraController(Camera *cam, double movementSpeed) : 
+FPSCameraController::FPSCameraController(Dar::Camera *cam, double movementSpeed) : 
 	ICameraController(cam),
 	mousePos{ 0.f, 0.f },
 	speed(movementSpeed),
@@ -39,7 +39,7 @@ void FPSCameraController::onMouseScroll(double xOffset, double yOffset, double d
 	cam->zoom(calculateZoomFactor(yOffset, deltaTime));
 }
 
-void FPSCameraController::processKeyboardInput(IKeyboardInputQuery *inputQuery, double deltaTime) {
+void FPSCameraController::processKeyboardInput(Dar::IKeyboardInputQuery *inputQuery, double deltaTime) {
 	if (inputQuery == nullptr) {
 		return;
 	}

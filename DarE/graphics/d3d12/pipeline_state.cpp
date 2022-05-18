@@ -5,10 +5,11 @@
 
 #include "d3dcompiler.h"
 
-PipelineStateStream::PipelineStateStream() {
-}
+namespace Dar {
 
-void* PipelineStateStream::getData() {
+PipelineStateStream::PipelineStateStream() {}
+
+void *PipelineStateStream::getData() {
 	return data.data();
 }
 
@@ -16,25 +17,28 @@ SizeType PipelineStateStream::getSize() const {
 	return data.size();
 }
 
-PipelineState::PipelineState() { }
+PipelineState::PipelineState() {
+	pipelineState.Reset();
+	rootSignature.Reset();
+}
 
-struct D3D12Empty { };
+struct D3D12Empty {};
 
-bool PipelineState::init(const ComPtr<ID3D12Device8> &device, PipelineStateStream &pss) {
+bool PipelineState::init(const ComPtr<ID3D12Device> &device, PipelineStateStream &pss) {
 	if (!initPipeline(device, pss)) {
 		return false;
 	}
 
 	using EmptyToken = PipelineStateStreamToken<D3D12Empty, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_MAX_VALID>;
 
-	UINT8 *pipelineData = reinterpret_cast<UINT8*>(pss.getData());
+	UINT8 *pipelineData = reinterpret_cast<UINT8 *>(pss.getData());
 	while (pipelineData != pipelineData + pss.getSize()) {
-		EmptyToken *emptyToken = reinterpret_cast<EmptyToken*>(pipelineData); // some template magick
+		EmptyToken *emptyToken = reinterpret_cast<EmptyToken *>(pipelineData); // some template magick
 
-		D3D12_PIPELINE_STATE_SUBOBJECT_TYPE *type = reinterpret_cast<D3D12_PIPELINE_STATE_SUBOBJECT_TYPE*>(pipelineData);
+		D3D12_PIPELINE_STATE_SUBOBJECT_TYPE *type = reinterpret_cast<D3D12_PIPELINE_STATE_SUBOBJECT_TYPE *>(pipelineData);
 		if (*type == D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_ROOT_SIGNATURE) {
 			pipelineData += sizeof(D3D12_PIPELINE_STATE_SUBOBJECT_TYPE);
-			this->rootSignature = ComPtr<ID3D12RootSignature>{ reinterpret_cast<ID3D12RootSignature*>(pipelineData) };
+			this->rootSignature = ComPtr<ID3D12RootSignature>{ reinterpret_cast<ID3D12RootSignature *>(pipelineData) };
 			break;
 		}
 
@@ -44,7 +48,7 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, PipelineStateStrea
 	return true;
 }
 
-bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStateDesc &desc) {
+bool PipelineState::init(const ComPtr<ID3D12Device> &device, const PipelineStateDesc &desc) {
 	PipelineStateStream stream;
 
 	auto mask = desc.shadersMask;
@@ -53,7 +57,7 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStat
 	D3D12_ROOT_SIGNATURE_FLAGS rsFlags =
 		D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED |
 		D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED;
-	
+
 	if (mask & shaderInfoFlags_useVertex) {
 		rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 	}
@@ -64,9 +68,9 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStat
 	ComPtr<ID3DBlob> psShader;
 	RETURN_FALSE_ON_ERROR(
 		D3DReadFileToBlob(
-		getAssetFullPath((base + L"_ps.bin").c_str(), AssetType::Shader).c_str(),
-		&psShader
-	),
+			getAssetFullPath((base + L"_ps.bin").c_str(), AssetType::Shader).c_str(),
+			&psShader
+		),
 		"Failed to read pixel shader!"
 	);
 	stream.insert(PixelShaderToken(D3D12_SHADER_BYTECODE{ psShader->GetBufferPointer(), psShader->GetBufferSize() }));
@@ -75,9 +79,9 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStat
 	if (mask & shaderInfoFlags_useVertex) {
 		RETURN_FALSE_ON_ERROR(
 			D3DReadFileToBlob(
-			getAssetFullPath((base + L"_vs.bin").c_str(), AssetType::Shader).c_str(),
-			&vsShader
-		),
+				getAssetFullPath((base + L"_vs.bin").c_str(), AssetType::Shader).c_str(),
+				&vsShader
+			),
 			"Failed to read vertex shader!"
 		);
 		stream.insert(VertexShaderToken({ vsShader->GetBufferPointer(), vsShader->GetBufferSize() }));
@@ -183,22 +187,29 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStat
 	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
 	rootSignatureDesc.Init_1_1(numParams, rsParams.data(), desc.staticSamplerDesc ? 1 : 0, desc.staticSamplerDesc, rsFlags);
 
+	D3D12_FEATURE_DATA_ROOT_SIGNATURE rootSignatureFeatureData = {};
+	// cache root signature's feature version
+	rootSignatureFeatureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
+	if (FAILED(device->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &rootSignatureFeatureData, sizeof(rootSignatureFeatureData)))) {
+		rootSignatureFeatureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
+	}
+
 	ComPtr<ID3DBlob> signature;
 	ComPtr<ID3DBlob> error;
 	RETURN_FALSE_ON_ERROR(
-		D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, desc.maxVersion, signature.GetAddressOf(), error.GetAddressOf()),
+		D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, rootSignatureFeatureData.HighestVersion, signature.GetAddressOf(), error.GetAddressOf()),
 		"Failed to create root signature!"
 	);
 
 	RETURN_FALSE_ON_ERROR(
-		device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature)),
+		device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(rootSignature.GetAddressOf())),
 		"Failed to create root signature!"
 	);
 
 	stream.insert(RootSignatureToken{ rootSignature.Get() });
 
 	stream.insert(PrimitiveTopologyToken{ D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE });
-	
+
 	D3D12_RT_FORMAT_ARRAY rtFormat = {};
 	rtFormat.NumRenderTargets = desc.numRenderTargets;
 	for (UINT i = 0; i < rtFormat.NumRenderTargets; ++i) {
@@ -219,23 +230,28 @@ bool PipelineState::init(const ComPtr<ID3D12Device8> &device, const PipelineStat
 	return initPipeline(device, stream);
 }
 
-ID3D12PipelineState* PipelineState::getPipelineState() {
+ID3D12PipelineState *PipelineState::getPipelineState() const {
 	return pipelineState.Get();
 }
 
-ID3D12RootSignature* PipelineState::getRootSignature() {
+ID3D12RootSignature *PipelineState::getRootSignature() const {
 	return rootSignature.Get();
 }
 
-bool PipelineState::initPipeline(const ComPtr<ID3D12Device8> &device, PipelineStateStream &pss) {
+bool PipelineState::initPipeline(const ComPtr<ID3D12Device> &device, PipelineStateStream &pss) {
 	D3D12_PIPELINE_STATE_STREAM_DESC pipelineDesc = {};
 	pipelineDesc.pPipelineStateSubobjectStream = pss.getData();
 	pipelineDesc.SizeInBytes = pss.getSize();
 
+	ComPtr<ID3D12Device2> device2;
+	RETURN_FALSE_ON_ERROR(device.As(&device2), "Failed to aquire ID3D12Device2 interface!");
+
 	RETURN_FALSE_ON_ERROR(
-		device->CreatePipelineState(&pipelineDesc, IID_PPV_ARGS(&pipelineState)),
+		device2->CreatePipelineState(&pipelineDesc, IID_PPV_ARGS(pipelineState.GetAddressOf())),
 		"Failed to create pipeline state!"
 	);
 
 	return true;
 }
+
+} // namespace Dar

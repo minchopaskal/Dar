@@ -8,76 +8,58 @@
 
 #include "fps_camera_controller.h"
 
-struct D3D12TexturedCube : D3D12App {
+struct D3D12TexturedCube : Dar::App {
 	D3D12TexturedCube(UINT width, UINT height, const String &windowTitle);
 
-	int loadAssets();
 
 private:
 	// Inherited via D3D12App
 	int initImpl() override;
 	void deinit() override;
 	void update() override;
-	void render() override;
 	void drawUI() override;
 	void onResize(const unsigned int w, const unsigned int h) override;
 	void onKeyboardInput(int key, int action) override;
 	void onMouseScroll(double xOffset, double yOffset) override;
 	void onMouseMove(double xPos, double yPos) override;
-
-private:
-	CommandList populateCommandList();
-	bool updateRenderTargetViews();
+	Dar::FrameData& getFrameData() override;
+	
+	int loadAssets();
 	bool resizeDepthBuffer();
 
-	void timeIt();
-
 private:
-	using Super = D3D12App;
+	using Super = Dar::App;
+
+	static constexpr int numTextures = 1;
+	struct TexturedCubePassArgs {
+		Dar::Renderer &renderer;
+		Dar::TextureResource *textureHandles;
+		int numTextures;
+	} renderPassArgs = { renderer, textures, numTextures };
 
 	enum class ProjectionType {
 		Perspective,
 		Orthographic
 	} projectionType = ProjectionType::Perspective;
 
-	PipelineState pipelineState;
-
-	// Descriptors
-	ComPtr<ID3D12DescriptorHeap> rtvHeap;
-	UINT rtvHeapHandleIncrementSize;
-	ComPtr<ID3D12DescriptorHeap> dsvHeap;
-
 	// Vertex buffer
-	ResourceHandle vertexBufferHandle;
-	ResourceHandle indexBufferHandle;
-	D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
-	D3D12_INDEX_BUFFER_VIEW indexBufferView;
-	ResourceHandle depthBufferHandle;
+	Dar::VertexBuffer vertexBuffer;
+	Dar::IndexBuffer indexBuffer;
+	Dar::DepthBuffer depthBuffer;
 
 	// MVP matrix
-	Mat4 mvp;
-	ResourceHandle mvpBufferHandle[frameCount];
+	Dar::ResourceHandle mvpBufferHandle[Dar::FRAME_COUNT];
 
 	// Texture data
-	static constexpr int numTextures = 1;
-	ResourceHandle texturesHandles[numTextures];
-	ComPtr<ID3D12DescriptorHeap> srvHeap;
+	Dar::TextureResource textures[numTextures];
+
+	Dar::FrameData frameData[Dar::FRAME_COUNT];
 
 	// viewport
-	D3D12_VIEWPORT viewport;
-	D3D12_RECT scissorRect;
 	float aspectRatio;
 	float orthoDim = 10.f;
 
-	// Keeping track of fence values for double/triple buffering
-	UINT64 fenceValues[frameCount];
-
 	// Camera
-	Camera cam;
+	Dar::Camera cam;
 	FPSCameraController camControl;
-
-	// timing
-	double fps;
-	double totalTime;
-	double deltaTime;
 };

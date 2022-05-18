@@ -53,11 +53,11 @@ while (false)
 
 #define RETURN_ON_ERROR(cmd, retval, msg) RETURN_ON_ERROR_FMT((cmd), retval, (msg), )
 
-#define RETURN_FALSE_ON_ERROR(cmd, msg) RETURN_ON_ERROR_FMT((cmd), false, (msg), )
+#define RETURN_FALSE_ON_ERROR(cmd, msg) RETURN_ON_ERROR_FMT((cmd), 0, (msg), )
 
 #define RETURN_NULL_ON_ERROR(cmd, msg) RETURN_FALSE_ON_ERROR((cmd), (msg))
 
-#define RETURN_FALSE_ON_ERROR_FMT(cmd, msg, ...) RETURN_ON_ERROR_FMT((cmd), false, (msg), __VA_ARGS__)
+#define RETURN_FALSE_ON_ERROR_FMT(cmd, msg, ...) RETURN_ON_ERROR_FMT((cmd), 0, (msg), __VA_ARGS__)
 
 #define RETURN_ERROR_FMT(retval, msg, ...) RETURN_ON_ERROR_FMT(FACILITY_NT_BIT, retval, (msg), __VA_ARGS__)
 
@@ -80,6 +80,10 @@ if (cond) { \
 #else
 #define dassert(exp) (void)0
 #endif
+
+#define _DAR_STR(x) #x
+#define DAR_STR(x) _DAR_STR(x)
+#define TODO(x) static_assert(false, "TODO: " DAR_STR(x) " at " __FILE__ ":" DAR_STR(__LINE__))
 
 using SizeType = size_t;
 

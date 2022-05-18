@@ -4,8 +4,8 @@
 #include "imgui.h"
 #include "GLFW/glfw3.h"
 
-FPSCameraController::FPSCameraController(Camera *cam, double movementSpeed) :
-	ICameraController(cam),
+FPSCameraController::FPSCameraController(Dar::Camera *cam, double movementSpeed) :
+	Dar::ICameraController(cam),
 	window(nullptr),
 	mousePos{ 0.f, 0.f },
 	speed(movementSpeed),
@@ -40,7 +40,7 @@ void FPSCameraController::onMouseScroll(double xOffset, double yOffset, double d
 	cam->zoom(static_cast<float>(calculateZoomFactor(yOffset, deltaTime)));
 }
 
-void FPSCameraController::processKeyboardInput(IKeyboardInputQuery *inputQuery, double deltaTime) {
+void FPSCameraController::processKeyboardInput(Dar::IKeyboardInputQuery *inputQuery, double deltaTime) {
 	if (inputQuery == nullptr) {
 		return;
 	}
@@ -74,7 +74,7 @@ void FPSCameraController::processKeyboardInput(IKeyboardInputQuery *inputQuery, 
 		cam->setKeepXZPlane(!cam->getKeepXZPlane());
 	}
 
-	ButtonState shiftState = inputQuery->query(GLFW_KEY_LEFT_SHIFT);
+	Dar::ButtonState shiftState = inputQuery->query(GLFW_KEY_LEFT_SHIFT);
 	if (shiftState.pressed && !shiftPressed) {
 		shiftPressed = true;
 		speed *= 2;

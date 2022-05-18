@@ -2,15 +2,14 @@
 
 #include "framework/camera.h"
 
-struct Camera;
 struct GLFWwindow;
 
-struct FPSCameraController : public ICameraController {
-	FPSCameraController(Camera *cam, double movementSpeed);
+struct FPSCameraController : public Dar::ICameraController {
+	FPSCameraController(Dar::Camera *cam, double movementSpeed);
 
 	double getSpeed() const { return speed; }
 
-	const Camera& getCamera() const {
+	const Dar::Camera& getCamera() const {
 		return *cam;
 	}
 
@@ -19,7 +18,7 @@ struct FPSCameraController : public ICameraController {
 
 	virtual void onMouseScroll(double xOffset, double yOffset, double deltaTime) override;
 
-	virtual void processKeyboardInput(IKeyboardInputQuery *inputQuery, double deltaTime) override;
+	virtual void processKeyboardInput(Dar::IKeyboardInputQuery *inputQuery, double deltaTime) override;
 
 public:
 	GLFWwindow *window;

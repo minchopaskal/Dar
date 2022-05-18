@@ -8,10 +8,12 @@ using Microsoft::WRL::ComPtr;
 #include "d3d12/command_list.h"
 #include "utils/defines.h"
 
+namespace Dar {
+
 struct CommandQueue {
 	CommandQueue(D3D12_COMMAND_LIST_TYPE type);
 
-	void init(ComPtr<ID3D12Device8> device);
+	void init(ComPtr<ID3D12Device> device);
 
 	CommandList getCommandList();
 	void addCommandListForExecution(CommandList &&commandList);
@@ -45,7 +47,7 @@ private:
 		UINT64 fenceValue;
 	};
 
-	ComPtr<ID3D12Device8> device;
+	ComPtr<ID3D12Device> device;
 	ComPtr<ID3D12CommandQueue> commandQueue;
 
 	Vector<CommandList> pendingCommandListsQueue;
@@ -61,3 +63,5 @@ private:
 
 	D3D12_COMMAND_LIST_TYPE type;
 };
+
+} // namespace Dar

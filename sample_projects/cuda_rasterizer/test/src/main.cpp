@@ -117,7 +117,12 @@ void drawUI() {
 }
 
 int main(int argc, char **argv) {
-	CudaRasterizer rasterizer(Vector<String>{"data\\basic_shader.ptx"}, "CudaRasterizer", 1280, 720);
+	auto shaders = Vector<String>{ "data\\basic_shader.ptx" };
+	CudaRasterizer rasterizer(shaders, "CudaRasterizer", 1280, 720);
+	if (!rasterizer.init()) {
+		return 1;
+	}
+
 	if (!rasterizer.isInitialized()) {
 		return 1;
 	}

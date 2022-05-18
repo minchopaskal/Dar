@@ -2,6 +2,8 @@
 
 #include "GLFW/glfw3.h"
 
+namespace Dar {
+
 struct ButtonState {
 	bool pressed;
 	bool repeated;
@@ -25,3 +27,5 @@ struct IKeyboardInputQuery {
 	/// @return treue if key was just released.
 	virtual bool queryReleased(int key) = 0;
 };
+
+} //namespace Dar

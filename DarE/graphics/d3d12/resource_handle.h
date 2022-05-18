@@ -6,11 +6,13 @@ struct ID3D12Resource;
 
 #define INVALID_RESOURCE_HANDLE SizeType(-1)
 
+namespace Dar {
+
 struct ResourceHandle {
 	SizeType handle;
 
-	ResourceHandle() : handle(INVALID_RESOURCE_HANDLE) { };
-	ResourceHandle(SizeType handle) : handle(handle) { }
+	ResourceHandle() : handle(INVALID_RESOURCE_HANDLE) {};
+	ResourceHandle(SizeType handle) : handle(handle) {}
 	ResourceHandle operator=(const SizeType &handle) {
 		this->handle = handle;
 		return *this;
@@ -40,7 +42,7 @@ struct ResourceHandle {
 		return !(this->handle <= handle);
 	}
 
-	operator SizeType&() {
+	operator SizeType &() {
 		return handle;
 	}
 
@@ -48,10 +50,11 @@ struct ResourceHandle {
 		return handle;
 	}
 
-	ID3D12Resource* get();
-	const ID3D12Resource* get() const;
+	ID3D12Resource *get() const;
 
-	ID3D12Resource* operator->();
-	
-	const ID3D12Resource* operator->() const;
+	ID3D12Resource *operator->();
+
+	const ID3D12Resource *operator->() const;
 };
+
+} // namespace Dar

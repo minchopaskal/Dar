@@ -1,6 +1,8 @@
 #include "utils/utils.h"
 
-WString getPrefixedNameByType(D3D12_COMMAND_LIST_TYPE type, LPWSTR prefix) {
+namespace Dar {
+
+WString getPrefixedNameByType(D3D12_COMMAND_LIST_TYPE type, const wchar_t *prefix) {
 	WString prefixStr{ prefix };
 	switch (type) {
 	case D3D12_COMMAND_LIST_TYPE_DIRECT:
@@ -27,3 +29,5 @@ WString getCommandQueueNameByType(D3D12_COMMAND_LIST_TYPE type) {
 WString getCommandListNameByType(D3D12_COMMAND_LIST_TYPE type) {
 	return getPrefixedNameByType(type, L"CommandList");
 }
+
+} // namespace Dar

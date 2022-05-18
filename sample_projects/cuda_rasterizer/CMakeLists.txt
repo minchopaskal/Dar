@@ -46,7 +46,7 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:CONSOLE")
 add_library(CudaRasterizer ${HEADERS} ${SRCS} ${SHADERS})
 add_dependencies(CudaRasterizer CUDABaseLib)
 
-compile_shaders(CudaRasterizer "${SHADERS}" "6_5")
+compile_shaders(CudaRasterizer "${SHADERS}" "6_6")
 
 set_property(TARGET CudaRasterizer PROPERTY VS_DEBUGGER_WORKING_DIRECTORY $<TARGET_FILE_DIR:CudaRasterizer>)
 set_target_properties(CudaRasterizer PROPERTIES FOLDER SampleProjects/CudaRasterizer)
