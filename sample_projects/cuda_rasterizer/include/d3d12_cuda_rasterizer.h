@@ -43,18 +43,13 @@ private:
 	// Inherited via D3D12App
 	int initImpl() final;
 	void update() override;
-	void render() override;
 	virtual void onResize(const unsigned int w, const unsigned int h) override;
 	virtual void onKeyboardInput(int key, int action) override;
 	virtual void onMouseScroll(double xOffset, double yOffset) override;
 	void drawUI() override;
+	Dar::FrameData& getFrameData() override;
 
 private:
-	CommandList populateCommandList();
-	bool updateRenderTargetViews();
-
-	void timeIt();
-
 	void deinitCUDAData();
 	void initCUDAData();
 
@@ -63,22 +58,19 @@ private:
 
 	static constexpr unsigned int numComps = 4;
 
-	ComPtr<ID3D12RootSignature> rootSignature;
-	PipelineState pipelineState;
+	struct RenderPassArgs {
+		Dar::TextureResource &texture;
+		Dar::Renderer &renderer;
+	} renderPassArgs = { dx12RT, renderer };
 
-	// Descriptors
-	ComPtr<ID3D12DescriptorHeap> rtvHeap;
-	ComPtr<ID3D12DescriptorHeap> srvHeap;
-	UINT rtvHeapHandleIncrementSize;
-
-	// viewport
-	D3D12_VIEWPORT viewport;
-	D3D12_RECT scissorRect;
 	float aspectRatio;
 
 	// Resources
 	float *cudaRenderTargetHost;
-	ResourceHandle dx12RenderTargetHandle;
+	Dar::TextureResource dx12RT;
+
+	Dar::FrameData frameData[Dar::FRAME_COUNT];
+
 	CUDADefaultBuffer cudaRenderTargetDevice;
 	CUDADefaultBuffer vertexBuffer;
 	CUDADefaultBuffer indexBuffer;
@@ -91,9 +83,6 @@ private:
 	// also, reduces constant memory reads.
 	int cacheVerticesCount;
 
-	UINT64 fenceValues[frameCount];
-	UINT64 previousFrameIndex;
-
 	// Cache the cuda device we are using for rasterization
 	const CUDADevice *cudaDevice;
 
@@ -101,11 +90,6 @@ private:
 	UpdateFrameCallback updateFrameCb = nullptr;
 	DrawUICallback drawUICb = nullptr;
 	void *frameState = nullptr;
-
-	// timing
-	double fps;
-	double totalTime;
-	double deltaTime;
 
 	bool inited;
 };

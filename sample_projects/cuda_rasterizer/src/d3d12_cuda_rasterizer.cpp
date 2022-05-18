@@ -22,17 +22,8 @@
 
 CudaRasterizer::CudaRasterizer(Vector<String> &shaders, const String &windowTitle, UINT width, UINT height) :
 	Dar::App(width, height, windowTitle.c_str()),
-	rtvHeapHandleIncrementSize(0),
-	viewport{ 0.f, 0.f, static_cast<float>(width), static_cast<float>(height) },
-	scissorRect{ 0, 0, LONG_MAX, LONG_MAX }, // always render on the entire screen
 	aspectRatio(width / static_cast<float>(height)),
-	cudaRenderTargetHost{ nullptr },
-	dx12RenderTargetHandle(INVALID_RESOURCE_HANDLE),
-	fenceValues{ 0 },
-	previousFrameIndex(0),
-	fps(0.0),
-	totalTime(0.0),
-	deltaTime(0.0)
+	cudaRenderTargetHost{ nullptr }
 {
 	inited = false;
 	shaders.insert(shaders.begin(), "data\\rasterizer.ptx");
@@ -46,8 +37,6 @@ CudaRasterizer::CudaRasterizer(Vector<String> &shaders, const String &windowTitl
 	if (cudaDevice->use().hasError()) {
 		return;
 	}
-
-	init();
 
 	inited = true;
 }
@@ -72,35 +61,6 @@ bool CudaRasterizer::isInitialized() const {
 int CudaRasterizer::initImpl() {
 	setUseImGui();
 
-	/* Create a descriptor heap for RTVs */
-	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = { };
-	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	rtvHeapDesc.NumDescriptors = frameCount;
-	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	rtvHeapDesc.NodeMask = 0;
-
-	RETURN_FALSE_ON_ERROR(
-		device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&rtvHeap)),
-		"Failed to create RTV descriptor heap!"
-	);
-
-	rtvHeapHandleIncrementSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-
-	// Srv heap storing the texture used as CUDA render target
-	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	srvHeapDesc.NumDescriptors = 1;
-	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	srvHeapDesc.NodeMask = 0;
-	RETURN_FALSE_ON_ERROR(
-		device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&srvHeap)),
-		"Failed to create DSV descriptor heap!"
-	);
-
-	if (!updateRenderTargetViews()) {
-		return false;
-	}
-
 	return loadAssets();
 }
 
@@ -112,43 +72,27 @@ void CudaRasterizer::deinit() {
 }
 
 void CudaRasterizer::update() {
-	timeIt();
-
 	if (updateFrameCb) {
 		updateFrameCb(*this, frameState);
 	}
+
+	cudaDevice->use();
 
 	const CUstream stream = cudaDevice->getDefaultStream(CUDADefaultStreamsEnumeration::Execution);
 	cuStreamSynchronize(stream);
 
 	cudaRenderTargetDevice.download(cudaRenderTargetHost);
-}
 
-void CudaRasterizer::render() {
-	// Upload the rendered image as a D3D12 texture
-	const UploadHandle handle = resManager->beginNewUpload();
+	const Dar::UploadHandle handle = resManager->beginNewUpload();
 	D3D12_SUBRESOURCE_DATA subresData;
 	subresData.pData = cudaRenderTargetHost;
 	subresData.RowPitch = static_cast<LONG_PTR>(width) * numComps * sizeof(float);
 	subresData.SlicePitch = subresData.RowPitch * height;
-	resManager->uploadTextureData(handle, dx12RenderTargetHandle, &subresData, 1, 0);
+	resManager->uploadTextureData(handle, dx12RT.getHandle(), &subresData, 1, 0);
 	resManager->uploadBuffers();
 
-	// Render a screen-quad with the texture
-	CommandList cmdList = populateCommandList();
-	commandQueueDirect.addCommandListForExecution(std::move(cmdList));
-
-	fenceValues[frameIndex] = commandQueueDirect.executeCommandLists();
-
-	const UINT syncInterval = vSyncEnabled ? 1 : 0;
-	const UINT presentFlags = allowTearing && !vSyncEnabled ? DXGI_PRESENT_ALLOW_TEARING : 0;
-	RETURN_ON_ERROR(swapChain->Present(syncInterval, presentFlags), , "Failed to execute command list!");
-
-	previousFrameIndex = frameIndex;
-	frameIndex = swapChain->GetCurrentBackBufferIndex();
-
-	// wait for the next frame. This waits for the fence signaled by the DirectX command queue.
-	commandQueueDirect.waitForFenceValue(fenceValues[frameIndex]);
+	Dar::FrameData &fd = frameData[renderer.getBackbufferIndex()];
+	fd.clear();
 }
 
 void CudaRasterizer::onResize(const unsigned int w, const unsigned int h) {
@@ -158,35 +102,11 @@ void CudaRasterizer::onResize(const unsigned int w, const unsigned int h) {
 
 	this->width = std::max(1u, w);
 	this->height = std::max(1u, h);
-	viewport = { 0.f, 0.f, static_cast<float>(width), static_cast<float>(height) };
 	aspectRatio = width / static_cast<float>(height);
 
 	flush();
 
-	for (unsigned int i = 0; i < frameCount; ++i) {
-		backBuffers[i].Reset();
-		resManager->deregisterResource(backBuffersHandles[i]);
-	}
-
-	DXGI_SWAP_CHAIN_DESC scDesc = { };
-	RETURN_ON_ERROR(
-		swapChain->GetDesc(&scDesc), ,
-		"Failed to retrieve swap chain's description"
-	);
-	RETURN_ON_ERROR(
-		swapChain->ResizeBuffers(
-			frameCount,
-			this->width,
-			this->height,
-			scDesc.BufferDesc.Format,
-			scDesc.Flags
-		), ,
-		"Failed to resize swap chain buffer"
-	);
-
-	frameIndex = swapChain->GetCurrentBackBufferIndex();
-
-	updateRenderTargetViews();
+	renderer.resizeBackBuffers();
 
 	initCUDAData();
 }
@@ -203,6 +123,10 @@ void CudaRasterizer::drawUI() {
 	if (drawUICb) {
 		drawUICb();
 	}
+}
+
+Dar::FrameData &CudaRasterizer::getFrameData() {
+	return frameData[renderer.getBackbufferIndex()];
 }
 
 CUDAError CudaRasterizer::setUseDepthBuffer(bool useDepthBuffer) {
@@ -355,12 +279,35 @@ int CudaRasterizer::loadAssets() {
 	// Create the pipeline state
 	auto staticSamplerDesc = CD3DX12_STATIC_SAMPLER_DESC(0);
 
-	PipelineStateDesc desc;
-	desc.staticSamplerDesc = &staticSamplerDesc;
-	desc.shaderName = L"screen_quad";
-	desc.shadersMask = shaderInfoFlags_useVertex;
-	desc.numTextures = 1;
-	pipelineState.init(device, desc);
+	Dar::RenderPassDesc rpDesc = {};
+	Dar::PipelineStateDesc &psDesc = rpDesc.psoDesc;
+	psDesc.staticSamplerDesc = &staticSamplerDesc;
+	psDesc.shaderName = L"screen_quad";
+	psDesc.shadersMask = Dar::shaderInfoFlags_useVertex;
+	psDesc.numTextures = 1;
+	
+	rpDesc.drawCb = [](Dar::CommandList &cmdList, void *args) {
+		cmdList->DrawInstanced(3, 1, 0, 0);
+	};
+	rpDesc.setupCb = [](const Dar::FrameData &frameData, Dar::CommandList &cmdList, Dar::DescriptorHeap &srvHeap, UINT backbufferIndex, void *args) {
+		RenderPassArgs *rpa = reinterpret_cast<RenderPassArgs*>(args);
+		Dar::TextureResource &tex = rpa->texture;
+		Dar::Renderer &r = rpa->renderer;
+
+		cmdList.transition(tex.getHandle(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
+		if (!srvHeap) {
+			srvHeap.init(r.getDevice().Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1, true);
+		}
+
+		srvHeap.reset();
+		srvHeap.addTexture2DSRV(tex.getBufferResource(), tex.getFormat());
+	};
+	rpDesc.args = &renderPassArgs;
+
+	rpDesc.attach(Dar::RenderPassAttachment::renderTargetBackbuffer());
+	renderer.addRenderPass(rpDesc);
+	renderer.compilePipeline();
 
 	// Create the texture resources that CUDA will use as render targets
 	initCUDAData();
@@ -368,111 +315,8 @@ int CudaRasterizer::loadAssets() {
 	return true;
 }
 
-CommandList CudaRasterizer::populateCommandList() {
-	CommandList commandList = commandQueueDirect.getCommandList();
-
-	// "Swap" the render targets
-	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = srvHeap->GetCPUDescriptorHandleForHeapStart();
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Texture2D.MipLevels = 1;
-	device->CreateShaderResourceView(dx12RenderTargetHandle.get(), &srvDesc, srvHandle);
-
-	commandList->SetPipelineState(pipelineState.getPipelineState());
-	commandList->SetGraphicsRootSignature(pipelineState.getRootSignature());
-
-	commandList->SetDescriptorHeaps(1, srvHeap.GetAddressOf());
-	commandList->SetGraphicsRootDescriptorTable(0, srvHeap->GetGPUDescriptorHandleForHeapStart());
-
-	commandList->RSSetViewports(1, &viewport);
-	commandList->RSSetScissorRects(1, &scissorRect);
-
-	CD3DX12_RESOURCE_BARRIER resBarrierPresetToRT = CD3DX12_RESOURCE_BARRIER::Transition(
-		backBuffers[frameIndex].Get(),
-		D3D12_RESOURCE_STATE_PRESENT,
-		D3D12_RESOURCE_STATE_RENDER_TARGET
-	);
-	commandList->ResourceBarrier(1, &resBarrierPresetToRT);
-
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(rtvHeap->GetCPUDescriptorHandleForHeapStart(), frameIndex, rtvHeapHandleIncrementSize);
-	
-	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
-	commandList->DrawInstanced(3, 1, 0, 0);
-
-	renderUI(commandList, rtvHandle);
-
-	CD3DX12_RESOURCE_BARRIER resBarrierRTtoPresent = CD3DX12_RESOURCE_BARRIER::Transition(
-		backBuffers[frameIndex].Get(),
-		D3D12_RESOURCE_STATE_RENDER_TARGET,
-		D3D12_RESOURCE_STATE_PRESENT
-	);
-	commandList->ResourceBarrier(1, &resBarrierRTtoPresent);
-
-	return commandList;
-}
-
-bool CudaRasterizer::updateRenderTargetViews() {
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(rtvHeap->GetCPUDescriptorHandleForHeapStart());
-
-	for (UINT i = 0; i < frameCount; ++i) {
-		RETURN_FALSE_ON_ERROR_FMT(
-			swapChain->GetBuffer(i, IID_PPV_ARGS(&backBuffers[i])),
-			"Failed to create Render-Target-View for buffer %u!", i
-		);
-		device->CreateRenderTargetView(backBuffers[i].Get(), nullptr, rtvHandle);
-
-		// Register the back buffer's resources manually since the resource manager doesn't own them, the swap chain does.
-#ifdef DAR_DEBUG
-		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, 0, D3D12_RESOURCE_STATE_PRESENT, ResourceType::RenderTargetBuffer);
-#else
-		backBuffersHandles[i] = resManager->registerResource(backBuffers[i].Get(), 1, 0, D3D12_RESOURCE_STATE_PRESENT);
-#endif
-
-		rtvHandle.Offset(rtvHeapHandleIncrementSize);
-	}
-
-	return true;
-}
-
-void CudaRasterizer::timeIt() {
-	using std::chrono::duration_cast;
-	using HRC = std::chrono::high_resolution_clock;
-	
-	static constexpr double SECONDS_IN_NANOSECOND = 1e-9;
-	static UINT64 frameCount = 0;
-	static double elapsedTime = 0.0;
-	static HRC clock;
-	static HRC::time_point t0 = clock.now();
-
-	HRC::time_point t1 = clock.now();
-	deltaTime = (t1 - t0).count() * SECONDS_IN_NANOSECOND;
-	elapsedTime += deltaTime;
-	totalTime += deltaTime;
-	
-	++frameCount;
-	t0 = t1;
-
-	if (elapsedTime > 1.0) {
-		fps = frameCount / elapsedTime;
-
-		printf("FPS: %.2f\n", fps);
-
-#if defined(DAR_DEBUG)
-		char buffer[512];
-		sprintf_s(buffer, "FPS: %.2f\n", fps);
-		OutputDebugString(buffer);
-#endif // defined(DAR_DEBUG)
-
-		frameCount = 0;
-		elapsedTime = 0.0;
-	}
-}
-
 void CudaRasterizer::deinitCUDAData() {
-	resManager->deregisterResource(dx12RenderTargetHandle);
+	dx12RT.deinit();
 	cudaRenderTargetDevice.deinitialize();
 
 	vertexBuffer.deinitialize();
@@ -493,13 +337,15 @@ void CudaRasterizer::deinitCUDAData() {
 void CudaRasterizer::initCUDAData() {
 	deinitCUDAData();
 
-	ResourceInitData resData(ResourceType::TextureBuffer);
-	resData.textureData.format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-	resData.textureData.width = width;
-	resData.textureData.height = height;
-	resData.textureData.mipLevels = 1;
-	resData.heapFlags = D3D12_HEAP_FLAG_NONE;
-	dx12RenderTargetHandle = resManager->createBuffer(resData);
+	cudaDevice->use();
+
+	Dar::TextureInitData resData = {};
+	resData.format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	resData.width = width;
+	resData.height = height;
+	resData.mipLevels = 1;
+	dx12RT.init(resData, Dar::TextureResourceType::ShaderResource);
+
 	cudaRenderTargetHost = new float[static_cast<SizeType>(width) * height * numComps];
 	
 	cudaRenderTargetDevice.initialize(static_cast<SizeType>(width) * height * numComps * sizeof(float));

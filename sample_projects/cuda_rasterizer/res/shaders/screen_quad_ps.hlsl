@@ -3,8 +3,8 @@ struct PSInput {
 };
 
 SamplerState Sampler : register(s0, space0);
-Texture2D CudaRenderTexture : register(t0, space0);
 
-float4 main(PSInput IN) : SV_TARGET{
+float4 main(PSInput IN) : SV_TARGET {
+	Texture2D<float4> CudaRenderTexture = ResourceDescriptorHeap[0];
 	return CudaRenderTexture.Sample(Sampler, IN.uv);
 }

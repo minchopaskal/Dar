@@ -212,7 +212,7 @@ int D3D12TexturedCube::loadAssets() {
 		srvHeap.reset();
 		for (int i = 0; i < nt; ++i) {
 			cmdList.transition(textures[i].getHandle(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-			srvHeap.addTexture2DSRV(textures[i].getBufferResource(), textureFormat);
+			srvHeap.addTexture2DSRV(textures[i].getBufferResource(), textures[i].getFormat());
 		}
 	};
 	renderPassDesc.args = &renderPassArgs;

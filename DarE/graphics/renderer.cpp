@@ -471,8 +471,14 @@ CommandList Renderer::populateCommandList(const FrameData &frameData) {
 
 		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-		cmdList.transition(frameData.vertexBuffer->bufferHandle, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-		cmdList.transition(frameData.indexBuffer->bufferHandle, D3D12_RESOURCE_STATE_INDEX_BUFFER);
+		if (frameData.vertexBuffer) {
+			cmdList.transition(frameData.vertexBuffer->bufferHandle, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+			cmdList->IASetVertexBuffers(0, 1, &frameData.vertexBuffer->bufferView);
+		}
+		if (frameData.indexBuffer) {
+			cmdList.transition(frameData.indexBuffer->bufferHandle, D3D12_RESOURCE_STATE_INDEX_BUFFER);
+			cmdList->IASetIndexBuffer(&frameData.indexBuffer->bufferView);
+		}
 
 		for (int i = 0; i < frameData.constantBuffers.size(); ++i) {
 			const ConstantBuffer &cb = frameData.constantBuffers[i];
@@ -480,8 +486,6 @@ CommandList Renderer::populateCommandList(const FrameData &frameData) {
 			cmdList.setConstantBufferView(cb.rootParameterIndex, cb.bufferHandle);
 		}
 
-		cmdList->IASetVertexBuffers(0, 1, &frameData.vertexBuffer->bufferView);
-		cmdList->IASetIndexBuffer(&frameData.indexBuffer->bufferView);
 		cmdList->OMSetRenderTargets(numRenderTargets, &rtvHandle, TRUE, hasDepthBuffer ? &dsvHandle : nullptr);
 
 		if (renderPass.drawCb) {
