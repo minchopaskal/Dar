@@ -187,10 +187,17 @@ bool PipelineState::init(const ComPtr<ID3D12Device> &device, const PipelineState
 	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
 	rootSignatureDesc.Init_1_1(numParams, rsParams.data(), desc.staticSamplerDesc ? 1 : 0, desc.staticSamplerDesc, rsFlags);
 
+	D3D12_FEATURE_DATA_ROOT_SIGNATURE rootSignatureFeatureData = {};
+	// cache root signature's feature version
+	rootSignatureFeatureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
+	if (FAILED(device->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &rootSignatureFeatureData, sizeof(rootSignatureFeatureData)))) {
+		rootSignatureFeatureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
+	}
+
 	ComPtr<ID3DBlob> signature;
 	ComPtr<ID3DBlob> error;
 	RETURN_FALSE_ON_ERROR(
-		D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, desc.maxVersion, signature.GetAddressOf(), error.GetAddressOf()),
+		D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, rootSignatureFeatureData.HighestVersion, signature.GetAddressOf(), error.GetAddressOf()),
 		"Failed to create root signature!"
 	);
 

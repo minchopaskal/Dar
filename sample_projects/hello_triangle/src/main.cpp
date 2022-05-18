@@ -5,10 +5,6 @@ int main(int argc, char **argv) {
 	if (!app.init()) {
 		return 1;
 	}
-
-	if (!app.loadAssets()) {
-		return 1;
-	}
 	
 	return app.run();
 }

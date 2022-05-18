@@ -224,10 +224,10 @@ using RenderPassResourceInitCallback = void (*)(const FrameData &frameData, Comm
 using DrawCallback = void (*)(CommandList &cmdList, void *args);
 struct RenderPassDesc {
 	Vector<RenderPassAttachment> attachments; 
-	PipelineStateDesc psoDesc; ///< Description of the pipeline state. The render pass will construct it.
-	DrawCallback drawCb;
-	RenderPassResourceInitCallback setupCb;
-	void *args; ///< Arguments passed to both setupCb and drawCb.
+	PipelineStateDesc psoDesc = {}; ///< Description of the pipeline state. The render pass will construct it.
+	DrawCallback drawCb = nullptr;
+	RenderPassResourceInitCallback setupCb = nullptr;
+	void *args = nullptr; ///< Arguments passed to both setupCb and drawCb.
 
 	/// Add a render pass attachment
 	void attach(const RenderPassAttachment &rpa);
@@ -276,6 +276,10 @@ struct Renderer {
 
 	UINT getBackbufferIndex() const {
 		return backbufferIndex;
+	}
+
+	CommandList getCommandList() {
+		return commandQueueDirect.getCommandList();
 	}
 
 private:

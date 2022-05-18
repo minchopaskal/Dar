@@ -130,7 +130,9 @@ struct RenderPass {
 		/*bool hasDepthStencil = depthBufferAttachment.valid();
 		cmdList->BeginRenderPass(static_cast<UINT>(renderTargetDescs.size()), renderTargetDescs.data(), hasDepthStencil ? &depthStencilDesc : NULL, D3D12_RENDER_PASS_FLAG_NONE);*/
 
-		setupCb(frameData, cmdList, srvHeap[backbufferIndex], backbufferIndex, args);
+		if (setupCb) {
+			setupCb(frameData, cmdList, srvHeap[backbufferIndex], backbufferIndex, args);
+		}
 	}
 
 	void end(CommandList &cmdList) {
@@ -446,7 +448,10 @@ CommandList Renderer::populateCommandList(const FrameData &frameData) {
 		RenderPass &renderPass = *renderPasses[i];
 		renderPass.begin(frameData, cmdList, backbufferIndex);
 
-		cmdList->SetDescriptorHeaps(1, renderPass.srvHeap[backbufferIndex].getAddressOf());
+		if (renderPass.srvHeap[backbufferIndex]) {
+			cmdList->SetDescriptorHeaps(1, renderPass.srvHeap[backbufferIndex].getAddressOf());
+		}
+
 		cmdList->SetGraphicsRootSignature(renderPass.pipeline.getRootSignature());
 
 		const bool hasDepthBuffer = renderPass.depthBufferAttachment.valid();
@@ -479,7 +484,9 @@ CommandList Renderer::populateCommandList(const FrameData &frameData) {
 		cmdList->IASetIndexBuffer(&frameData.indexBuffer->bufferView);
 		cmdList->OMSetRenderTargets(numRenderTargets, &rtvHandle, TRUE, hasDepthBuffer ? &dsvHandle : nullptr);
 
-		renderPass.drawCb(cmdList, renderPass.args);
+		if (renderPass.drawCb) {
+			renderPass.drawCb(cmdList, renderPass.args);
+		}
 
 		renderPass.end(cmdList);
 	}

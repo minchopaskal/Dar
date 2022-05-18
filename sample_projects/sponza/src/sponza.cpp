@@ -45,12 +45,6 @@ int Sponza::initImpl() {
 
 	RETURN_ERROR_IF(shaderModel.HighestShaderModel != D3D_SHADER_MODEL_6_6, false, "Shader model 6.6 not supported!");
 
-	// cache root signature's feature version
-	rootSignatureFeatureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
-	if (FAILED(device->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &rootSignatureFeatureData, sizeof(rootSignatureFeatureData)))) {
-		rootSignatureFeatureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
-	}
-
 	if (!resizeDepthBuffer()) {
 		return false;
 	}
@@ -125,7 +119,7 @@ void Sponza::update() {
 	}
 
 	Dar::UploadHandle uploadHandle = resManager->beginNewUpload();
-	resManager->uploadBufferData(uploadHandle, sceneDataHandle[frameIndex], reinterpret_cast<void *>(&sceneData), sizeof(ShaderRenderData));
+	resManager->uploadBufferData(uploadHandle, sceneDataHandle[frameIndex], reinterpret_cast<void*>(&sceneData), sizeof(ShaderRenderData));
 	resManager->uploadBuffers();
 
 	Dar::ConstantBuffer cbuf = {};
@@ -474,7 +468,6 @@ bool Sponza::loadPipelines() {
 	deferredPSDesc.depthStencilBufferFormat = depthBuffer.getFormatAsDepthBuffer();
 	deferredPSDesc.numConstantBufferViews = static_cast<UINT>(ConstantBufferView::Count);
 	deferredPSDesc.numTextures = static_cast<UINT>(scene.getNumTextures());
-	deferredPSDesc.maxVersion = rootSignatureFeatureData.HighestVersion;
 	deferredPSDesc.numRenderTargets = static_cast<UINT>(GBuffer::Count);
 	for (UINT i = 0; i < deferredPSDesc.numRenderTargets; ++i) {
 		deferredPSDesc.renderTargetFormats[i] = gBufferFormats[i];
@@ -537,7 +530,6 @@ bool Sponza::loadPipelines() {
 	lightingPSDesc.staticSamplerDesc = &sampler;
 	lightingPSDesc.numConstantBufferViews = static_cast<unsigned int>(ConstantBufferView::Count);
 	lightingPSDesc.numTextures = static_cast<UINT>(GBuffer::Count);
-	lightingPSDesc.maxVersion = rootSignatureFeatureData.HighestVersion;
 	lightingPSDesc.cullMode = D3D12_CULL_MODE_NONE;
 	lightingPassDesc.setupCb = [](const Dar::FrameData &frameData, Dar::CommandList &cmdList, Dar::DescriptorHeap &srvHeap, UINT backbufferIndex, void *args) {
 		SponzaPassesArgs *sArgs = reinterpret_cast<SponzaPassesArgs *>(args);
@@ -596,7 +588,6 @@ bool Sponza::loadPipelines() {
 	postPSDesc.staticSamplerDesc = &sampler;
 	postPSDesc.numConstantBufferViews = static_cast<unsigned int>(ConstantBufferView::Count);
 	postPSDesc.numTextures = 1;
-	postPSDesc.maxVersion = rootSignatureFeatureData.HighestVersion;
 	postPSDesc.cullMode = D3D12_CULL_MODE_NONE;
 	postPassDesc.setupCb = [](const Dar::FrameData &frameData, Dar::CommandList &cmdList, Dar::DescriptorHeap &srvHeap, UINT backbufferIndex, void *args) {
 		SponzaPassesArgs *sArgs = reinterpret_cast<SponzaPassesArgs *>(args);

@@ -87,9 +87,6 @@ private:
 	// Scene
 	Scene scene;
 
-	// Root signature featyre level
-	D3D12_FEATURE_DATA_ROOT_SIGNATURE rootSignatureFeatureData = {}; ///< Cache to the feature level for the root signature. Used when creating pipelines.
-
 	FPSCameraController *camControl = nullptr;
 	FPSCameraController fpsModeControl = { nullptr, 200.f };
 	FPSEditModeCameraController editModeControl = { nullptr, 200.f };

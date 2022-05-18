@@ -97,7 +97,6 @@ struct PipelineStateDesc {
 	WString shaderName = L""; ///< Base name of the shader files
 	D3D12_INPUT_ELEMENT_DESC *inputLayouts = nullptr; ///< Input layout descriptions. Ignored if nullptr
 	D3D12_ROOT_SIGNATURE_FLAGS *rootSignatureFlags = nullptr; ///< Additional flags for the root signature. Ignored if nullptr.
-	D3D_ROOT_SIGNATURE_VERSION maxVersion = D3D_ROOT_SIGNATURE_VERSION_1_0; ///< Root signature features version. Used for root signature creation.
 	D3D12_STATIC_SAMPLER_DESC *staticSamplerDesc = nullptr; ///< Static sampler description. Used for root signature creation
 	DXGI_FORMAT depthStencilBufferFormat = DXGI_FORMAT_UNKNOWN; ///< Format for the depth stencil buffer. Leave unknown if DSB is null.
 	DXGI_FORMAT renderTargetFormats[MAX_RENDER_TARGETS] = { DXGI_FORMAT_R8G8B8A8_UNORM };
@@ -106,7 +105,7 @@ struct PipelineStateDesc {
 	UINT numInputLayouts = 0; ///< Number of input layouts.
 	UINT numTextures = 0; ///< Number of textures in the texture descriptor table.
 	UINT numConstantBufferViews = 0; ///< Number of constant buffer views. Used for root signature creation.
-	UINT8 shadersMask = 0; ///< Mask indicating which types of shaders will be used. Only the fragment shader is ON by default.
+	UINT8 shadersMask = 0; ///< Mask indicating which types of shaders will be used. Only the fragment shader is ON by default. \see ShaderInfoFlags.
 };
 
 struct PipelineState {
