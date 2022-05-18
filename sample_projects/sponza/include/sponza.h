@@ -33,12 +33,6 @@ private:
 	void onWindowClose() override;
 	Dar::FrameData &getFrameData() override;
 
-private:
-	//CommandList populateCommandList();
-	//void populateDeferredPassCommands(CommandList& cmdList);
-	//void populateLightPassCommands(CommandList& cmdList);
-	//void populateForwardPassCommands(CommandList& cmdList);
-	//void populatePostPassCommands(CommandList &cmdList);
 	bool updateRenderTargetViews();
 	bool resizeDepthBuffer();
 

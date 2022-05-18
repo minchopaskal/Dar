@@ -512,6 +512,9 @@ bool Sponza::loadPipelines() {
 		}
 	};
 	deferredPassDesc.args = &args;
+	// TODO: Think about getting rid of this draw callback also.
+	// Idea: in the FrameData - array of draw commands that work on FrameData::vertexBuffer
+	// which are then translated to real draw commands in the renderer.
 	deferredPassDesc.drawCb = [](Dar::CommandList &cmdList, void *args) {
 		SponzaPassesArgs *sArgs = reinterpret_cast<SponzaPassesArgs *>(args);
 		Scene &scene = sArgs->scene;

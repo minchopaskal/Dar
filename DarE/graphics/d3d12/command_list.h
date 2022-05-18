@@ -26,11 +26,11 @@ struct CommandList {
 	Vector<PendingResourceBarrier> &getPendingResourceBarriers();
 
 	// TODO: wrap command list operations so we don't need this potential bomb.
-	ID3D12GraphicsCommandList4 *operator->() {
+	ID3D12GraphicsCommandList4* operator->() {
 		return cmdList.Get();
 	}
 
-	ID3D12GraphicsCommandList *get() {
+	ID3D12GraphicsCommandList* get() {
 		return cmdList.Get();
 	}
 
@@ -42,8 +42,8 @@ struct CommandList {
 		return cmdList;
 	}
 
-	ID3D12CommandList **getAddressOf() {
-		return reinterpret_cast<ID3D12CommandList **>(cmdList.GetAddressOf());
+	ID3D12CommandList** getAddressOf() {
+		return reinterpret_cast<ID3D12CommandList**>(cmdList.GetAddressOf());
 	}
 
 private:

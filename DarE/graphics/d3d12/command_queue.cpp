@@ -97,11 +97,11 @@ UINT64 CommandQueue::executeCommandLists() {
 
 	// The command lists in the pending command lists queue will go here
 	// to be executed together.
-	Vector<ID3D12CommandList *> pendingCmdListsToExecute;
+	Vector<ID3D12CommandList*> pendingCmdListsToExecute;
 
 	// Each command list's allocator we will execute in this method
 	// will be cached at the end of the function for reuse in future command lists.
-	Vector<ID3D12CommandAllocator *> cmdAllocators;
+	Vector<ID3D12CommandAllocator*> cmdAllocators;
 
 	// Array of the resource barriers we want to execute before submitting
 	// the pending command lists.
