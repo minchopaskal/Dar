@@ -127,9 +127,9 @@ void Sponza::update() {
 	cbuf.rootParameterIndex = 0;
 
 	Dar::FrameData &fd = frameData[frameIndex];
+	fd.clear();
 	fd.indexBuffer = &indexBuffer;
 	fd.vertexBuffer = &vertexBuffer;
-	fd.constantBuffers.clear();
 	fd.constantBuffers.push_back(cbuf);
 }
 

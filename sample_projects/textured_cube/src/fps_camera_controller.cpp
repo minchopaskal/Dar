@@ -39,7 +39,7 @@ void FPSCameraController::onMouseScroll(double xOffset, double yOffset, double d
 	cam->zoom(calculateZoomFactor(yOffset, deltaTime));
 }
 
-void FPSCameraController::processKeyboardInput(IKeyboardInputQuery *inputQuery, double deltaTime) {
+void FPSCameraController::processKeyboardInput(Dar::IKeyboardInputQuery *inputQuery, double deltaTime) {
 	if (inputQuery == nullptr) {
 		return;
 	}

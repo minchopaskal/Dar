@@ -98,6 +98,12 @@ struct FrameData {
 	Vector<ConstantBuffer> constantBuffers;
 	VertexBuffer *vertexBuffer;
 	IndexBuffer *indexBuffer;
+
+	void clear() {
+		vertexBuffer = nullptr;
+		indexBuffer = nullptr;
+		constantBuffers.clear();
+	}
 };
 
 enum class RenderPassAttachmentType {

@@ -58,6 +58,10 @@ WString TextureResource::getName() const {
 }
 
 void TextureResource::deinit() {
+	if (handle == INVALID_RESOURCE_HANDLE) {
+		return;
+	}
+
 	auto &resManager = getResourceManager();
 
 	if (handle != INVALID_RESOURCE_HANDLE) {

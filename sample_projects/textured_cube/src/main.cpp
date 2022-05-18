@@ -6,9 +6,5 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 	
-	if (!app.loadAssets()) {
-		return 1;
-	}
-	
 	return app.run();
 }

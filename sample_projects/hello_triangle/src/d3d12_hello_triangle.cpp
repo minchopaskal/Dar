@@ -38,14 +38,14 @@ void D3D12HelloTriangle::deinit() {
 
 void D3D12HelloTriangle::update() {
 	// Update MVP matrices
-	float angle = static_cast<float>(totalTime * 90.0);
-	const Vec3 rotationAxis = Vec3(0, 1, 0);
+	//float angle = static_cast<float>(totalTime * 90.0);
+	//const Vec3 rotationAxis = Vec3(0, 1, 0);
 	Mat4 modelMat = Mat4(1.f);
-	modelMat = modelMat.rotate(rotationAxis, angle);
-	modelMat = modelMat.translate({ 1, 0, 0 });
+	//modelMat = modelMat.rotate(rotationAxis, angle);
+	//modelMat = modelMat.translate({ 1, 0, 0 });
 
-	const Vec3 eyePosition = Vec3(1, 0, -10);
-	const Vec3 focusPoint  = Vec3(1, 0, 0);
+	const Vec3 eyePosition = Vec3(0, 0, -10);
+	const Vec3 focusPoint  = Vec3(0, 0, 0);
 	const Vec3 upDirection = Vec3(0, 1, 0);
 	Mat4 viewMat = dmath::lookAt(focusPoint, eyePosition, upDirection);
 	Mat4 projectionMat = dmath::perspective(FOV, aspectRatio, 0.1f, 100.f);
@@ -70,6 +70,7 @@ void D3D12HelloTriangle::update() {
 	cb.rootParameterIndex = 0;
 
 	Dar::FrameData &fd = frameData[renderer.getBackbufferIndex()];
+	fd.clear();
 	fd.vertexBuffer = &vertexBuffer;
 	fd.indexBuffer = &indexBuffer;
 	fd.constantBuffers.push_back(cb);
