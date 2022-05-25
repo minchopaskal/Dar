@@ -1,16 +1,17 @@
 #include "d3d12/descriptor_heap.h"
 #include "utils/defines.h"
+#include "utils/utils.h"
 
 namespace Dar {
 
 DescriptorHeap::DescriptorHeap() :
+	heap{ nullptr },
 	device(nullptr),
 	type(D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES),
 	cpuHandleStart{ 0 },
 	gpuHandleStart{ 0 },
 	cpuHandleRunning{ 0 },
-	handleIncrementSize(0),
-	initted(false)
+	handleIncrementSize(0)
 { }
 
 void DescriptorHeap::init(ID3D12Device *device, D3D12_DESCRIPTOR_HEAP_TYPE type, int numDesctiptors, bool shaderVisible) {
@@ -36,12 +37,9 @@ void DescriptorHeap::init(ID3D12Device *device, D3D12_DESCRIPTOR_HEAP_TYPE type,
 	gpuHandleStart = shaderVisible ? heap->GetGPUDescriptorHandleForHeapStart() : D3D12_GPU_DESCRIPTOR_HANDLE{};
 
 	handleIncrementSize = device->GetDescriptorHandleIncrementSize(type);
-
-	initted = true;
 }
 
 void DescriptorHeap::reset() {
-	// TODO: What to do with the already created views
 	cpuHandleRunning = cpuHandleStart;
 }
 
@@ -50,7 +48,7 @@ void DescriptorHeap::addTexture2DSRV(ID3D12Resource *resource, DXGI_FORMAT forma
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
 	desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	desc.Format = format;
+	desc.Format = getDepthFormatAsNormal(format);
 	desc.Texture2D.MipLevels = 1;
 	desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 

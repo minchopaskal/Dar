@@ -1,5 +1,6 @@
 #pragma once
 
+#include "d3d12/data_buffer.h"
 #include "d3d12/depth_buffer.h"
 #include "d3d12/pipeline_state.h"
 #include "d3d12/vertex_index_buffer.h"
@@ -7,13 +8,17 @@
 #include "math/dar_math.h"
 #include "utils/defines.h"
 
+#include <functional>
+
 #include <concepts>
+
 
 namespace Dar {
 
 constexpr UINT FRAME_COUNT = 2;
 
 struct RenderTarget {
+	std::function<void()> f;
 	RenderTarget() : numFramesInFlight(0) {}
 	
 	void init(TextureInitData &texInitData, UINT numFramesInFlight);
@@ -54,11 +59,14 @@ struct RenderTarget {
 		return rtTextures[0].getHeight();
 	}
 
+	const TextureResource& getTextureResource(int backbufferIndex) const {
+		return rtTextures[backbufferIndex];
+	}
+
 private:
 	TextureResource rtTextures[FRAME_COUNT];
 	UINT numFramesInFlight;
 };
-
 
 struct Backbuffer {
 	bool init(ComPtr<IDXGIFactory4> dxgiFactory, CommandQueue &commandQueue, bool allowTearing);
@@ -88,22 +96,147 @@ public:
 	ResourceHandle backBuffersHandles[FRAME_COUNT]; ///< Handles to the RT resources in the resource manager
 };
 
+struct RenderCommand {
+	static RenderCommand drawInstanced(
+		UINT vertexCount,
+		UINT instanceCount,
+		UINT startVertex,
+		UINT startInstance
+	);
 
-struct ConstantBuffer {
-	ResourceHandle bufferHandle;
-	int rootParameterIndex;
+	static RenderCommand drawIndexedInstanced(
+		UINT indexCount,
+		UINT instanceCount,
+		UINT startIndex,
+		UINT baseVertex,
+		UINT startInstance
+	);
+
+	static RenderCommand setConstantBuffer(
+		ResourceHandle constBufferHandle,
+		UINT rootIndex
+	);
+
+	static RenderCommand transition(
+		ResourceHandle resource,
+		D3D12_RESOURCE_STATES toState,
+		UINT subresIndex = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES
+	);
+
+	void exec(CommandList &cmdList) const;
+
+private:
+	RenderCommand() : type(RenderCommandType::Invalid) {}
+
+	enum class RenderCommandType {
+		DrawInstanced,
+		DrawIndexedInstanced,
+		SetConstantBuffer,
+		Transition,
+
+		Invalid,
+		// ...
+	} type;
+	union {
+		struct {
+			UINT vertexCount;
+			UINT instanceCount;
+			UINT startVertex;
+			UINT startInstance;
+		};
+
+		struct {
+			UINT indexCount;
+			UINT instanceCount;
+			UINT startIndex;
+			UINT baseVertex;
+			UINT startInstance;
+		};
+
+		struct {
+			ResourceHandle constBufferHandle;
+			UINT rootIndex;
+		};
+
+		struct {
+			ResourceHandle resource;
+			D3D12_RESOURCE_STATES toState;
+			UINT subresIndex;
+		};
+	};
 };
 
 struct FrameData {
-	Vector<ConstantBuffer> constantBuffers;
-	VertexBuffer *vertexBuffer;
-	IndexBuffer *indexBuffer;
+	friend struct Renderer;
+	friend struct RenderPass;
 
-	void clear() {
-		vertexBuffer = nullptr;
-		indexBuffer = nullptr;
-		constantBuffers.clear();
+	void beginFrame(const Renderer &renderer);
+
+	void endFrame(const Renderer &renderer) {}
+
+	void setVertexBuffer(VertexBuffer *vb) {
+		vertexBuffer = vb;
 	}
+
+	void setIndexBuffer(IndexBuffer *ib) {
+		indexBuffer = ib;
+	}
+
+	void addConstResource(const ResourceHandle &handle, int rootParamterIndex) {
+		constantBuffers.emplace_back(handle, rootParamterIndex);
+	}
+
+	void addDataBufferResource(const DataBufferResource &dataBuf, int passIndex) {
+		ShaderResource shaderResource = {};
+		shaderResource.data = &dataBuf;
+		shaderResource.type = ShaderResourceType::Data;
+		shaderResources[passIndex].push_back(shaderResource);
+	}
+
+	void addTextureResource(const TextureResource &texRes, int passIndex) {
+		ShaderResource shaderResource = {};
+		shaderResource.tex = &texRes;
+		shaderResource.type = ShaderResourceType::Texture;
+		shaderResources[passIndex].emplace_back(shaderResource);
+	}
+	
+	void addRenderCommand(RenderCommand &&renderCmd, int passIndex) {
+		renderCommands[passIndex].emplace_back(std::move(renderCmd));
+	}
+
+private:
+	struct ConstantResource {
+		ResourceHandle handle;
+		int rootParameterIndex;
+	};
+
+	enum class ShaderResourceType {
+		Data,
+		Texture
+	};
+
+	struct ShaderResource {
+		union {
+			const TextureResource *tex;
+			const DataBufferResource *data;
+		};
+		ShaderResourceType type;
+	};
+
+	/// Constant buffers are bind to all passes of the pipeline.
+	Vector<ConstantResource> constantBuffers;
+
+	/// Shader resources for each pass of the pipeline.
+	/// Mapping is 1-1, so for pass 0 the renderer would look
+	/// its resources in shaderResources[0].
+	Vector<Vector<ShaderResource>> shaderResources;
+
+	/// List of render commands for each pass. The list is executed as is,
+	/// i.e it preserves the order of the commands as they were passed.
+	Vector<Vector<RenderCommand>> renderCommands;
+
+	VertexBuffer *vertexBuffer = nullptr;
+	IndexBuffer *indexBuffer = nullptr;
 };
 
 enum class RenderPassAttachmentType {
@@ -225,18 +358,23 @@ private:
 /// Resource initialization function that will be called at the beginning
 /// of the render pass. Its idea is to transition resources and initialize
 /// the render pass' SRV heap, but can be used in any other way.
-using RenderPassResourceInitCallback = void (*)(const FrameData &frameData, CommandList &cmdList, DescriptorHeap &srvHeap, UINT backbufferIndex, void *args);
+using RenderPassResourceInitCallback = std::function<void(const FrameData &frameData, CommandList &cmdList, DescriptorHeap &srvHeap, UINT backbufferIndex)>;
 
 using DrawCallback = void (*)(CommandList &cmdList, void *args);
 struct RenderPassDesc {
-	Vector<RenderPassAttachment> attachments; 
-	PipelineStateDesc psoDesc = {}; ///< Description of the pipeline state. The render pass will construct it.
-	DrawCallback drawCb = nullptr;
-	RenderPassResourceInitCallback setupCb = nullptr;
-	void *args = nullptr; ///< Arguments passed to both setupCb and drawCb.
+	friend struct Renderer;
+	friend struct RenderPass;
+
+	void setPipelineStateDesc(const PipelineStateDesc &psoDesc) {
+		this->psoDesc = psoDesc;
+	}
 
 	/// Add a render pass attachment
 	void attach(const RenderPassAttachment &rpa);
+
+private:
+	Vector<RenderPassAttachment> attachments;
+	PipelineStateDesc psoDesc = {}; ///< Description of the pipeline state. The render pass will construct it.
 };
 
 struct RenderSettings {
@@ -286,6 +424,10 @@ struct Renderer {
 
 	CommandList getCommandList() {
 		return commandQueueDirect.getCommandList();
+	}
+
+	SizeType getNumPasses() const {
+		return renderPasses.size();
 	}
 
 private:

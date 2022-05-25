@@ -1,12 +1,9 @@
 #include "d3d12/texture_res.h"
 
 #include "d3d12/resource_manager.h"
+#include "utils/utils.h"
 
 namespace Dar {
-
-TextureResource::~TextureResource() {
-	deinit();
-}
 
 bool TextureResource::init(TextureInitData &texInitData, TextureResourceType type, HeapInfo *heapInfo) {
 	ResourceInitData resInitData;
@@ -35,10 +32,24 @@ bool TextureResource::init(TextureInitData &texInitData, TextureResourceType typ
 	const bool success = handle != INVALID_RESOURCE_HANDLE;
 
 	if (success) {
-		format = texInitData.format;
+		texData = texInitData;
 	}
 
 	return success;
+}
+
+UINT64 TextureResource::upload(UploadHandle uploadHandle, const void *data) {
+	if (handle == INVALID_RESOURCE_HANDLE) {
+		return 0;
+	}
+
+	auto &resManager = getResourceManager();
+
+	D3D12_SUBRESOURCE_DATA textureSubresources = {};
+	textureSubresources.pData = data;
+	textureSubresources.RowPitch = static_cast<UINT64>(texData.width) * static_cast<UINT64>(getPixelSizeFromFormat(texData.format));
+	textureSubresources.SlicePitch = textureSubresources.RowPitch * texData.height;
+	return resManager.uploadTextureData(uploadHandle, handle, &textureSubresources, 1, 0);
 }
 
 void TextureResource::setName(const WString &name) {
@@ -68,9 +79,7 @@ void TextureResource::deinit() {
 		resManager.deregisterResource(handle);
 	}
 
-	format = DXGI_FORMAT_UNKNOWN;
-	name = L"";
-	width = height = 0;
+	texData = {};
 }
 
 } // namespace Dar

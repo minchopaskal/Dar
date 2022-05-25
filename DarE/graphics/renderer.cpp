@@ -20,10 +20,6 @@ struct RenderPass {
 		auto &psoDesc = rpd.psoDesc;
 		pipeline.init(device, psoDesc);
 
-		drawCb = rpd.drawCb;
-		setupCb = rpd.setupCb;
-		args = rpd.args;
-
 		DXGI_SWAP_CHAIN_DESC1 scDesc = {};
 		D3D12_RENDER_PASS_RENDER_TARGET_DESC rtDesc = {};
 		bool hasDepthStencilBuffer = false;
@@ -129,10 +125,6 @@ struct RenderPass {
 
 		/*bool hasDepthStencil = depthBufferAttachment.valid();
 		cmdList->BeginRenderPass(static_cast<UINT>(renderTargetDescs.size()), renderTargetDescs.data(), hasDepthStencil ? &depthStencilDesc : NULL, D3D12_RENDER_PASS_FLAG_NONE);*/
-
-		if (setupCb) {
-			setupCb(frameData, cmdList, srvHeap[backbufferIndex], backbufferIndex, args);
-		}
 	}
 
 	void end(CommandList &cmdList) {
@@ -144,9 +136,6 @@ public:
 	Vector<RenderPassAttachment> renderTargetAttachments;
 	RenderPassAttachment depthBufferAttachment;
 	Vector<D3D12_RENDER_PASS_RENDER_TARGET_DESC> renderTargetDescs;
-	DrawCallback drawCb;
-	RenderPassResourceInitCallback setupCb;
-	void *args;
 	Backbuffer *backbuffer;
 	DescriptorHeap rtvHeap[FRAME_COUNT];
 	DescriptorHeap srvHeap[FRAME_COUNT];
@@ -444,15 +433,54 @@ CommandList Renderer::populateCommandList(const FrameData &frameData) {
 
 	// Cache the rtv handle. The last rtv handle will be used for the ImGui rendering.
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = {};
-	for (int i = 0; i < renderPasses.size(); ++i) {
-		RenderPass &renderPass = *renderPasses[i];
+	for (int renderPassIndex = 0; renderPassIndex < renderPasses.size(); ++renderPassIndex) {
+		RenderPass &renderPass = *renderPasses[renderPassIndex];
 		renderPass.begin(frameData, cmdList, backbufferIndex);
+
+		auto &srvHeap = renderPass.srvHeap[backbufferIndex];
+		if (!srvHeap || srvHeap.getNumViews() < frameData.shaderResources[renderPassIndex].size()) {
+			srvHeap.init(
+				device.Get(),
+				D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+				frameData.shaderResources[renderPassIndex].size(),
+				true
+			);
+		}
+
+		srvHeap.reset();
+		for (auto &res : frameData.shaderResources[renderPassIndex]) {
+			ResourceHandle handle = {};
+			bool isTex = false;
+			switch (res.type) {
+			case FrameData::ShaderResourceType::Data:
+				handle = res.data->getHandle();
+				break;
+			case FrameData::ShaderResourceType::Texture:
+				isTex = true;
+				handle = res.tex->getHandle();
+				break;
+			default:
+				dassert(false);
+				break;
+			}
+			cmdList.transition(handle, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+			if (isTex) {
+				srvHeap.addTexture2DSRV(handle.get(), res.tex->getFormat());
+			} else {
+				srvHeap.addBufferSRV(handle.get(), res.data->getNumElements(), res.data->getElementSize());
+			}
+		}
 
 		if (renderPass.srvHeap[backbufferIndex]) {
 			cmdList->SetDescriptorHeaps(1, renderPass.srvHeap[backbufferIndex].getAddressOf());
 		}
 
 		cmdList->SetGraphicsRootSignature(renderPass.pipeline.getRootSignature());
+
+		for (auto &cb : frameData.constantBuffers) {
+			cmdList.transition(cb.handle, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+			cmdList.setConstantBufferView(cb.rootParameterIndex, cb.handle);
+		}
 
 		const bool hasDepthBuffer = renderPass.depthBufferAttachment.valid();
 		const int numRenderTargets = static_cast<int>(renderPass.renderTargetDescs.size());
@@ -480,16 +508,10 @@ CommandList Renderer::populateCommandList(const FrameData &frameData) {
 			cmdList->IASetIndexBuffer(&frameData.indexBuffer->bufferView);
 		}
 
-		for (int i = 0; i < frameData.constantBuffers.size(); ++i) {
-			const ConstantBuffer &cb = frameData.constantBuffers[i];
-			cmdList.transition(cb.bufferHandle, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-			cmdList.setConstantBufferView(cb.rootParameterIndex, cb.bufferHandle);
-		}
-
 		cmdList->OMSetRenderTargets(numRenderTargets, &rtvHandle, TRUE, hasDepthBuffer ? &dsvHandle : nullptr);
 
-		if (renderPass.drawCb) {
-			renderPass.drawCb(cmdList, renderPass.args);
+		for (auto &renderCmd : frameData.renderCommands[renderPassIndex]) {
+			renderCmd.exec(cmdList);
 		}
 
 		renderPass.end(cmdList);
@@ -689,6 +711,78 @@ DXGI_FORMAT Backbuffer::getFormat() const {
 
 HRESULT Backbuffer::present(UINT syncInterval, UINT flags) const {
 	return swapChain->Present(syncInterval, flags);
+}
+
+void FrameData::beginFrame(const Renderer &renderer) {
+	vertexBuffer = nullptr;
+	indexBuffer = nullptr;
+	constantBuffers.clear();
+	shaderResources.clear();
+	renderCommands.clear();
+	shaderResources.resize(renderer.getNumPasses());
+	renderCommands.resize(renderer.getNumPasses());
+}
+
+RenderCommand RenderCommand::drawInstanced(UINT vertexCount, UINT instanceCount, UINT startVertex, UINT startInstance) {
+	RenderCommand res;
+	res.vertexCount = vertexCount;
+	res.instanceCount = instanceCount;
+	res.startVertex = startVertex;
+	res.startInstance = startInstance;
+	res.type = RenderCommandType::DrawInstanced;
+
+	return res;
+}
+
+RenderCommand RenderCommand::drawIndexedInstanced(UINT indexCount, UINT instanceCount, UINT startIndex, UINT baseVertex, UINT startInstance) {
+	RenderCommand res;
+	res.indexCount = indexCount;
+	res.instanceCount = instanceCount;
+	res.startIndex = startIndex;
+	res.baseVertex = baseVertex;
+	res.startInstance = startInstance;
+	res.type = RenderCommandType::DrawIndexedInstanced;
+
+	return res;
+}
+
+RenderCommand RenderCommand::setConstantBuffer(ResourceHandle constBufferHandle, UINT rootIndex) {
+	RenderCommand res;
+	res.constBufferHandle = constBufferHandle;
+	res.rootIndex = rootIndex;
+	res.type = RenderCommandType::SetConstantBuffer;
+
+	return res;
+}
+
+RenderCommand RenderCommand::transition(ResourceHandle resource, D3D12_RESOURCE_STATES toState, UINT subresIndex) {
+	RenderCommand res;
+	res.resource = resource;
+	res.toState = toState;
+	res.subresIndex = subresIndex;
+	res.type = RenderCommandType::Transition;
+
+	return res;
+}
+
+void RenderCommand::exec(CommandList &cmdList) const {
+	switch (type) {
+	case RenderCommandType::DrawInstanced:
+		cmdList->DrawInstanced(vertexCount, instanceCount, startVertex, startInstance);
+		break;
+	case RenderCommandType::DrawIndexedInstanced:
+		cmdList->DrawIndexedInstanced(indexCount, instanceCount, startIndex, baseVertex, startInstance);
+		break;
+	case RenderCommandType::SetConstantBuffer:
+		cmdList.transition(constBufferHandle, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+		cmdList.setConstantBufferView(rootIndex, constBufferHandle);
+		break;
+	case RenderCommandType::Transition:
+		cmdList.transition(resource, toState, subresIndex);
+		break;
+	default:
+		break;
+	}
 }
 
 } // namespace Dar

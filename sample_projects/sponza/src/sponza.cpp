@@ -122,15 +122,28 @@ void Sponza::update() {
 	resManager->uploadBufferData(uploadHandle, sceneDataHandle[frameIndex], reinterpret_cast<void*>(&sceneData), sizeof(ShaderRenderData));
 	resManager->uploadBuffers();
 
-	Dar::ConstantBuffer cbuf = {};
-	cbuf.bufferHandle = sceneDataHandle[frameIndex];
-	cbuf.rootParameterIndex = 0;
-
 	Dar::FrameData &fd = frameData[frameIndex];
-	fd.clear();
-	fd.indexBuffer = &indexBuffer;
-	fd.vertexBuffer = &vertexBuffer;
-	fd.constantBuffers.push_back(cbuf);
+	fd.setIndexBuffer(&indexBuffer);
+	fd.setVertexBuffer(&vertexBuffer);
+	fd.addConstResource(sceneDataHandle[frameIndex], 0);
+
+	// Deferred pass:
+	scene.prepareFrameData(fd);
+
+	// Lighting pass:
+	fd.addDataBufferResource(scene.lightsBuffer, 1);
+	fd.addTextureResource(depthBuffer.getTexture(), 1);
+	for (int i = 0; i < static_cast<UINT>(GBuffer::Count); ++i) {
+		fd.addTextureResource(gBufferRTs[i].getTextureResource(frameIndex), 1);
+	}
+
+	fd.addRenderCommand(Dar::RenderCommand::drawInstanced(3, 1, 0, 0), 1);
+
+	// Post-process pass
+	fd.addTextureResource(lightPassRT.getTextureResource(frameIndex), 2);
+	fd.addTextureResource(depthBuffer.getTexture(), 2);
+
+	fd.addRenderCommand(Dar::RenderCommand::drawInstanced(3, 1, 0, 0), 2);
 }
 
 void Sponza::drawUI() {
@@ -459,7 +472,7 @@ bool Sponza::loadPipelines() {
 	CD3DX12_STATIC_SAMPLER_DESC sampler{ 0, D3D12_FILTER_MIN_MAG_MIP_LINEAR };
 	
 	Dar::RenderPassDesc deferredPassDesc = {};
-	Dar::PipelineStateDesc &deferredPSDesc = deferredPassDesc.psoDesc;
+	Dar::PipelineStateDesc deferredPSDesc = {};
 	deferredPSDesc.shaderName = L"deferred";
 	deferredPSDesc.shadersMask = Dar::shaderInfoFlags_useVertex;
 	deferredPSDesc.inputLayouts = inputLayouts;
@@ -473,53 +486,7 @@ bool Sponza::loadPipelines() {
 		deferredPSDesc.renderTargetFormats[i] = gBufferFormats[i];
 	}
 
-	// TODO: We could probably get away with just passing the resources (on each FrameData if they can change between frames).
-	// The renderer can check if the srv heap is initialized or if it needs reinitialization.
-	deferredPassDesc.setupCb = [](const Dar::FrameData &frameData, Dar::CommandList &cmdList, Dar::DescriptorHeap &srvHeap, UINT backbufferIndex, void *args) {
-		SponzaPassesArgs *sArgs = reinterpret_cast<SponzaPassesArgs *>(args);
-		Scene &scene = sArgs->scene;
-		Dar::Renderer &renderer = sArgs->renderer;
-
-		cmdList.transition(scene.materialsHandle, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		const int numTextures = static_cast<int>(scene.getNumTextures());
-		for (int i = 0; i < numTextures; ++i) {
-			cmdList.transition(scene.textureHandles[i], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		}
-		
-		if (!srvHeap || scene.hadChangesSinceLastCheck()) {
-			/* Create shader resource view heap which will store the handles to the textures */
-			srvHeap.init(
-				renderer.getDevice().Get(),
-				D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-				numTextures + 1, // +1 for the materials buffer
-				true /*shaderVisible*/
-			);
-		}
-		
-		// Reset the handles in the heap since they may have been changed since the last frame.
-		// F.e added/removed textures.
-		srvHeap.reset();
-		
-		// Create SRV for the materials
-		srvHeap.addBufferSRV(scene.materialsHandle.get(), static_cast<int>(scene.getNumMaterials()), sizeof(MaterialData));
-		
-		// Create SRVs for the textures so we can read them bindlessly in the shader
-		for (int i = 0; i < numTextures; ++i) {
-			srvHeap.addTexture2DSRV(
-				scene.textureHandles[i].get(),
-				scene.getTexture(i).format == TextureFormat::RGBA_8BIT ? DXGI_FORMAT_R8G8B8A8_UNORM : DXGI_FORMAT_UNKNOWN
-			);
-		}
-	};
-	deferredPassDesc.args = &args;
-	// TODO: Think about getting rid of this draw callback also.
-	// Idea: in the FrameData - array of draw commands that work on FrameData::vertexBuffer
-	// which are then translated to real draw commands in the renderer.
-	deferredPassDesc.drawCb = [](Dar::CommandList &cmdList, void *args) {
-		SponzaPassesArgs *sArgs = reinterpret_cast<SponzaPassesArgs *>(args);
-		Scene &scene = sArgs->scene;
-		scene.draw(cmdList);
-	};
+	deferredPassDesc.setPipelineStateDesc(deferredPSDesc);
 	for (int i = 0; i < static_cast<int>(GBuffer::Count); ++i) {
 		deferredPassDesc.attach(Dar::RenderPassAttachment::renderTarget(&gBufferRTs[i]));
 	}
@@ -527,95 +494,26 @@ bool Sponza::loadPipelines() {
 	renderer.addRenderPass(deferredPassDesc);
 
 	Dar::RenderPassDesc lightingPassDesc = {};
-	Dar::PipelineStateDesc &lightingPSDesc = lightingPassDesc.psoDesc;
+	Dar::PipelineStateDesc lightingPSDesc = {};
 	lightingPSDesc.shaderName = L"lighting";
 	lightingPSDesc.shadersMask = Dar::shaderInfoFlags_useVertex;
 	lightingPSDesc.staticSamplerDesc = &sampler;
 	lightingPSDesc.numConstantBufferViews = static_cast<unsigned int>(ConstantBufferView::Count);
 	lightingPSDesc.numTextures = static_cast<UINT>(GBuffer::Count);
 	lightingPSDesc.cullMode = D3D12_CULL_MODE_NONE;
-	lightingPassDesc.setupCb = [](const Dar::FrameData &frameData, Dar::CommandList &cmdList, Dar::DescriptorHeap &srvHeap, UINT backbufferIndex, void *args) {
-		SponzaPassesArgs *sArgs = reinterpret_cast<SponzaPassesArgs *>(args);
-		Scene &scene = sArgs->scene;
-		Dar::DepthBuffer &depthBuffer = sArgs->dp;
-		Dar::Renderer &renderer = sArgs->renderer;
-		const DXGI_FORMAT *gBufferFormats = sArgs->gBufferFormats;
-		StaticArray<Dar::RenderTarget, static_cast<int>(GBuffer::Count)> &gBufferRTs = sArgs->gBufferRTs;
-
-		cmdList.transition(scene.lightsHandle, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		cmdList.transition(depthBuffer.getBufferHandle(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-
-		const int gBufferCount = static_cast<int>(GBuffer::Count);
-	
-		for (int i = 0; i < gBufferCount; ++i) {
-			cmdList.transition(gBufferRTs[i].getHandleForFrame(backbufferIndex), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		}
-
-		if (!srvHeap) {
-			srvHeap.init(
-				renderer.getDevice().Get(),
-				D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-				gBufferCount + 2, // Gbuffer textures + lights buffer + depth buffer
-				true /*shaderVisible*/
-			);
-		}
-
-		// Recreate the srv heap since the lights may have been changed
-		// (thus scene.lightsHandle update is needed) or in case of
-		// resizing the the RTV handles will be diffrent and will also need an update.
-		srvHeap.reset();
-
-		// Create SRV for the lights
-		srvHeap.addBufferSRV(scene.lightsHandle.get(), static_cast<int>(scene.getNumLights()), sizeof(LightData));
-
-		// ... and for the depth buffer
-		srvHeap.addTexture2DSRV(depthBuffer.getBufferResource(), depthBuffer.getFormatAsTexture());
-
-		// Create SRVs for the textures so we can read them bindlessly in the shader
-		for (int i = 0; i < gBufferCount; ++i) {
-			srvHeap.addTexture2DSRV(gBufferRTs[i].getBufferResourceForFrame(backbufferIndex), gBufferFormats[i]);
-		}
-	};
-	auto screenQuadDrawCb = [](Dar::CommandList &cmdList, void*) {
-		cmdList->DrawInstanced(3, 1, 0, 0);
-	};
-	lightingPassDesc.drawCb = screenQuadDrawCb;
-	lightingPassDesc.args = &args;
+	lightingPassDesc.setPipelineStateDesc(lightingPSDesc);
 	lightingPassDesc.attach(Dar::RenderPassAttachment::renderTarget(&lightPassRT));
 	renderer.addRenderPass(lightingPassDesc);
 
 	Dar::RenderPassDesc postPassDesc = {};
-	Dar::PipelineStateDesc &postPSDesc = postPassDesc.psoDesc;
+	Dar::PipelineStateDesc postPSDesc = {};
 	postPSDesc.shaderName = L"post";
 	postPSDesc.shadersMask = Dar::shaderInfoFlags_useVertex;
 	postPSDesc.staticSamplerDesc = &sampler;
 	postPSDesc.numConstantBufferViews = static_cast<unsigned int>(ConstantBufferView::Count);
 	postPSDesc.numTextures = 1;
 	postPSDesc.cullMode = D3D12_CULL_MODE_NONE;
-	postPassDesc.setupCb = [](const Dar::FrameData &frameData, Dar::CommandList &cmdList, Dar::DescriptorHeap &srvHeap, UINT backbufferIndex, void *args) {
-		SponzaPassesArgs *sArgs = reinterpret_cast<SponzaPassesArgs *>(args);
-		Dar::Renderer &renderer = sArgs->renderer;
-		Dar::RenderTarget &lightPassRT = sArgs->lightPassRT;
-		Dar::DepthBuffer &depthBuffer = sArgs->dp;
-
-		cmdList.transition(lightPassRT.getHandleForFrame(backbufferIndex), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-
-		if (!srvHeap) {
-			srvHeap.init(
-				renderer.getDevice().Get(),
-				D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-				2, // light pass result + depth buffer
-				true /*shaderVisible*/
-			);
-		}
-
-		// Recreate the srv heap since after resizing the light pass rtv texture handle may need an update.
-		srvHeap.reset();
-		srvHeap.addTexture2DSRV(lightPassRT.getBufferResourceForFrame(backbufferIndex), DXGI_FORMAT_R8G8B8A8_UNORM);
-		srvHeap.addTexture2DSRV(depthBuffer.getBufferResource(), depthBuffer.getFormatAsTexture());
-	};
-	postPassDesc.drawCb = screenQuadDrawCb;
-	postPassDesc.args = &args;
+	postPassDesc.setPipelineStateDesc(postPSDesc);
 	postPassDesc.attach(Dar::RenderPassAttachment::renderTargetBackbuffer());
 	renderer.addRenderPass(postPassDesc);
 

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "d3d12/resource_handle.h"
 #include "d3d12/includes.h"
+#include "d3d12/resource_manager.h"
 #include "utils/defines.h"
 
 namespace Dar {
@@ -22,8 +22,7 @@ enum class TextureResourceType {
 /// and save the resource handle to it.
 struct TextureResource {
 	TextureResource() {}
-	~TextureResource();
-
+	
 	/// Initialize the texture resource. Destroys the underlying texture resource if any.
 	/// @param initData Texture initialization data.
 	/// @param heapInfo Description of a heap and its place in it if we want to use it.
@@ -31,6 +30,12 @@ struct TextureResource {
 	/// @param type Type of the texture.
 	/// @return true on success, false otherwise.
 	bool init(TextureInitData &initData, TextureResourceType type, HeapInfo *heapInfo = nullptr);
+
+	/// Upload texture data to the texture resource
+	/// @param uploadHandle Handle with which the upload manager uploads the resource.
+	/// @param data The texture data to be uploaded to the GPU.
+	/// @return Size in bytes of the uploaded texture. 0 on fail.
+	UINT64 upload(UploadHandle uploadHandle, const void *data);
 
 	void setName(const WString &name);
 
@@ -45,15 +50,19 @@ struct TextureResource {
 	}
 
 	DXGI_FORMAT getFormat() const {
-		return format;
+		return texData.format;
 	}
 
 	int getWidth() const {
-		return width;
+		return texData.width;
 	}
 
 	int getHeight() const {
-		return height;
+		return texData.height;
+	}
+
+	int getNumMipLevels() const {
+		return texData.mipLevels;
 	}
 
 	void deinit();
@@ -61,9 +70,7 @@ struct TextureResource {
 private:
 	ResourceHandle handle = INVALID_RESOURCE_HANDLE; ///< Handle to the resource that one can pass to the ResourceManager methods.
 	WString name;
-	DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
-	int width = 0;
-	int height = 0;
+	TextureInitData texData;
 };
 
 } // namespace Dar

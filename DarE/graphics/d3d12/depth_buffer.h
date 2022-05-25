@@ -28,6 +28,10 @@ struct DepthBuffer {
 
 	ResourceHandle getBufferHandle() const;
 
+	const TextureResource& getTexture() const {
+		return depthTex;
+	}
+
 private:
 	DescriptorHeap dsvHeap;
 	TextureResource depthTex;

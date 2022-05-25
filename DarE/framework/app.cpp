@@ -290,7 +290,10 @@ int App::mainLoopJob() {
 
 		processKeyboardInput(glfwWindow);
 
+		FrameData &fd = getFrameData();
+		fd.beginFrame(renderer);
 		renderer.beginFrame();
+
 		beginFrame();
 
 		update();
@@ -299,6 +302,7 @@ int App::mainLoopJob() {
 
 		endFrame();
 		renderer.endFrame();
+		fd.endFrame(renderer);
 		resManager->endFrame();
 
 		glfwPollEvents();

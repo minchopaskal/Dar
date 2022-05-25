@@ -1,5 +1,6 @@
 #include "d3d12/depth_buffer.h"
 #include "d3d12/resource_manager.h"
+#include "utils/utils.h"
 
 namespace Dar {
 
@@ -39,18 +40,7 @@ DXGI_FORMAT DepthBuffer::getFormatAsDepthBuffer() const {
 }
 
 DXGI_FORMAT DepthBuffer::getFormatAsTexture() const {
-	switch (depthTex.getFormat()) {
-	case DXGI_FORMAT_D16_UNORM:
-		return DXGI_FORMAT_R16_FLOAT;
-	case DXGI_FORMAT_D24_UNORM_S8_UINT:
-		return DXGI_FORMAT_R24G8_TYPELESS;
-	case DXGI_FORMAT_D32_FLOAT:
-		return DXGI_FORMAT_R32_FLOAT;
-	case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
-		return DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
-	default:
-		return DXGI_FORMAT_UNKNOWN;
-	}
+	return getDepthFormatAsNormal(depthTex.getFormat());
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE DepthBuffer::getCPUHandle() const {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "d3d12/includes.h"
+#include "utils/defines.h"
 
 namespace Dar {
 
@@ -44,7 +45,12 @@ struct DescriptorHeap {
 	}
 
 	operator bool() const {
-		return initted;
+		return !!heap;
+	}
+
+	SizeType getNumViews() const {
+		auto desc = heap->GetDesc();
+		return desc.NumDescriptors;
 	}
 
 private:
@@ -58,8 +64,6 @@ private:
 	D3D12_CPU_DESCRIPTOR_HANDLE cpuHandleRunning;
 
 	UINT handleIncrementSize;
-
-	bool initted;
 };
 
 } // namespace Dar

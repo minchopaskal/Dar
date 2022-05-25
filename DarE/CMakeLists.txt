@@ -12,6 +12,7 @@ set(HEADERS
 	${LIB_SOURCE_DIR}/framework/input_query.h
 	${LIB_SOURCE_DIR}/graphics/d3d12/command_list.h
 	${LIB_SOURCE_DIR}/graphics/d3d12/command_queue.h
+	${LIB_SOURCE_DIR}/graphics/d3d12/data_buffer.h
 	${LIB_SOURCE_DIR}/graphics/d3d12/depth_buffer.h
 	${LIB_SOURCE_DIR}/graphics/d3d12/descriptor_heap.h
 	${LIB_SOURCE_DIR}/graphics/d3d12/includes.h
@@ -37,6 +38,7 @@ set(SOURCES
 	${LIB_SOURCE_DIR}/framework/camera.cpp
 	${LIB_SOURCE_DIR}/graphics/d3d12/command_list.cpp
 	${LIB_SOURCE_DIR}/graphics/d3d12/command_queue.cpp
+	${LIB_SOURCE_DIR}/graphics/d3d12/data_buffer.cpp
 	${LIB_SOURCE_DIR}/graphics/d3d12/depth_buffer.cpp
 	${LIB_SOURCE_DIR}/graphics/d3d12/descriptor_heap.cpp
 	${LIB_SOURCE_DIR}/graphics/d3d12/pipeline_state.cpp
