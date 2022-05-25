@@ -39,6 +39,18 @@ void CommandQueue::init(ComPtr<ID3D12Device> device) {
 	);
 }
 
+void CommandQueue::deinit() {
+	fence.Reset();
+	commandQueue.Reset();
+	pendingCommandListsQueue.clear();
+	while (!commandListsPool.empty()) {
+		commandListsPool.pop();
+	}
+	while (!commandAllocatorsPool.empty()) {
+		commandAllocatorsPool.pop();
+	}
+}
+
 CommandList CommandQueue::getCommandList() {
 	// TODO: try lock and if cannot lock just create new allocator+cmdList
 	auto lock = commandListsPoolCS.lock();

@@ -131,6 +131,14 @@ struct RenderPass {
 		/*cmdList->EndRenderPass();*/
 	}
 
+	void deinit() {
+		pipeline.deinit();
+		for (int i = 0; i < FRAME_COUNT; ++i) {
+			rtvHeap[i].deinit();
+			srvHeap[i].deinit();
+		}
+	}
+
 public:
 	PipelineState pipeline;
 	Vector<RenderPassAttachment> renderTargetAttachments;
@@ -247,6 +255,42 @@ void Renderer::deinit() {
 		ImGui_ImplDX12_Shutdown();
 		imGuiShutdown = true;
 	}
+	imguiSRVHeap.Reset();
+
+	for (int i = 0; i < renderPasses.size(); ++i) {
+		renderPasses[i]->deinit();
+	}
+	renderPasses.clear();
+	if (renderPassesStorage) {
+		delete renderPassesStorage;
+		renderPassesStorage = nullptr;
+	}
+
+	flush();
+	commandQueueDirect.deinit();
+
+	backbuffer.deinit();
+	auto refCnt = device.Reset();
+
+#ifdef DAR_DEBUG
+	HMODULE dxgiModule = GetModuleHandleA("Dxgidebug.dll");
+	if (!dxgiModule) {
+		return;
+	}
+
+	using DXGIGetDebugInterfaceProc = HRESULT (*)(REFIID riid, void **ppDebug);
+
+	auto dxgiGetDebugInterface = (DXGIGetDebugInterfaceProc)GetProcAddress(dxgiModule, "DXGIGetDebugInterface");
+
+	if (!dxgiGetDebugInterface) {
+		return;
+	}
+
+	ComPtr<IDXGIDebug> debugLayer;
+	if (SUCCEEDED(dxgiGetDebugInterface(IID_PPV_ARGS(&debugLayer)))) {
+		debugLayer->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_FLAGS(DXGI_DEBUG_RLO_IGNORE_INTERNAL | DXGI_DEBUG_RLO_SUMMARY));
+	}
+#endif // DAR_DEBUG
 }
 
 void Renderer::flush() {
@@ -437,18 +481,20 @@ CommandList Renderer::populateCommandList(const FrameData &frameData) {
 		RenderPass &renderPass = *renderPasses[renderPassIndex];
 		renderPass.begin(frameData, cmdList, backbufferIndex);
 
+		auto &shaderResources = frameData.shaderResources[renderPassIndex];
+		const int numShaderResources = shaderResources.size();
 		auto &srvHeap = renderPass.srvHeap[backbufferIndex];
-		if (!srvHeap || srvHeap.getNumViews() < frameData.shaderResources[renderPassIndex].size()) {
+		if (numShaderResources > 0 && (!srvHeap || srvHeap.getNumViews() < numShaderResources)) {
 			srvHeap.init(
 				device.Get(),
 				D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-				frameData.shaderResources[renderPassIndex].size(),
+				numShaderResources,
 				true
 			);
 		}
 
 		srvHeap.reset();
-		for (auto &res : frameData.shaderResources[renderPassIndex]) {
+		for (auto &res : shaderResources) {
 			ResourceHandle handle = {};
 			bool isTex = false;
 			switch (res.type) {
@@ -713,6 +759,13 @@ HRESULT Backbuffer::present(UINT syncInterval, UINT flags) const {
 	return swapChain->Present(syncInterval, flags);
 }
 
+void Backbuffer::deinit() {
+	swapChain.Reset();
+	for (int i = 0; i < FRAME_COUNT; ++i) {
+		backBuffers[i].Reset();
+	}
+}
+
 void FrameData::beginFrame(const Renderer &renderer) {
 	vertexBuffer = nullptr;
 	indexBuffer = nullptr;
@@ -725,10 +778,10 @@ void FrameData::beginFrame(const Renderer &renderer) {
 
 RenderCommand RenderCommand::drawInstanced(UINT vertexCount, UINT instanceCount, UINT startVertex, UINT startInstance) {
 	RenderCommand res;
-	res.vertexCount = vertexCount;
-	res.instanceCount = instanceCount;
-	res.startVertex = startVertex;
-	res.startInstance = startInstance;
+	res.vertexCountDI = vertexCount;
+	res.instanceCountDI = instanceCount;
+	res.startVertexDI = startVertex;
+	res.startInstanceDI = startInstance;
 	res.type = RenderCommandType::DrawInstanced;
 
 	return res;
@@ -736,11 +789,11 @@ RenderCommand RenderCommand::drawInstanced(UINT vertexCount, UINT instanceCount,
 
 RenderCommand RenderCommand::drawIndexedInstanced(UINT indexCount, UINT instanceCount, UINT startIndex, UINT baseVertex, UINT startInstance) {
 	RenderCommand res;
-	res.indexCount = indexCount;
-	res.instanceCount = instanceCount;
-	res.startIndex = startIndex;
-	res.baseVertex = baseVertex;
-	res.startInstance = startInstance;
+	res.indexCountDII = indexCount;
+	res.instanceCountDII = instanceCount;
+	res.startIndexDII = startIndex;
+	res.baseVertexDII = baseVertex;
+	res.startInstanceDII = startInstance;
 	res.type = RenderCommandType::DrawIndexedInstanced;
 
 	return res;
@@ -748,8 +801,8 @@ RenderCommand RenderCommand::drawIndexedInstanced(UINT indexCount, UINT instance
 
 RenderCommand RenderCommand::setConstantBuffer(ResourceHandle constBufferHandle, UINT rootIndex) {
 	RenderCommand res;
-	res.constBufferHandle = constBufferHandle;
-	res.rootIndex = rootIndex;
+	res.constBufferHandleSCB = constBufferHandle;
+	res.rootIndexSCB = rootIndex;
 	res.type = RenderCommandType::SetConstantBuffer;
 
 	return res;
@@ -757,9 +810,9 @@ RenderCommand RenderCommand::setConstantBuffer(ResourceHandle constBufferHandle,
 
 RenderCommand RenderCommand::transition(ResourceHandle resource, D3D12_RESOURCE_STATES toState, UINT subresIndex) {
 	RenderCommand res;
-	res.resource = resource;
-	res.toState = toState;
-	res.subresIndex = subresIndex;
+	res.resourceT = resource;
+	res.toStateT = toState;
+	res.subresIndexT = subresIndex;
 	res.type = RenderCommandType::Transition;
 
 	return res;
@@ -768,17 +821,17 @@ RenderCommand RenderCommand::transition(ResourceHandle resource, D3D12_RESOURCE_
 void RenderCommand::exec(CommandList &cmdList) const {
 	switch (type) {
 	case RenderCommandType::DrawInstanced:
-		cmdList->DrawInstanced(vertexCount, instanceCount, startVertex, startInstance);
+		cmdList->DrawInstanced(vertexCountDI, instanceCountDI, startVertexDI, startInstanceDI);
 		break;
 	case RenderCommandType::DrawIndexedInstanced:
-		cmdList->DrawIndexedInstanced(indexCount, instanceCount, startIndex, baseVertex, startInstance);
+		cmdList->DrawIndexedInstanced(indexCountDII, instanceCountDII, startIndexDII, baseVertexDII, startInstanceDII);
 		break;
 	case RenderCommandType::SetConstantBuffer:
-		cmdList.transition(constBufferHandle, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-		cmdList.setConstantBufferView(rootIndex, constBufferHandle);
+		cmdList.transition(constBufferHandleSCB, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+		cmdList.setConstantBufferView(rootIndexSCB, constBufferHandleSCB);
 		break;
 	case RenderCommandType::Transition:
-		cmdList.transition(resource, toState, subresIndex);
+		cmdList.transition(resourceT, toStateT, subresIndexT);
 		break;
 	default:
 		break;

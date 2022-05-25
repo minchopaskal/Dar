@@ -14,6 +14,7 @@ struct CommandQueue {
 	CommandQueue(D3D12_COMMAND_LIST_TYPE type);
 
 	void init(ComPtr<ID3D12Device> device);
+	void deinit();
 
 	CommandList getCommandList();
 	void addCommandListForExecution(CommandList &&commandList);

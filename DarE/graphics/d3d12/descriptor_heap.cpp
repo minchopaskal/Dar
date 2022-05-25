@@ -16,14 +16,13 @@ DescriptorHeap::DescriptorHeap() :
 
 void DescriptorHeap::init(ID3D12Device *device, D3D12_DESCRIPTOR_HEAP_TYPE type, int numDesctiptors, bool shaderVisible) {
 	dassert(device != nullptr);
+	deinit();
 
 	this->device = device;
 	this->type = type;
 
 	const bool isRTVOrDSV = (type == D3D12_DESCRIPTOR_HEAP_TYPE_RTV || type == D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 	shaderVisible = (shaderVisible && !isRTVOrDSV);
-
-	heap.Reset();
 
 	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
 	desc.Type = type;
@@ -89,6 +88,15 @@ void DescriptorHeap::addDSV(ID3D12Resource *resource, DXGI_FORMAT format) {
 
 	device->CreateDepthStencilView(resource, &dsDesc, cpuHandleRunning);
 	cpuHandleRunning.ptr += handleIncrementSize;
+}
+
+void DescriptorHeap::deinit() {
+	heap.Reset();
+	device = nullptr;
+	cpuHandleStart = cpuHandleRunning = { 0 };
+	gpuHandleStart = { 0 };
+	handleIncrementSize = 0;
+
 }
 
 } // namespace Dar

@@ -53,6 +53,8 @@ struct DescriptorHeap {
 		return desc.NumDescriptors;
 	}
 
+	void deinit();
+
 private:
 	ComPtr<ID3D12DescriptorHeap> heap;
 	ID3D12Device *device; /// Non-owning pointer to the device.

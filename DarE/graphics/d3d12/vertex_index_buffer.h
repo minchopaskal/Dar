@@ -55,10 +55,6 @@ template <BufferType T>
 struct Buffer : BufferBase<T> {
 	Buffer() : bufferHandle(INVALID_RESOURCE_HANDLE) {}
 
-	~Buffer() {
-		deinit();
-	}
-
 	/// Initialize and upload the vertex/index buffer.
 	/// @param desc Vertex/index buffer description
 	/// @param uploadHandle The upload handle used for recording the host->gpu copy

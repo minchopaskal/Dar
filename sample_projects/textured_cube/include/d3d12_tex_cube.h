@@ -31,11 +31,6 @@ private:
 	using Super = Dar::App;
 
 	static constexpr int numTextures = 1;
-	struct TexturedCubePassArgs {
-		Dar::Renderer &renderer;
-		Dar::TextureResource *textureHandles;
-		int numTextures;
-	} renderPassArgs = { renderer, textures, numTextures };
 
 	enum class ProjectionType {
 		Perspective,

@@ -101,6 +101,10 @@ extern dfloat3 normalize(float3 v);
 
 extern dfloat4 normalizef4(float4 v);
 
+extern dint Min(int a, int b);
+
+extern dint Max(int a, int b);
+
 extern "C" {
 	gvoid adder(int *arrA, int *arrB, int *result);
 } // extern "C"

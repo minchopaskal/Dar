@@ -98,9 +98,10 @@ void updateFrame(CudaRasterizer &rasterizer, void *state) {
 		st->texBufferCuda.upload(sampler.data);
 		stbi_image_free(sampler.data);
 		sampler.data = reinterpret_cast<unsigned char*>(st->texBufferCuda.handle());
-		err = rasterizer.setUavBuffer(&sampler, sizeof(TextureSampler), 4);
 		st->textureUploaded = true;
 	}
+
+	err = rasterizer.setUavBuffer(&sampler, sizeof(TextureSampler), 4);
 
 	if (err.hasError()) {
 		return;

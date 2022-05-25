@@ -101,15 +101,16 @@ void D3D12TexturedCube::update() {
 	resManager->uploadBufferData(uploadHandle, mvpBufferHandle[frameIndex], reinterpret_cast<void*>(&mvp), sizeof(Mat4));
 	resManager->uploadBuffers();
 
-	Dar::ConstantBuffer cb = {};
-	cb.bufferHandle = mvpBufferHandle[frameIndex];
-	cb.rootParameterIndex = 0;
-
 	Dar::FrameData &fd = frameData[frameIndex];
-	fd.clear();
-	fd.vertexBuffer = &vertexBuffer;
-	fd.indexBuffer = &indexBuffer;
-	fd.constantBuffers.push_back(cb);
+	fd.addConstResource(mvpBufferHandle[frameIndex], 0);
+	fd.setIndexBuffer(&indexBuffer);
+	fd.setVertexBuffer(&vertexBuffer);
+	
+	for (int i = 0; i < numTextures; ++i) {
+		fd.addTextureResource(textures[i], 0);
+	}
+
+	fd.addRenderCommand(Dar::RenderCommand::drawIndexedInstanced(36, 1, 0, 0, 0), 0);
 }
 
 void D3D12TexturedCube::drawUI() {
@@ -186,8 +187,7 @@ int D3D12TexturedCube::loadAssets() {
 
 	CD3DX12_STATIC_SAMPLER_DESC sampler{ D3D12_FILTER_MIN_MAG_MIP_POINT };
 
-	Dar::RenderPassDesc renderPassDesc = {};
-	Dar::PipelineStateDesc &psDesc = renderPassDesc.psoDesc;
+	Dar::PipelineStateDesc psDesc = {};
 	psDesc.shaderName = L"basic";
 	psDesc.shadersMask = Dar::shaderInfoFlags_useVertex;
 	psDesc.inputLayouts = inputLayouts;
@@ -196,27 +196,9 @@ int D3D12TexturedCube::loadAssets() {
 	psDesc.numConstantBufferViews = 1;
 	psDesc.numTextures = numTextures;
 	psDesc.depthStencilBufferFormat = DXGI_FORMAT_D32_FLOAT;
-	renderPassDesc.drawCb = [](Dar::CommandList &cmdList, void *args) {
-		cmdList->DrawIndexedInstanced(36, 1, 0, 0, 0);
-	};
-	renderPassDesc.setupCb = [](const Dar::FrameData &frameData, Dar::CommandList &cmdList, Dar::DescriptorHeap &srvHeap, UINT backbufferIndex, void *args) {
-		TexturedCubePassArgs *sArgs = reinterpret_cast<TexturedCubePassArgs*>(args);
-		Dar::Renderer &renderer = sArgs->renderer;
-		Dar::TextureResource *textures = sArgs->textureHandles;
-		const int nt = sArgs->numTextures;
 
-		if (!srvHeap) {
-			srvHeap.init(renderer.getDevice().Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, nt, true);
-		}
-
-		srvHeap.reset();
-		for (int i = 0; i < nt; ++i) {
-			cmdList.transition(textures[i].getHandle(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-			srvHeap.addTexture2DSRV(textures[i].getBufferResource(), textures[i].getFormat());
-		}
-	};
-	renderPassDesc.args = &renderPassArgs;
-
+	Dar::RenderPassDesc renderPassDesc = {};
+	renderPassDesc.setPipelineStateDesc(psDesc);
 	renderPassDesc.attach(Dar::RenderPassAttachment::renderTargetBackbuffer());
 	renderPassDesc.attach(Dar::RenderPassAttachment::depthStencil(&depthBuffer, true));
 	renderer.addRenderPass(renderPassDesc);

@@ -238,6 +238,11 @@ ID3D12RootSignature *PipelineState::getRootSignature() const {
 	return rootSignature.Get();
 }
 
+void PipelineState::deinit() {
+	pipelineState.Reset();
+	rootSignature.Reset();
+}
+
 bool PipelineState::initPipeline(const ComPtr<ID3D12Device> &device, PipelineStateStream &pss) {
 	D3D12_PIPELINE_STATE_STREAM_DESC pipelineDesc = {};
 	pipelineDesc.pPipelineStateSubobjectStream = pss.getData();

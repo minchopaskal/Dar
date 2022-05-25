@@ -65,15 +65,11 @@ void D3D12HelloTriangle::update() {
 	resManager.uploadBufferData(uploadHandle, mvpResourceHandle[frameIndex], &MVP, sizeof(MVP));
 	resManager.uploadBuffers();
 
-	Dar::ConstantBuffer cb = { };
-	cb.bufferHandle = mvpResourceHandle[frameIndex];
-	cb.rootParameterIndex = 0;
-
 	Dar::FrameData &fd = frameData[renderer.getBackbufferIndex()];
-	fd.clear();
-	fd.vertexBuffer = &vertexBuffer;
-	fd.indexBuffer = &indexBuffer;
-	fd.constantBuffers.push_back(cb);
+	fd.setVertexBuffer(&vertexBuffer);
+	fd.setIndexBuffer(&indexBuffer);
+	fd.addConstResource(mvpResourceHandle[frameIndex], 0);
+	fd.addRenderCommand(Dar::RenderCommand::drawIndexedInstanced(3, 1, 0, 0, 0), 0);
 }
 
 void D3D12HelloTriangle::onResize(const unsigned int w, const unsigned int h) {
@@ -121,8 +117,7 @@ int D3D12HelloTriangle::loadAssets() {
 			{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 	};
 
-	Dar::RenderPassDesc renderPassDesc = {};
-	Dar::PipelineStateDesc &psDesc = renderPassDesc.psoDesc;
+	Dar::PipelineStateDesc psDesc = {};
 	psDesc.shaderName = L"basic";
 	psDesc.shadersMask = Dar::shaderInfoFlags_useVertex;
 	psDesc.numRenderTargets = 1;
@@ -132,10 +127,9 @@ int D3D12HelloTriangle::loadAssets() {
 	psDesc.staticSamplerDesc = &sampler;
 	psDesc.depthStencilBufferFormat = depthBuffer.getFormatAsDepthBuffer();
 	psDesc.numConstantBufferViews = 1;
-	renderPassDesc.drawCb = [](Dar::CommandList &cmdList, void *args) {
-		cmdList->DrawIndexedInstanced(3, 1, 0, 0, 0);
-	};
-	
+
+	Dar::RenderPassDesc renderPassDesc = {};
+	renderPassDesc.setPipelineStateDesc(psDesc);
 	renderPassDesc.attach(Dar::RenderPassAttachment::renderTargetBackbuffer());
 	renderPassDesc.attach(Dar::RenderPassAttachment::depthStencil(&depthBuffer, true));
 	renderer.addRenderPass(renderPassDesc);

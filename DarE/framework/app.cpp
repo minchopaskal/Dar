@@ -86,7 +86,9 @@ App::App(UINT width, UINT height, const char *windowTitle) :
 	title[strlen(windowTitle)] = '\0';
 }
 
-App::~App() {}
+App::~App() {
+	
+}
 
 int App::init() {
 	g_App = this; // save global state for glfw callbacks

@@ -188,6 +188,7 @@ struct ResourceManager {
 
 private:
 	ResourceManager() : copyQueue(D3D12_COMMAND_LIST_TYPE_COPY), numThreads(1) {}
+	~ResourceManager();
 
 	void resetCommandLists();
 

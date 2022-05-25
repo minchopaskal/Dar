@@ -58,11 +58,6 @@ private:
 
 	static constexpr unsigned int numComps = 4;
 
-	struct RenderPassArgs {
-		Dar::TextureResource &texture;
-		Dar::Renderer &renderer;
-	} renderPassArgs = { dx12RT, renderer };
-
 	float aspectRatio;
 
 	// Resources
@@ -81,7 +76,7 @@ private:
 	// in order to pass it to the processVertices kernel.
 	// We could cache it on the gpu as a constant, but that's easier,
 	// also, reduces constant memory reads.
-	int cacheVerticesCount;
+	SizeType cacheVerticesCount;
 
 	// Cache the cuda device we are using for rasterization
 	const CUDADevice *cudaDevice;

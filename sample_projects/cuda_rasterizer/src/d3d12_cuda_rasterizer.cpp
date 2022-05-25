@@ -84,15 +84,12 @@ void CudaRasterizer::update() {
 	cudaRenderTargetDevice.download(cudaRenderTargetHost);
 
 	const Dar::UploadHandle handle = resManager->beginNewUpload();
-	D3D12_SUBRESOURCE_DATA subresData;
-	subresData.pData = cudaRenderTargetHost;
-	subresData.RowPitch = static_cast<LONG_PTR>(width) * numComps * sizeof(float);
-	subresData.SlicePitch = subresData.RowPitch * height;
-	resManager->uploadTextureData(handle, dx12RT.getHandle(), &subresData, 1, 0);
+	dx12RT.upload(handle, cudaRenderTargetHost);
 	resManager->uploadBuffers();
 
 	Dar::FrameData &fd = frameData[renderer.getBackbufferIndex()];
-	fd.clear();
+	fd.addTextureResource(dx12RT, 0);
+	fd.addRenderCommand(Dar::RenderCommand::drawInstanced(3, 1, 0, 0), 0);
 }
 
 void CudaRasterizer::onResize(const unsigned int w, const unsigned int h) {
@@ -279,32 +276,14 @@ int CudaRasterizer::loadAssets() {
 	// Create the pipeline state
 	auto staticSamplerDesc = CD3DX12_STATIC_SAMPLER_DESC(0);
 
-	Dar::RenderPassDesc rpDesc = {};
-	Dar::PipelineStateDesc &psDesc = rpDesc.psoDesc;
+	Dar::PipelineStateDesc psDesc = {};
 	psDesc.staticSamplerDesc = &staticSamplerDesc;
 	psDesc.shaderName = L"screen_quad";
 	psDesc.shadersMask = Dar::shaderInfoFlags_useVertex;
 	psDesc.numTextures = 1;
 	
-	rpDesc.drawCb = [](Dar::CommandList &cmdList, void *args) {
-		cmdList->DrawInstanced(3, 1, 0, 0);
-	};
-	rpDesc.setupCb = [](const Dar::FrameData &frameData, Dar::CommandList &cmdList, Dar::DescriptorHeap &srvHeap, UINT backbufferIndex, void *args) {
-		RenderPassArgs *rpa = reinterpret_cast<RenderPassArgs*>(args);
-		Dar::TextureResource &tex = rpa->texture;
-		Dar::Renderer &r = rpa->renderer;
-
-		cmdList.transition(tex.getHandle(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-
-		if (!srvHeap) {
-			srvHeap.init(r.getDevice().Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1, true);
-		}
-
-		srvHeap.reset();
-		srvHeap.addTexture2DSRV(tex.getBufferResource(), tex.getFormat());
-	};
-	rpDesc.args = &renderPassArgs;
-
+	Dar::RenderPassDesc rpDesc = {};
+	rpDesc.setPipelineStateDesc(psDesc);
 	rpDesc.attach(Dar::RenderPassAttachment::renderTargetBackbuffer());
 	renderer.addRenderPass(rpDesc);
 	renderer.compilePipeline();
@@ -345,6 +324,7 @@ void CudaRasterizer::initCUDAData() {
 	resData.height = height;
 	resData.mipLevels = 1;
 	dx12RT.init(resData, Dar::TextureResourceType::ShaderResource);
+	dx12RT.setName(L"CUDARender");
 
 	cudaRenderTargetHost = new float[static_cast<SizeType>(width) * height * numComps];
 	

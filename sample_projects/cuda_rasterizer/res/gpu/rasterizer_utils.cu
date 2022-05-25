@@ -38,8 +38,8 @@ dfloat3 operator*(mat4 m, float3 v) {
 }
 
 dfloat4 sample(TextureSampler *sampler, float2 uv) {
-	const int x = uv.x * sampler->width;
-	const int y = uv.y * sampler->height;
+	const int x = min(Max(0, uv.x * sampler->width), sampler->width - 1);
+	const int y = min(Max(0, uv.y * sampler->height), sampler->height - 1);
 	const int idx = (y * sampler->width + x) * sampler->numComp;
 
 	return make_float4(
@@ -205,6 +205,14 @@ dfloat4 normalizef4(float4 v) {
 		v.z / length,
 		v.w / length
 	);
+}
+
+dint Min(int a, int b) {
+	return a < b ? a : b;
+}
+
+dint Max(int a, int b) {
+	return a > b ? a : b;
 }
 
 extern "C" {

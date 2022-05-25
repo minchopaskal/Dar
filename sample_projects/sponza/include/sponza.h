@@ -85,15 +85,6 @@ private:
 	FPSCameraController fpsModeControl = { nullptr, 200.f };
 	FPSEditModeCameraController editModeControl = { nullptr, 200.f };
 
-	struct SponzaPassesArgs {
-		Scene &scene;
-		Dar::Renderer &renderer;
-		Dar::DepthBuffer &dp;
-		const DXGI_FORMAT *gBufferFormats;
-		StaticArray<Dar::RenderTarget, static_cast<int>(GBuffer::Count)> &gBufferRTs;
-		Dar::RenderTarget &lightPassRT;
-	} args = { scene, renderer, depthBuffer, gBufferFormats, gBufferRTs, lightPassRT };
-
 	// Debugging
 	const char *gBufferLabels[7] = {"Render", "Diffuse", "Normals", "Metalness", "Roughness", "Occlusion", "Position"};
 	bool editMode = true;

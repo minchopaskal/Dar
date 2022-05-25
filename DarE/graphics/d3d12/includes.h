@@ -7,5 +7,10 @@
 #include <dxgi.h>
 #include <dxgi1_6.h>
 
+#ifdef DAR_DEBUG
+#include "dxgidebug.h"
+#endif // DAR_DEBUG
+
 #include <wrl/client.h>
 using Microsoft::WRL::ComPtr;
+

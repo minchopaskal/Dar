@@ -442,6 +442,13 @@ SizeType ResourceManager::getResourceSize(ResourceHandle handle) const {
 	return resources[handle].size;
 }
 
+ResourceManager::~ResourceManager() {
+	for (int i = 0; i < resources.size(); ++i) {
+		const unsigned long refCount = resources[i].res.Reset();
+		dassert(refCount == 0); 
+	}
+}
+
 void ResourceManager::resetCommandLists() {
 	cmdLists.clear();
 }

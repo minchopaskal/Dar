@@ -117,6 +117,8 @@ struct PipelineState {
 	ID3D12PipelineState *getPipelineState() const;
 	ID3D12RootSignature *getRootSignature() const;
 
+	void deinit();
+
 private:
 	bool initPipeline(const ComPtr<ID3D12Device> &device, PipelineStateStream &pss);
 

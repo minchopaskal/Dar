@@ -89,6 +89,8 @@ struct Backbuffer {
 
 	HRESULT present(UINT syncInterval, UINT flags) const;
 
+	void deinit();
+
 public:
 	// Swap chain resources
 	ComPtr<IDXGISwapChain4> swapChain; ///< Pointer to the swap chain
@@ -139,29 +141,29 @@ private:
 	} type;
 	union {
 		struct {
-			UINT vertexCount;
-			UINT instanceCount;
-			UINT startVertex;
-			UINT startInstance;
+			UINT vertexCountDI;
+			UINT instanceCountDI;
+			UINT startVertexDI;
+			UINT startInstanceDI;
 		};
 
 		struct {
-			UINT indexCount;
-			UINT instanceCount;
-			UINT startIndex;
-			UINT baseVertex;
-			UINT startInstance;
+			UINT indexCountDII;
+			UINT instanceCountDII;
+			UINT startIndexDII;
+			UINT baseVertexDII;
+			UINT startInstanceDII;
 		};
 
 		struct {
-			ResourceHandle constBufferHandle;
-			UINT rootIndex;
+			ResourceHandle constBufferHandleSCB;
+			UINT rootIndexSCB;
 		};
 
 		struct {
-			ResourceHandle resource;
-			D3D12_RESOURCE_STATES toState;
-			UINT subresIndex;
+			ResourceHandle resourceT;
+			D3D12_RESOURCE_STATES toStateT;
+			UINT subresIndexT;
 		};
 	};
 };
