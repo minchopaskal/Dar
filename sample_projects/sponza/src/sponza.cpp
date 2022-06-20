@@ -123,8 +123,8 @@ void Sponza::update() {
 	resManager->uploadBuffers();
 
 	Dar::FrameData &fd = frameData[frameIndex];
-	fd.setIndexBuffer(&indexBuffer);
-	fd.setVertexBuffer(&vertexBuffer);
+	fd.setIndexBuffer(&staticIndexBuffer);
+	fd.setVertexBuffer(&staticVertexBuffer);
 	fd.addConstResource(sceneDataHandle[frameIndex], 0);
 
 	// Deferred pass:
@@ -326,7 +326,9 @@ bool Sponza::loadAssets() {
 	// MikkTSpace tangents give slightly better results than the tangents in the gltf file.
 	//SceneLoaderError sceneLoadErr = loadScene("res\\scenes\\Sponza\\glTF\\Sponza.gltf", scene, sceneLoaderFlags_overrideGenTangents);
 	// .. but the algorithm is too slow for run-time evaluation.
-	SceneLoaderError sceneLoadErr = loadScene("res\\scenes\\Sponza\\glTF\\Sponza.gltf", scene, sceneLoaderFlags_none);
+	//SceneLoaderError sceneLoadErr = loadScene(Dar::getAssetFullPath(L"Sponza\\glTF\\Sponza.gltf", Dar::AssetType::Scene), scene, sceneLoaderFlags_none);
+	//SceneLoaderError sceneLoadErr = loadScene(Dar::getAssetFullPath(L"AnimationTest\\animation.gltf", Dar::AssetType::Scene), scene, sceneLoaderFlags_none);
+	SceneLoaderError sceneLoadErr = loadScene(Dar::getAssetFullPath(L"RiggedFigure\\RiggedFigure.gltf", Dar::AssetType::Scene), scene, sceneLoaderFlags_none);
 	
 	if (sceneLoadErr != SceneLoaderError::Success) {
 		LOG(Error, "Failed to load scene!");
@@ -524,20 +526,38 @@ bool Sponza::loadPipelines() {
 
 bool Sponza::prepareVertexIndexBuffers(Dar::UploadHandle uploadHandle) {
 	Dar::VertexIndexBufferDesc vertexDesc = {};
-	vertexDesc.data = scene.getVertexBuffer();
-	vertexDesc.size = scene.getVertexBufferSize();
+	vertexDesc.data = scene.getStaticVertexBuffer();
+	vertexDesc.size = scene.getStaticVertexBufferSize();
 	vertexDesc.name = L"VertexBuffer";
-	vertexDesc.vertexBufferStride = sizeof(Vertex);
-	if (!vertexBuffer.init(vertexDesc, uploadHandle)) {
+	vertexDesc.vertexBufferStride = sizeof(StaticVertex);
+	if (!staticVertexBuffer.init(vertexDesc, uploadHandle)) {
 		return false;
 	}
 
 	Dar::VertexIndexBufferDesc indexDesc = {};
-	indexDesc.data = scene.getIndexBuffer();
-	indexDesc.size = scene.getIndexBufferSize();
+	indexDesc.data = scene.getStaticIndexBuffer();
+	indexDesc.size = scene.getStaticIndexBufferSize();
 	indexDesc.name = L"IndexBuffer";
 	indexDesc.indexBufferFormat = DXGI_FORMAT_R32_UINT;
-	if (!indexBuffer.init(indexDesc, uploadHandle)) {
+	if (!staticIndexBuffer.init(indexDesc, uploadHandle)) {
+		return false;
+	}
+
+	vertexDesc = {};
+	vertexDesc.data = scene.getMovingVertexBuffer();
+	vertexDesc.size = scene.getMovingVertexBufferSize();
+	vertexDesc.name = L"VertexBuffer";
+	vertexDesc.vertexBufferStride = sizeof(StaticVertex);
+	if (!movingVertexBuffer.init(vertexDesc, uploadHandle)) {
+		return false;
+	}
+
+	indexDesc = {};
+	indexDesc.data = scene.getStaticIndexBuffer();
+	indexDesc.size = scene.getStaticIndexBufferSize();
+	indexDesc.name = L"IndexBuffer";
+	indexDesc.indexBufferFormat = DXGI_FORMAT_R32_UINT;
+	if (!movingIndexBuffer.init(indexDesc, uploadHandle)) {
 		return false;
 	}
 

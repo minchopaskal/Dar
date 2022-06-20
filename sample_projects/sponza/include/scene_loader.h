@@ -16,7 +16,7 @@ enum SceneLoaderFlags : int {
 };
 
 SceneLoaderError loadScene(
-	const String &path,
+	const WString &path,
 	Scene &scene,
 	SceneLoaderFlags flags = sceneLoaderFlags_none
 );

@@ -112,6 +112,16 @@ struct Vec2t {
 		return Vec2t{ -x, -y };
 	}
 
+	[[nodiscard]] T& operator[](int i) {
+		dassert(i >= 0 && i < 2);
+
+		switch (i) {
+		case 0: return x;
+		case 1: return y;
+		default: dassert(false); return x;
+		}
+	}
+
 	T cross(const Vec2t &v) const {
 		return x * v.y - y * v.x;
 	}
@@ -229,6 +239,20 @@ struct Vec3t {
 		return Vec3t{ -x, -y, -z };
 	}
 
+	[[nodiscard]] T& operator[](int i) {
+		dassert(i >= 0 && i < 3);
+		switch (i) {
+		case 0: return x;
+		case 1: return y;
+		case 2: return z;
+		default: dassert(false); return x;
+		}
+	}
+
+	const bool operator==(const Vec3t &v) const {
+		return fabs(x - v.x) < 1e-6f && fabs(y - v.y) < 1e-6f && fabs(z - v.z) < 1e-6f;
+	}
+
 	[[nodiscard]] Vec3t cross(const Vec3t &v) const {
 		return Vec3t{
 			y * v.z - z * v.y,
@@ -312,6 +336,17 @@ struct Vec4t {
 
 	[[nodiscard]] Vec4t operator-() const {
 		return Vec4t{ -x, -y, -z, -w };
+	}
+
+	[[nodiscard]] T& operator[](int i) {
+		dassert(i >= 0 && i < 4);
+		switch (i) {
+		case 0: return x;
+		case 1: return y;
+		case 2: return z;
+		case 3: return w;
+		default: dassert(false); return x;
+		}
 	}
 
 	[[nodiscard]] T dot(const Vec4t &v) const {
@@ -558,12 +593,31 @@ struct Quatt {
 		return Quatt(Vec3t<T>(T(0)), T(1));
 	}
 
-	Quatt(Quatt &o) : v(o.v), s(o.s) { }
-	
-	Quatt& operator=(Quatt &o) {
+	Quatt() : v(T(0)), s(T(0)) {}
+	Quatt(T x, T y, T z, T w) : v(x, y, z), s(w) {}
+	Quatt(const Vec3t<T> &v, T s) : v(v), s(s) {}
+
+	Quatt(const Quatt &o) : v(o.v), s(o.s) {}
+
+	Quatt& operator=(const Quatt &o) {
 		if (this != &o) {
 			v = o.v;
 			s = o.s;
+		}
+
+		return *this;
+	}
+
+	Quatt(Quatt &&o) : v(std::move(o.v)), s(o.s) { 
+		o = Quatt();
+	}
+
+	Quatt& operator=(Quatt &&o) {
+		if (this != &o) {
+			v = std::move(o.v);
+			s = o.s;
+			o.v = { 0.f, 0.f, 0.f };
+			o.s = 0.f;
 		}
 
 		return *this;
@@ -598,6 +652,10 @@ struct Quatt {
 		s = newS;
 
 		return *this;
+	}
+
+	bool operator==(const Quatt &o) const {
+		return v == o.v && fabs(s - o.s) < 1e-6f;
 	}
 
 	[[nodiscard]] Quatt operator*(const Quatt &q) const {
@@ -639,11 +697,6 @@ struct Quatt {
 
 		return res;
 	}
-
-private:
-	Quatt() : v(T(0)), s(T(0)) { }
-	Quatt(T x, T y, T z, T w) : v(x, y, z), s(w) { }
-	Quatt(const Vec3t<T> &v, T s) : v(v), s(s) { }
 	
 private:
 	Vec3t<T> v;
@@ -795,6 +848,10 @@ using Vec4 = dmath::Packed::Vec4t<float>;
 using Vec2i = dmath::Packed::Vec2t<int>;
 using Vec3i = dmath::Packed::Vec3t<int>;
 using Vec4i = dmath::Packed::Vec4t<int>;
+
+using Vec2u8 = dmath::Packed::Vec2t<u8>;
+using Vec3u8 = dmath::Packed::Vec3t<u8>;
+using Vec4u8 = dmath::Packed::Vec4t<u8>;
 
 using Quat = dmath::Packed::Quatt<float>;
 

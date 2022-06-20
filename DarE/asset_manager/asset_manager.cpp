@@ -17,6 +17,9 @@ WString getAssetFullPath(const wchar_t *assetName, AssetType assetType) {
 	case AssetType::Texture:
 		path = LR"(.\res\textures\)";
 		break;
+	case AssetType::Scene:
+		path = LR"(.\res\scenes\)";
+		break;
 	default:
 		return assetName;
 	}

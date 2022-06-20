@@ -300,3 +300,7 @@ bool Scene::uploadTextureData(Dar::UploadHandle uploadHandle) {
 
 	return true;
 }
+
+void SkinnedModelNode::draw(Dar::FrameData &frameData, const Scene &scene) const {
+	
+}

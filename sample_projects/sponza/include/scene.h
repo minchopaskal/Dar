@@ -1,14 +1,14 @@
 #pragma once
 
-#include "utils/defines.h"
-#include "math/dar_math.h"
-
 #include "framework/camera.h"
 #include "d3d12/command_list.h"
 #include "d3d12/descriptor_heap.h"
 #include "d3d12/resource_manager.h"
 #include "graphics/renderer.h"
+#include "math/dar_math.h"
+#include "utils/defines.h"
 
+#include "animation.h"
 #include "gpu_cpu_common.hlsli"
 
 using TextureId = unsigned int;
@@ -16,6 +16,7 @@ using MaterialId = SizeType;
 using NodeId = SizeType;
 using LightId = SizeType;
 using CameraId = SizeType;
+
 
 #define INVALID_TEXTURE_ID (unsigned int)(-1)
 #define INVALID_MATERIAL_ID SizeType(-1)
@@ -79,12 +80,18 @@ struct TextureDesc {
 	TextureFormat format = TextureFormat::Invalid;
 };
 
+enum class MeshType {
+	Static,
+	Skinned
+};
+
 struct Mesh {
 	Mat4 modelMatrix = Mat4(1.f);
 	mutable Dar::ResourceHandle meshDataHandle = INVALID_RESOURCE_HANDLE;
 	MaterialId mat = INVALID_MATERIAL_ID;
 	SizeType indexOffset = 0;
 	SizeType numIndices = 0;
+	MeshType type;
 
 	void uploadMeshData(Dar::UploadHandle uploadHandle) const;
 
@@ -127,10 +134,18 @@ struct ModelNode : Node {
 		nodeType = NodeType::Model;
 	}
 
-	void draw(Dar::FrameData &frameData, const Scene &scene) const override;
+	virtual void draw(Dar::FrameData &frameData, const Scene &scene) const override;
 
-private:
+protected:
 	void updateMeshDataHandles() const;
+};
+
+struct SkinnedModelNode : ModelNode {
+	SkeletonId skeleton;
+	Vector<AnimationId> animations;
+	int currentAnimation;
+
+	virtual void draw(Dar::FrameData &frameData, const Scene &scene) const override;
 };
 
 struct LightNode : Node {
@@ -164,23 +179,37 @@ private:
 	Dar::Camera camera;
 };
 
-struct Vertex {
+struct StaticVertex {
 	Vec3 pos;
 	Vec3 normal;
 	Vec3 tangent;
 	Vec2 uv;
 };
 
+#define MAX_VERTEX_BONES 4
+struct SkinnedVertex : StaticVertex {
+	Vec4u8 boneIDs; ///< We have 4 bones so 4 bone indices. We allow maximum of 256 bones per mesh
+	// TODO: GEA suggests compression for the weights here.
+	Vec3 boneWeights; ///< We have 4 bones, but weights are normalized so the 4th weight is just 1 - sum(boneWeights[i]{i=0,1,2});
+};
+
 // TODO: encapsulate members
 struct Scene {
+	template <class VertexType>
+	struct VertexData {
+		Vector<VertexType> vertices; ///< All vertices in the scene.
+		Vector<unsigned int> indices; ///< All indices for all meshes, indexing in the vertices array.
+	};
+
 	Vector<Node*> nodes; ///< Vector with pointers to all nodes in the scene
 	Vector<LightId> lightIndices; ///< Indices of the lights in the nodes vector
 	Vector<CameraId> cameraIndices; ///< Indices of the cameras in the nodes vector
 	Vector<Material> materials; ///< Vector with all materials in the scene
 	Vector<TextureDesc> textureDescs; ///< Vector with all textures in the scene. Meshes could share texture ids.
-	Vector<Vertex> vertices; ///< All vertices in the scene.
-	Vector<unsigned int> indices; ///< All indices for all meshes, indexing in the vertices array.
-	Vector<Dar::TextureResource> textures;
+	VertexData<StaticVertex> staticData; ///< Static scene data. These are all meshes that are not skinned.
+	VertexData<SkinnedVertex> movingData; ///< Non-static data. These are all skinned meshes.
+	Vector<Dar::TextureResource> textures; ///< Dx12 Texture resources
+	AnimationManager animationManager;
 	Dar::DataBufferResource materialsBuffer; ///< GPU buffer holding all materials' data.
 	Dar::DataBufferResource lightsBuffer; ///< GPU buffer holding all lights' data.
 	BBox sceneBox;
@@ -268,22 +297,42 @@ struct Scene {
 		return textureDescs[id];
 	}
 
-	const void *getVertexBuffer() const {
-		return &vertices[0];
+	const void *getStaticVertexBuffer() const {
+		return &staticData.vertices[0];
 	}
 
-	const void *getIndexBuffer() const {
-		return &indices[0];
+	const void *getStaticIndexBuffer() const {
+		return &staticData.indices[0];
 	}
 
-	const UINT getVertexBufferSize() const {
-		SizeType sz = vertices.size() == 0 ? 0 : vertices.size() * sizeof(vertices[0]);
+	const UINT getStaticVertexBufferSize() const {
+		SizeType sz = staticData.vertices.size() == 0 ? 0 : staticData.vertices.size() * sizeof(staticData.vertices[0]);
 		dassert(sz < ((SizeType(1) << 32) - 1));
 		return static_cast<UINT>(sz);
 	}
 
-	const UINT getIndexBufferSize() const {
-		SizeType sz = indices.size() == 0 ? 0 : indices.size() * sizeof(indices[0]);
+	const UINT getStaticIndexBufferSize() const {
+		SizeType sz = staticData.indices.size() == 0 ? 0 : staticData.indices.size() * sizeof(staticData.indices[0]);
+		dassert(sz < ((SizeType(1) << 32) - 1));
+		return static_cast<UINT>(sz);
+	}
+
+	const void *getMovingVertexBuffer() const {
+		return &movingData.vertices[0];
+	}
+
+	const void *getMovingIndexBuffer() const {
+		return &movingData.indices[0];
+	}
+
+	const UINT getMovingVertexBufferSize() const {
+		SizeType sz = movingData.vertices.size() == 0 ? 0 : movingData.vertices.size() * sizeof(movingData.vertices[0]);
+		dassert(sz < ((SizeType(1) << 32) - 1));
+		return static_cast<UINT>(sz);
+	}
+
+	const UINT getMovingIndexBufferSize() const {
+		SizeType sz = movingData.indices.size() == 0 ? 0 : movingData.indices.size() * sizeof(movingData.indices[0]);
 		dassert(sz < ((SizeType(1) << 32) - 1));
 		return static_cast<UINT>(sz);
 	}
@@ -316,6 +365,36 @@ struct Scene {
 	}
 
 	void prepareFrameData(Dar::FrameData &frameData);
+
+	SkeletonId addNewSkeleton() {
+		animationManager.skeletons.emplace_back();
+		return animationManager.skeletons.size() - 1;
+	}
+
+	AnimationId addNewAnimation(AnimationClip &a) {
+		animationManager.animations.push_back(a);
+		return animationManager.animations.size() - 1;
+	}
+
+	AnimationId addNewAnimationClip() {
+		animationManager.animations.emplace_back();
+		return animationManager.animations.size() - 1;
+	}
+
+	AnimationClip& getAnimationClip(AnimationId id) {
+		return animationManager.animations[id];
+	}
+
+	AnimationSkeleton& getSkeleton(SkeletonId id) {
+		dassert(id < animationManager.skeletons.size());
+
+		return animationManager.skeletons[id];
+	}
+
+	const AnimationSkeleton& getSkeleton(SkeletonId id) const {
+		dassert(id < animationManager.skeletons.size());
+		return animationManager.skeletons[id];
+	}
 
 private:
 	bool uploadLightData(Dar::UploadHandle uploadHandle);

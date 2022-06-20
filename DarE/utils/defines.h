@@ -4,7 +4,9 @@
 #include <bitset>
 #include <cassert>
 #include <cmath>
+#include <codecvt>
 #include <cstddef>
+#include <locale>
 #include <memory>
 #include <random>
 #include <vector>
@@ -92,6 +94,10 @@ using Atomic = std::atomic<T>;
 
 using Byte = std::byte;
 
+using u8 = UINT8;
+using u32 = UINT32;
+using u64 = UINT64;
+
 template <class T>
 using Vector = std::vector<T>;
 
@@ -101,8 +107,8 @@ using Queue = std::queue<T>;
 template <SizeType N>
 using Bitset = std::bitset<N>;
 
-template <class K, class V>
-using Map = std::unordered_map<K, V>;
+template <class K, class V, class Hasher = std::hash<K>, class KeyEq = std::equal_to<K>>
+using Map = std::unordered_map<K, V, Hasher, KeyEq>;
 
 template <class T>
 using Set = std::unordered_set<T>;
@@ -116,4 +122,7 @@ using StaticArray = std::array<T, N>;
 using DynamicBitset = std::vector<bool>;
 
 using String = std::string;
+
+using convert_type = std::codecvt_utf8<wchar_t>;
+using WStringConverter = std::wstring_convert<convert_type, wchar_t>;
 using WString = std::wstring;

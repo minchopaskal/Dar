@@ -8,6 +8,7 @@ set(SUBMODULE_DIR ${PROJECT_SOURCE_DIR}/third_party)
 set(LIB_DIR ${PROJECT_SOURCE_DIR}/lib)
 
 set(HEADERS
+	${INCLUDE_DIR}/animation.h
 	${INCLUDE_DIR}/fps_camera_controller.h
 	${INCLUDE_DIR}/fps_edit_camera_controller.h
 	${INCLUDE_DIR}/sponza.h
@@ -16,6 +17,7 @@ set(HEADERS
 )
 
 set(SOURCES
+	${SRC_DIR}/animation.cpp
 	${SRC_DIR}/fps_camera_controller.cpp
 	${SRC_DIR}/fps_edit_camera_controller.cpp
 	${SRC_DIR}/main.cpp

@@ -63,8 +63,11 @@ private:
 		Orthographic
 	} projectionType = ProjectionType::Perspective;
 
-	Dar::VertexBuffer vertexBuffer;
-	Dar::IndexBuffer indexBuffer;
+	Dar::VertexBuffer staticVertexBuffer;
+	Dar::IndexBuffer staticIndexBuffer;
+
+	Dar::VertexBuffer movingVertexBuffer;
+	Dar::IndexBuffer movingIndexBuffer;
 
 	StaticArray<Dar::RenderTarget, static_cast<SizeType>(GBuffer::Count)> gBufferRTs;
 	Dar::RenderTarget lightPassRT;
