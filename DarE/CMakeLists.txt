@@ -27,6 +27,7 @@ set(HEADERS
 	${LIB_SOURCE_DIR}/utils/logger.h
 	${LIB_SOURCE_DIR}/utils/profile.h
 	${LIB_SOURCE_DIR}/utils/random.h
+	${LIB_SOURCE_DIR}/utils/shader_compiler.h
 	${LIB_SOURCE_DIR}/utils/timer.h
 	${LIB_SOURCE_DIR}/utils/utils.h
 )
@@ -47,6 +48,7 @@ set(SOURCES
 	${LIB_SOURCE_DIR}/graphics/d3d12/texture_res.cpp
 	${LIB_SOURCE_DIR}/graphics/renderer.cpp
 	${LIB_SOURCE_DIR}/utils/logger.cpp
+	${LIB_SOURCE_DIR}/utils/shader_compiler.cpp
 	${LIB_SOURCE_DIR}/utils/utils.cpp
 )
 
@@ -102,7 +104,7 @@ target_compile_definitions(
 
 target_link_directories(Dar PRIVATE ${LIB_DIR})
 
-target_link_libraries(Dar "d3d12.lib" "d3dcompiler.lib" "dxgi.lib" "dxguid.lib" "glfw3.lib")
+target_link_libraries(Dar "d3d12.lib" "dxcompiler.lib" "dxgi.lib" "dxguid.lib" "glfw3.lib")
 
 target_include_directories(
 	Dar
@@ -111,5 +113,6 @@ target_include_directories(
 	${LIB_SOURCE_DIR}/graphics
 	${SUBMODULE_DIR}
 	${SUBMODULE_DIR}/imgui
+	${SUBMODULE_DIR}/dxc_1.6
 	${OPTICK_DIR}
 )

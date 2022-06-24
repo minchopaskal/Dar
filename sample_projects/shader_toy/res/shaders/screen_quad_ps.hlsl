@@ -1,8 +1,11 @@
-struct PSInput {
-	float2 uv : TEXCOORD;
-};
+#include "common.hlsli"
 
 float4 main(PSInput IN) : SV_TARGET
 {
-	return float4(IN.uv, 0.f, 1.f);
+	if (!constData.hasOutput) {
+		return 0.f;
+	}
+
+	Texture2D<float4> renderTex = ResourceDescriptorHeap[0];
+	return renderTex.Sample(Sampler, IN.uv);
 }

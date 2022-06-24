@@ -18,8 +18,6 @@
 
 #include "GLFW/glfw3.h" // keyboard input
 
-#include "imgui.h"
-
 Sponza::Sponza(const UINT w, const UINT h, const String &windowTitle) : Dar::App(w, h, windowTitle.c_str()) {
 	camControl = editMode ? &editModeControl : &fpsModeControl;
 }
