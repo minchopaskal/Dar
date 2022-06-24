@@ -15,8 +15,12 @@ set(SOURCES
 )
 
 set(SHADERS
+	${SHADERS_DIR}/common.hlsli
+	${SHADERS_DIR}/render_pass_ps.hlsl
+	${SHADERS_DIR}/render_pass_vs.hlsl
 	${SHADERS_DIR}/screen_quad_ps.hlsl
 	${SHADERS_DIR}/screen_quad_vs.hlsl
+	${SHADERS_DIR}/screen_quad.hlsli
 )
 
 source_group("src"           FILES ${SOURCES})
@@ -28,7 +32,7 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:CONSOLE")
 
 add_executable(ShaderToy ${HEADERS} ${SOURCES} ${SUBMODULES} ${SHADERS})
 
-compile_shaders(ShaderToy "${SHADERS}" "6_5")
+compile_shaders(ShaderToy "${SHADERS}" "6_6")
 
 set_property(TARGET ShaderToy PROPERTY VS_DEBUGGER_WORKING_DIRECTORY $<TARGET_FILE_DIR:ShaderToy>)
 
@@ -49,7 +53,7 @@ target_compile_definitions(
 
 target_link_directories(ShaderToy PRIVATE ${LIB_DIR})
 
-target_link_libraries(ShaderToy Dar "d3d12.lib" "d3dcompiler.lib" "dxgi.lib" "dxguid.lib" "glfw3.lib")
+target_link_libraries(ShaderToy Dar "d3d12.lib" "dxcompiler.lib" "dxgi.lib" "dxguid.lib" "glfw3.lib")
 
 target_include_directories(
 	ShaderToy
@@ -58,6 +62,11 @@ target_include_directories(
 	${SUBMODULE_DIR}
 	${PROJECT_SOURCE_DIR}/DarE
 	${PROJECT_SOURCE_DIR}/DarE/graphics
+	${SUBMODULE_DIR}/imgui
 )
 
 copyD3D12Core(ShaderToy)
+
+add_custom_command(TARGET ShaderToy POST_BUILD
+	COMMAND ${CMAKE_COMMAND} -E copy ${SHADERS_DIR}/common.hlsli $<TARGET_FILE_DIR:ShaderToy>/res/shaders
+)

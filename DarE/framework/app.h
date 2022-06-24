@@ -8,6 +8,8 @@
 
 #include "framework/input_query.h"
 
+#include "imgui.h"
+
 #include <chrono>
 using HRC = std::chrono::high_resolution_clock;
 

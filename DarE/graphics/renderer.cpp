@@ -117,10 +117,19 @@ struct RenderPass {
 			}
 			rtvHeap[backbufferIndex].addRTV(rtRes, nullptr);
 			renderTargetDescs[i].cpuDescriptor = rtvHeap[backbufferIndex].getCPUHandle(i);
-			cmdList.transition(
-				isBackBuffer ? backbuffer->getHandle(backbufferIndex) : renderTargetAttachments[i].getResourceHandle(backbufferIndex),
-				D3D12_RESOURCE_STATE_RENDER_TARGET
-			);
+			if (isBackBuffer) {
+				auto b = CD3DX12_RESOURCE_BARRIER::Transition(
+					backbuffer->getBufferResource(backbufferIndex),
+					D3D12_RESOURCE_STATE_COMMON,
+					D3D12_RESOURCE_STATE_RENDER_TARGET
+				);
+				cmdList->ResourceBarrier(1, &b);
+			} else {
+				cmdList.transition(
+					renderTargetAttachments[i].getResourceHandle(backbufferIndex),
+					D3D12_RESOURCE_STATE_RENDER_TARGET
+				);
+			}
 		}
 
 		/*bool hasDepthStencil = depthBufferAttachment.valid();
@@ -220,13 +229,18 @@ bool checkTearingSupport() {
 	return (allowTearing == true);
 }
 
-Renderer::Renderer() : commandQueueDirect(D3D12_COMMAND_LIST_TYPE_DIRECT) {}
+Renderer::Renderer() : commandQueueDirect(D3D12_COMMAND_LIST_TYPE_DIRECT), renderPassesStorage(nullptr) {}
 
 void Renderer::addRenderPass(const RenderPassDesc &rpd) {
 	renderPassesDesc.push_back(rpd);
 }
 
 void Renderer::compilePipeline() {
+	renderPasses.clear();
+	if (renderPassesStorage != nullptr) {
+		delete[] renderPassesStorage;
+	}
+
 	const SizeType numRenderPasses = renderPassesDesc.size();
 	renderPassesStorage = new Byte[numRenderPasses * sizeof(RenderPass)];
 	for (SizeType i = 0; i < numRenderPasses; ++i) {

@@ -9,6 +9,7 @@
 #include <random>
 #include <vector>
 #include <queue>
+#include <stack>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -97,6 +98,9 @@ using Vector = std::vector<T>;
 
 template <class T>
 using Queue = std::queue<T>;
+
+template <class T>
+using Stack = std::stack<T>;
 
 template <SizeType N>
 using Bitset = std::bitset<N>;
