@@ -23,14 +23,18 @@ set(SHADERS
 	${SHADERS_DIR}/screen_quad.hlsli
 )
 
+set(TEXT_EDITOR_SRC
+	${SUBMODULE_DIR}/ImGuiColorTextEdit/TextEditor.cpp
+)
+
 source_group("src"           FILES ${SOURCES})
 source_group("include"       FILES ${HEADERS})
 source_group("shaders"       FILES ${SHADERS})
-source_group("third_party"   FILES ${SUBMODULES})
+source_group("third_party"   FILES ${TEXT_EDITOR_SRC})
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:CONSOLE")
 
-add_executable(ShaderToy ${HEADERS} ${SOURCES} ${SUBMODULES} ${SHADERS})
+add_executable(ShaderToy ${HEADERS} ${SOURCES} ${SUBMODULES} ${SHADERS} ${TEXT_EDITOR_SRC})
 
 compile_shaders(ShaderToy "${SHADERS}" "6_6")
 

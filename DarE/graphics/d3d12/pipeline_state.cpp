@@ -3,7 +3,7 @@
 #include "asset_manager/asset_manager.h"
 #include "math/dar_math.h"
 
-#include "d3dcompiler.h"
+#include "dxcapi.h"
 
 namespace Dar {
 
@@ -65,21 +65,29 @@ bool PipelineState::init(const ComPtr<ID3D12Device> &device, const PipelineState
 		rsFlags |= *rootSignatureFlags;
 	}
 
-	ComPtr<ID3DBlob> psShader;
+	ComPtr<IDxcUtils> library;
 	RETURN_FALSE_ON_ERROR(
-		D3DReadFileToBlob(
+		DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&library)),
+		"Failed to create DXC library!"
+	);
+
+	ComPtr<IDxcBlobEncoding> psShader;
+	RETURN_FALSE_ON_ERROR(
+		library->LoadFile(
 			getAssetFullPath((base + L"_ps.bin").c_str(), AssetType::Shader).c_str(),
+			nullptr,
 			&psShader
 		),
 		"Failed to read pixel shader!"
 	);
 	stream.insert(PixelShaderToken(D3D12_SHADER_BYTECODE{ psShader->GetBufferPointer(), psShader->GetBufferSize() }));
 
-	ComPtr<ID3DBlob> vsShader;
+	ComPtr<IDxcBlobEncoding> vsShader;
 	if (mask & shaderInfoFlags_useVertex) {
 		RETURN_FALSE_ON_ERROR(
-			D3DReadFileToBlob(
+			library->LoadFile(
 				getAssetFullPath((base + L"_vs.bin").c_str(), AssetType::Shader).c_str(),
+				nullptr,
 				&vsShader
 			),
 			"Failed to read vertex shader!"
@@ -89,11 +97,12 @@ bool PipelineState::init(const ComPtr<ID3D12Device> &device, const PipelineState
 		rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_VERTEX_SHADER_ROOT_ACCESS;
 	}
 
-	ComPtr<ID3DBlob> geomShader;
+	ComPtr<IDxcBlobEncoding> geomShader;
 	if (mask & shaderInfoFlags_useGeometry) {
 		RETURN_FALSE_ON_ERROR(
-			D3DReadFileToBlob(
+			library->LoadFile(
 				getAssetFullPath((base + L"_gs.bin").c_str(), AssetType::Shader).c_str(),
+				nullptr,
 				&geomShader
 			),
 			"Failed to read geometry shader!"
@@ -103,11 +112,12 @@ bool PipelineState::init(const ComPtr<ID3D12Device> &device, const PipelineState
 		rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
 	}
 
-	ComPtr<ID3DBlob> domShader;
+	ComPtr<IDxcBlobEncoding> domShader;
 	if (mask & shaderInfoFlags_useDomain) {
 		RETURN_FALSE_ON_ERROR(
-			D3DReadFileToBlob(
+			library->LoadFile(
 				getAssetFullPath((base + L"_ds.bin").c_str(), AssetType::Shader).c_str(),
+				nullptr,
 				&domShader
 			),
 			"Failed to read domain shader!"
@@ -117,11 +127,12 @@ bool PipelineState::init(const ComPtr<ID3D12Device> &device, const PipelineState
 		rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS;
 	}
 
-	ComPtr<ID3DBlob> hullShader;
+	ComPtr<IDxcBlobEncoding> hullShader;
 	if (mask & shaderInfoFlags_useHull) {
 		RETURN_FALSE_ON_ERROR(
-			D3DReadFileToBlob(
+			library->LoadFile(
 				getAssetFullPath((base + L"_hs.bin").c_str(), AssetType::Shader).c_str(),
+				nullptr,
 				&hullShader
 			),
 			"Failed to read hull shader!"
@@ -131,11 +142,12 @@ bool PipelineState::init(const ComPtr<ID3D12Device> &device, const PipelineState
 		rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS;
 	}
 
-	ComPtr<ID3DBlob> compShader;
+	ComPtr<IDxcBlobEncoding> compShader;
 	if (mask & shaderInfoFlags_useCompute) {
 		RETURN_FALSE_ON_ERROR(
-			D3DReadFileToBlob(
+			library->LoadFile(
 				getAssetFullPath((base + L"_cs.bin").c_str(), AssetType::Shader).c_str(),
+				nullptr,
 				&compShader
 			),
 			"Failed to read compute shader!"
@@ -143,11 +155,12 @@ bool PipelineState::init(const ComPtr<ID3D12Device> &device, const PipelineState
 		stream.insert(ComputeShaderToken({ compShader->GetBufferPointer(), compShader->GetBufferSize() }));
 	}
 
-	ComPtr<ID3DBlob> meshShader;
+	ComPtr<IDxcBlobEncoding> meshShader;
 	if (mask & shaderInfoFlags_useMesh) {
 		RETURN_FALSE_ON_ERROR(
-			D3DReadFileToBlob(
+			library->LoadFile(
 				getAssetFullPath((base + L"_ms.bin").c_str(), AssetType::Shader).c_str(),
+				nullptr,
 				&meshShader
 			),
 			"Failed to read mesh shader!"
@@ -157,11 +170,12 @@ bool PipelineState::init(const ComPtr<ID3D12Device> &device, const PipelineState
 		rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_MESH_SHADER_ROOT_ACCESS;
 	}
 
-	ComPtr<ID3DBlob> ampShader;
+	ComPtr<IDxcBlobEncoding> ampShader;
 	if (mask & shaderInfoFlags_useAmplification) {
 		RETURN_FALSE_ON_ERROR(
-			D3DReadFileToBlob(
+			library->LoadFile(
 				getAssetFullPath((base + L"_gs.bin").c_str(), AssetType::Shader).c_str(),
+				nullptr,
 				&ampShader
 			),
 			"Failed to read amplification shader!"

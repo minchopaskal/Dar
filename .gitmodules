@@ -7,3 +7,6 @@
 [submodule "third_party/optick"]
 	path = third_party/optick
 	url = https://github.com/bombomby/optick
+[submodule "third_party/ImGuiColorTextEdit"]
+	path = third_party/ImGuiColorTextEdit
+	url = git@github.com:BalazsJako/ImGuiColorTextEdit.git

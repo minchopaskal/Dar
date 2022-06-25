@@ -4,6 +4,8 @@
 #include "utils/defines.h"
 #include "d3dx12.h"
 
+#include "dxcapi.h"
+
 namespace Dar {
 
 template <class DataType, D3D12_PIPELINE_STATE_SUBOBJECT_TYPE D3D12Type>
@@ -95,6 +97,7 @@ constexpr int MAX_RENDER_TARGETS = 8;
 
 struct PipelineStateDesc {
 	WString shaderName = L""; ///< Base name of the shader files
+	IDxcBlob *shaderBlob = nullptr; ///< Could be used instead of shaderName.
 	D3D12_INPUT_ELEMENT_DESC *inputLayouts = nullptr; ///< Input layout descriptions. Ignored if nullptr
 	D3D12_ROOT_SIGNATURE_FLAGS *rootSignatureFlags = nullptr; ///< Additional flags for the root signature. Ignored if nullptr.
 	D3D12_STATIC_SAMPLER_DESC *staticSamplerDesc = nullptr; ///< Static sampler description. Used for root signature creation
