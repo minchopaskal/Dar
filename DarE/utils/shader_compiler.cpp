@@ -1,6 +1,8 @@
 #include "shader_compiler.h"
 
 #include <dxcapi.h>
+#include <filesystem>
+#include <fstream>
 
 namespace Dar {
 
@@ -19,78 +21,92 @@ WString shaderTypeToStr(ShaderType type) {
 }
 
 ShaderCompilerResult ShaderCompiler::compileFromFile(const WString &filename) {
+	auto p = std::filesystem::absolute(filename.c_str());
+	if (!std::filesystem::exists(p)) {
+		return {};
+	}
+
 	return {};
 }
 
 ShaderCompilerResult ShaderCompiler::compileFromSource(const char *src, const WString &name, const WString &outputDir, ShaderType type) {
-	ComPtr<IDxcLibrary> library;
-	if (!SUCCEEDED(DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&library)))) {
-		return {};
-	}
-
-	ComPtr<IDxcCompiler2> compiler;
-	if (!SUCCEEDED(DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&compiler)))) {
-		return {};
-	}
-
-	uint32_t codePage = CP_UTF8;
-	ComPtr<IDxcBlobEncoding> sourceBlob;
-	library->CreateBlobWithEncodingOnHeapCopy(src, strlen(src), 0, &sourceBlob);
-
 	WString entryPoint = L"main";
 	WString target = shaderTypeToStr(type) + L"_6_6";
-	
-	constexpr int NUM_ARGUMENTS = 2;
+
+	WString filename = name + L"TEMP";
+	HANDLE f = CreateFileW(filename.c_str(), GENERIC_WRITE, FILE_SHARE_READ, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
+	if (!f) {
+		return {};
+	}
+
+	DWORD written = 0;
+	DWORD toWrite = strlen(src);
+	while (toWrite > 0) {
+		WriteFile(f, src, toWrite, &written, 0);
+		toWrite -= written;
+		src += written;
+	}
+
+	CloseHandle(f);
+
+	constexpr int NUM_ARGUMENTS = 9;
 	WString args[NUM_ARGUMENTS];
 
-	args[0] = (L"-Fo " + outputDir + L"\\" + name + L"_" + shaderTypeToStr(type) + L".bin");
-	args[1] = L"-I .\\res\\shaders\\";
+	auto relativePath = std::filesystem::relative(outputDir + L"\\" + name + L"_" + shaderTypeToStr(type) + L".bin");
+	auto outputPath = std::filesystem::absolute(relativePath);
+	args[0] = L"dxc.exe";
+	args[1] = L"-I " + WString(relativePath.parent_path().c_str());
+	args[2] = L"-Fo";
+	args[3] = outputPath.c_str();
+	args[4] = L"-E";
+	args[5] = L"main";
+	args[6] = L"-T";
+	args[7] = target.c_str();
+	args[8] = filename;
 
-	const wchar_t *argsPtrs[NUM_ARGUMENTS];
+	WString cmdLine;
 	for (int i = 0; i < NUM_ARGUMENTS; ++i) {
-		argsPtrs[i] = args[i].c_str();
+		cmdLine += args[i];
+		if (i < NUM_ARGUMENTS - 1) {
+			cmdLine += L" ";
+		}
 	}
 
-	ComPtr<IDxcIncludeHandler> includeHandler;
-	if (FAILED(library->CreateIncludeHandler(&includeHandler))) {
-		return {};
-	}
+	// additional information
+	STARTUPINFOW si;
+	PROCESS_INFORMATION pi;
 
-	ComPtr<IDxcOperationResult> result;
+	// set the size of the structures
+	ZeroMemory(&si, sizeof(si));
+	si.cb = sizeof(si);
+	ZeroMemory(&pi, sizeof(pi));
 
-	HRESULT hr = compiler->Compile(
-		sourceBlob.Get(),
-		name.c_str(),
-		entryPoint.c_str(),
-		target.c_str(),
-		argsPtrs, NUM_ARGUMENTS,
-		nullptr, 0, // defines
-		includeHandler.Get(),
-		result.GetAddressOf()
+	// start the program up
+	BOOL res = CreateProcessW(L"dxc.exe",   // the path
+		cmdLine.data(),        // Command line
+		NULL,           // Process handle not inheritable
+		NULL,           // Thread handle not inheritable
+		FALSE,          // Set handle inheritance to FALSE
+		0,              // No creation flags
+		NULL,           // Use parent's environment block
+		NULL,           // Use parent's starting directory 
+		&si,            // Pointer to STARTUPINFO structure
+		&pi             // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
 	);
 
-	if (result) {
-		result->GetStatus(&hr);
+	if (!res) {
+		DWORD lastErr = GetLastError();
 	}
 
-	if (FAILED(hr)) {
-		if (result) {
-			ComPtr<IDxcBlobEncoding> errorsBlob;
-			hr = result->GetErrorBuffer(&errorsBlob);
-			if (SUCCEEDED(hr) && errorsBlob) {
-				wprintf(L"Compilation failed with errors:\n\t%hs\n", (const char *)errorsBlob->GetBufferPointer());
-			}
-		}
+	WaitForSingleObject(pi.hProcess, INFINITE);
 
-		return {};
-	}
+	// Close process and thread handles. 
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
 
-	ShaderCompilerResult res = {};
-	if (FAILED(result->GetResult(&res.binary))) {
-		return {};
-	}
+	DeleteFileW(filename.c_str());
 
-	return res;
+	return {};
 }
 
 } // namespace Dar

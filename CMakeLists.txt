@@ -102,7 +102,6 @@ macro(compile_shaders TRG SHADER_FILES SHADER_VERSION)
 		endif()
 		
 		set_target_properties(${TRG}_CompileShaders PROPERTIES FOLDER ShaderCompilerCommands)
-
 		add_custom_command(TARGET ${TRG}_CompileShaders PRE_BUILD
 			COMMAND ${SUBMODULE_DIR}/dxc_1.6/dxc.exe
 			-E main # shader entry point. Only main is valid. Each different type of shader must be in its own file.
@@ -115,7 +114,9 @@ macro(compile_shaders TRG SHADER_FILES SHADER_VERSION)
 			${SHADER_FILE} # the .hlsl file to be compiled
 			COMMAND ${CMAKE_COMMAND} -E echo "Compiling ${SF_NAME_EXT}"
 			DEPENDS ${SHADER_FILE}
+			
 		)
+
 	endforeach()
 endmacro()
 

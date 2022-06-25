@@ -14,9 +14,8 @@
 #include "utils/shader_compiler.h"
 #include "utils/utils.h"
 
-// TODO: To make things simple, child projects should not rely on third party software
-// Expose some input controller interface or something like that.
-#include <glfw/glfw3.h> // keyboard input
+#include <fstream>
+#include <sstream>
 
 ShaderToy::ShaderToy(UINT width, UINT height, const String &windowTitle) : Dar::App(width, height, windowTitle.c_str()) {
 	memset(buffer, 0, 4096);
@@ -42,6 +41,11 @@ void ShaderToy::deinit() {
 
 void ShaderToy::update() {
 	auto &resManager = Dar::getResourceManager();
+
+	if (updatePipelines) {
+		loadPipelines();
+		updatePipelines = false;
+	}
 
 	ConstantData cd = { };
 	cd.width = width;
@@ -90,8 +94,8 @@ void ShaderToy::drawUI() {
 			ImGui::Text("%d: %s", i, renderPasses[i].name.c_str());
 			
 			ImGui::SameLine();
-			if (ImGui::Button("Set as output")) {
-				outputPassId = i;
+			if (ImGui::Button(i == outputPassId ? "Remove as output" : "Set as output")) {
+				outputPassId = (i == outputPassId ? INVALID_PASS_ID : i);
 				prepareRenderGraph();
 			}
 			ImGui::SameLine();
@@ -112,16 +116,28 @@ void ShaderToy::drawUI() {
 	ImGui::End();
 
 	ImGui::Begin("Shader Sources");
-	if (ImGui::Button("(+) Shader"));
-	char buffer[4096];
-	memset(buffer, 0, 4096);
-	if (ImGui::InputTextMultiline("", buffer, 4096)) {
-		renderPasses[0].shaderSource = buffer;
+	if (ImGui::Button("(+) Shader")) {
+
 	}
-	inputTextActive = ImGui::IsItemFocused();
-	if (ImGui::Button("Recomiple")) {
-		Dar::ShaderCompiler::compileFromSource(renderPasses[0].shaderSource.data(), renderPasses[0].shaderName, L".\\res\\shaders", Dar::ShaderType::Pixel);
-		loadPipelines();
+
+	if (ImGui::BeginTabBar("Files tab")) {
+		for (int i = 0; i < renderPasses.size(); ++i) {
+			auto &rp = renderPasses[i];
+			if (ImGui::BeginTabItem(rp.name.c_str())) {
+				rp.textEdit.Render("Editor");
+
+				if (ImGui::Button("Recomiple")) {
+					LOG(InfoFancy, "RECOMPILE PRESSED");
+					rp.shaderSource = rp.textEdit.GetText();
+					Dar::ShaderCompiler::compileFromSource(rp.shaderSource.data(), rp.shaderName, L".\\res\\shaders", Dar::ShaderType::Pixel).binary;
+					updatePipelines = true;
+				}
+
+				ImGui::EndTabItem();
+			}
+		}
+
+		ImGui::EndTabBar();
 	}
 	ImGui::End();
 }
@@ -145,9 +161,13 @@ void ShaderToy::onResize(const unsigned int w, const unsigned int h) {
 }
 
 void ShaderToy::onKeyboardInput(int key, int action) {
+	// TODO: fix input not detected
+	return;
+
 	if (inputTextActive) {
 		return;
 	}
+
 	if (keyPressed[GLFW_KEY_F] && !keyRepeated[GLFW_KEY_F]) {
 		toggleFullscreen();
 	}
@@ -165,12 +185,20 @@ Dar::FrameData &ShaderToy::getFrameData() {
 	return frameData[renderer.getBackbufferIndex()];
 }
 
-void ShaderToy::addRenderPass(const WString &shaderName, const String &displayName, int numRenderPasses) {
+bool ShaderToy::addRenderPass(const WString &shaderName, const String &displayName, int numRenderPasses) {
+	std::ifstream ifs(Dar::getAssetFullPath((shaderName + L"_ps.hlsl").c_str(), Dar::AssetType::Shader));
+	if (!ifs.good()) {
+		return false;
+	}
+
 	renderPasses.emplace_back();
 
 	RenderPass &rp = renderPasses.back();
 	rp.name = displayName;
 	rp.shaderName = shaderName;
+	rp.shaderSource = std::string(std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>());
+	
+	rp.textEdit.SetText(rp.shaderSource);
 
 	Dar::TextureInitData texInitData = {};
 	texInitData.format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -182,13 +210,19 @@ void ShaderToy::addRenderPass(const WString &shaderName, const String &displayNa
 		rt.init(texInitData, Dar::FRAME_COUNT);
 		rt.setName(L"RenderTexture[" + std::to_wstring(renderPasses.size() - 1) + L"]");
 	}
+
+	return true;
 }
 
-void ShaderToy::addRenderPass(const char *code, const String &displayName, int numRenderPasses) {
+bool ShaderToy::addRenderPass(const char *code, const String &displayName, int numRenderPasses) {
 	auto shaderName = L"shader" + std::to_wstring(__COUNTER__);
-	Dar::ShaderCompiler::compileFromSource(code, shaderName, L".\\res\\shaders", Dar::ShaderType::Pixel).binary;
+	Dar::ShaderCompilerResult res = Dar::ShaderCompiler::compileFromSource(code, shaderName, L".\\res\\shaders", Dar::ShaderType::Pixel);
 
-	addRenderPass(shaderName, displayName, numRenderPasses);
+	if (res.binary == nullptr) {
+		return false;
+	}
+
+	return addRenderPass(shaderName, displayName, numRenderPasses);
 }
 
 void ShaderToy::prepareRenderGraph() {
@@ -266,6 +300,8 @@ int ShaderToy::loadPipelines() {
 	renderer.addRenderPass(renderPassDesc);
 
 	renderer.compilePipeline();
+
+	prepareRenderGraph();
 
 	return true;
 }
