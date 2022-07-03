@@ -7,10 +7,6 @@ struct IDxcBlob;
 
 namespace Dar {
 
-struct ShaderCompilerResult {
-	IDxcBlob *binary;
-};
-
 enum class ShaderType {
 	Vertex,
 	Pixel,
@@ -22,9 +18,9 @@ enum class ShaderType {
 
 namespace ShaderCompiler {
 
-ShaderCompilerResult compileFromFile(const WString &filename);
+bool compileFromFile(const WString &filename, const WString &outputDir, ShaderType type);
 
-ShaderCompilerResult compileFromSource(const char *src, const WString &name, const WString &outputDir, ShaderType type);
+bool compileFromSource(const char *src, const WString &name, const WString &outputDir, ShaderType type);
 
 } // namespace ShaderCompiler
 
