@@ -115,6 +115,9 @@ struct RenderPass {
 			} else {
 				rtRes = renderTargetAttachments[i].getBufferResource(backbufferIndex);
 			}
+
+			dassert(rtRes != nullptr);
+
 			rtvHeap[backbufferIndex].addRTV(rtRes, nullptr);
 			renderTargetDescs[i].cpuDescriptor = rtvHeap[backbufferIndex].getCPUHandle(i);
 			if (isBackBuffer) {

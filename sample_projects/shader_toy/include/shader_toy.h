@@ -25,6 +25,7 @@ private:
 
 	bool addRenderPass(const WString &shaderName, const String &displayName, int numRenderTargets);
 	bool addRenderPass(const char *code, const String &displayName, int numRenderTargets);
+	bool addRenderPass(const String &name);
 
 	void prepareRenderGraph();
 
@@ -54,7 +55,7 @@ private:
 
 	Dar::FrameData frameData[Dar::FRAME_COUNT];
 	Dar::DataBufferResource constData[Dar::FRAME_COUNT];
-	Vector<RenderPass> renderPasses;
+	Vector<RenderPass*> renderPasses;
 	Vector<RenderPassId> renderGraph;
 	RenderPassId outputPassId;
 

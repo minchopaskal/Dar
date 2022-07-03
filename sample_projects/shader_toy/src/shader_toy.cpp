@@ -65,8 +65,8 @@ void ShaderToy::update() {
 	
 	const int numRPs = renderGraph.size();
 	for (int i = 0; i < numRPs; ++i) {
-		for (int j : renderPasses[i].dependancies) {
-			for (auto &rt : renderPasses[j].renderTextures) {
+		for (int j : renderPasses[renderGraph[i]]->dependancies) {
+			for (auto &rt : renderPasses[j]->renderTextures) {
 				fd.addTextureResource(rt.getTextureResource(frameIdx), i);
 			}
 		}
@@ -74,7 +74,7 @@ void ShaderToy::update() {
 	}
 
 	if (outputPassId >= 0 && outputPassId < renderPasses.size()) {
-		for (auto &rt : renderPasses[outputPassId].renderTextures) {
+		for (auto &rt : renderPasses[outputPassId]->renderTextures) {
 			fd.addTextureResource(rt.getTextureResource(frameIdx), numRPs);
 		}
 	}
@@ -90,47 +90,97 @@ void ShaderToy::drawUI() {
 	ImGui::End();
 
 	ImGui::Begin("Render Passes", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+		static int depRP = 0;
+
 		for (int i = 0; i < renderPasses.size(); ++i) {
-			ImGui::Text("%d: %s", i, renderPasses[i].name.c_str());
-			
+			auto &rp = renderPasses[i];
+
+			ImGui::Text("%d: %s", i, rp->name.c_str());
+
 			ImGui::SameLine();
 			if (ImGui::Button(i == outputPassId ? "Remove as output" : "Set as output")) {
 				outputPassId = (i == outputPassId ? INVALID_PASS_ID : i);
-				prepareRenderGraph();
+				updatePipelines = true;
 			}
+			
 			ImGui::SameLine();
 			if (ImGui::Button("Add dependancy")) {
-
+				depRP = i;
+				ImGui::OpenPopup("add_dep_popup");
 			}
+
 			ImGui::SameLine();
 			if (ImGui::Button("Remove dependancy")) {
-
+				depRP = i;
+				ImGui::OpenPopup("rem_dep_popup");
 			}
+
 			ImGui::Text("Dependancies:");
-			for (auto j : renderPasses[i].dependancies) {
-				ImGui::Text("\t%s", renderPasses[j].name.c_str());
+			for (auto j : rp->dependancies) {
+				ImGui::Text("\t%s", renderPasses[j]->name.c_str());
 			}
 
 			ImGui::Separator();
+		}
+
+		if (ImGui::BeginPopup("add_dep_popup")) {
+			auto &deps = renderPasses[depRP]->dependancies;
+			for (int i = 0; i < renderPasses.size(); ++i) {
+				// slow but whatever
+				if (i == depRP || std::find(deps.begin(), deps.end(), i) != deps.end()) {
+					continue;
+				}
+
+				if (ImGui::Button(renderPasses[i]->name.c_str())) {
+					deps.push_back(i);
+					if (std::find(renderGraph.begin(), renderGraph.end(), depRP) != renderGraph.end()) {
+						updatePipelines = true;
+					}
+					ImGui::CloseCurrentPopup();
+				}
+			}
+			ImGui::EndPopup();
+		}
+
+		if (ImGui::BeginPopup("rem_dep_popup")) {
+			auto &deps = renderPasses[depRP]->dependancies;
+			for (int i = 0; i < deps.size(); ++i) {
+				if (ImGui::Button(renderPasses[deps[i]]->name.c_str())) {
+					deps.erase(deps.begin() + i);
+					if (std::find(renderGraph.begin(), renderGraph.end(), depRP) != renderGraph.end()) {
+						updatePipelines = true;
+					}
+					ImGui::CloseCurrentPopup();
+				}
+			}
+			ImGui::EndPopup();
 		}
 	ImGui::End();
 
 	ImGui::Begin("Shader Sources");
 	if (ImGui::Button("(+) Shader")) {
-
+		static int shaderCount = 0;
+		addRenderPass(String("Shader") + std::to_string(shaderCount++));
 	}
 
 	if (ImGui::BeginTabBar("Files tab")) {
 		for (int i = 0; i < renderPasses.size(); ++i) {
 			auto &rp = renderPasses[i];
-			if (ImGui::BeginTabItem(rp.name.c_str())) {
-				rp.textEdit.Render("Editor");
+			if (ImGui::BeginTabItem(rp->name.c_str())) {
+				rp->textEdit.Render("Editor");
+
+				auto it = std::find(renderGraph.begin(), renderGraph.end(), i);
 
 				if (ImGui::Button("Recomiple")) {
 					LOG(InfoFancy, "RECOMPILE PRESSED");
-					rp.shaderSource = rp.textEdit.GetText();
-					Dar::ShaderCompiler::compileFromSource(rp.shaderSource.data(), rp.shaderName, L".\\res\\shaders", Dar::ShaderType::Pixel).binary;
-					updatePipelines = true;
+					static const char *vertexSource = "#include \"res\\shaders\\screen_quad.hlsli\"";
+					rp->shaderSource = rp->textEdit.GetText();
+					bool res = Dar::ShaderCompiler::compileFromSource(vertexSource, rp->shaderName, L".\\res\\shaders", Dar::ShaderType::Vertex);
+					res = res && Dar::ShaderCompiler::compileFromSource(rp->shaderSource.data(), rp->shaderName, L".\\res\\shaders", Dar::ShaderType::Pixel);
+					// Only recompile the pipeline if this render pass in the render graph structure
+					if (res && it != renderGraph.end()) {
+						updatePipelines = true;
+					}
 				}
 
 				ImGui::EndTabItem();
@@ -154,7 +204,7 @@ void ShaderToy::onResize(const unsigned int w, const unsigned int h) {
 
 	renderer.resizeBackBuffers();
 	for (auto &rp : renderPasses) {
-		for (auto &rt : rp.renderTextures) {
+		for (auto &rt : rp->renderTextures) {
 			rt.resizeRenderTarget(width, height);
 		}
 	}
@@ -191,9 +241,12 @@ bool ShaderToy::addRenderPass(const WString &shaderName, const String &displayNa
 		return false;
 	}
 
-	renderPasses.emplace_back();
+	renderPasses.emplace_back(nullptr);
 
-	RenderPass &rp = renderPasses.back();
+	auto *&rpp = renderPasses.back();
+	rpp = new RenderPass();
+
+	RenderPass &rp = *rpp;
 	rp.name = displayName;
 	rp.shaderName = shaderName;
 	rp.shaderSource = std::string(std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>());
@@ -216,13 +269,38 @@ bool ShaderToy::addRenderPass(const WString &shaderName, const String &displayNa
 
 bool ShaderToy::addRenderPass(const char *code, const String &displayName, int numRenderPasses) {
 	auto shaderName = L"shader" + std::to_wstring(__COUNTER__);
-	Dar::ShaderCompilerResult res = Dar::ShaderCompiler::compileFromSource(code, shaderName, L".\\res\\shaders", Dar::ShaderType::Pixel);
+	bool res = Dar::ShaderCompiler::compileFromSource(code, shaderName, L".\\res\\shaders", Dar::ShaderType::Pixel);
 
-	if (res.binary == nullptr) {
+	if (!res) {
 		return false;
 	}
 
 	return addRenderPass(shaderName, displayName, numRenderPasses);
+}
+
+bool ShaderToy::addRenderPass(const String &name) {
+	renderPasses.emplace_back();
+
+	RenderPass *&rpp = renderPasses.back();
+	rpp = new RenderPass;
+
+	RenderPass &rp = *rpp;
+	rp.name = name;
+	rp.shaderName = L"shader" + std::to_wstring(__COUNTER__);
+	rp.shaderSource = "";
+	rp.textEdit.SetText("");
+
+	// Add a single render texture
+	rp.renderTextures.emplace_back();
+	auto &rt = rp.renderTextures.back();
+
+	Dar::TextureInitData texInitData = {};
+	texInitData.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	texInitData.width = getWidth();
+	texInitData.height = getHeight();
+	rt.init(texInitData, Dar::FRAME_COUNT);
+
+	return true;
 }
 
 void ShaderToy::prepareRenderGraph() {
@@ -238,13 +316,13 @@ void ShaderToy::prepareRenderGraph() {
 	while (!s.empty()) {
 		auto id = s.top();
 
-		if (renderPasses[id].dependancies.empty()) {
+		if (renderPasses[id]->dependancies.empty()) {
 			renderGraph.push_back(id);
 			s.pop();
 			continue;
 		}
 
-		for (auto d : renderPasses[id].dependancies) {
+		for (auto d : renderPasses[id]->dependancies) {
 			if (visited.find(d) == visited.end()) {
 				continue;
 			}
@@ -259,13 +337,16 @@ void ShaderToy::prepareRenderGraph() {
 }
 
 int ShaderToy::loadPipelines() {
+	prepareRenderGraph();
+
 	CD3DX12_STATIC_SAMPLER_DESC sampler{ 0, D3D12_FILTER_MIN_MAG_MIP_LINEAR };
 
 	Dar::PipelineStateDesc psDesc = {};
 	Dar::RenderPassDesc renderPassDesc = {};
 
-	for (int i = 0; i < renderPasses.size(); ++i) {
-		WString shaderName = renderPasses[i].shaderName;
+	for (int i = 0; i < renderGraph.size(); ++i) {
+		RenderPass *rp = renderPasses[renderGraph[i]];
+		WString shaderName = rp->shaderName;
 
 		psDesc.shaderName = shaderName;
 		psDesc.shadersMask = Dar::shaderInfoFlags_useVertex;
@@ -274,11 +355,11 @@ int ShaderToy::loadPipelines() {
 		psDesc.staticSamplerDesc = &sampler;
 		psDesc.numConstantBufferViews = 1;
 		psDesc.cullMode = D3D12_CULL_MODE_NONE;
-		psDesc.numTextures = renderPasses[i].dependancies.size();
+		psDesc.numTextures = rp->dependancies.size();
 
 		renderPassDesc = {};
 		renderPassDesc.setPipelineStateDesc(psDesc);
-		for (auto &rt : renderPasses[i].renderTextures) {
+		for (auto &rt : rp->renderTextures) {
 			renderPassDesc.attach(Dar::RenderPassAttachment::renderTarget(&rt));
 		}
 		renderer.addRenderPass(renderPassDesc);
