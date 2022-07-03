@@ -20,23 +20,39 @@ WString shaderTypeToStr(ShaderType type) {
 	return L"";
 }
 
-ShaderCompilerResult ShaderCompiler::compileFromFile(const WString &filename) {
+bool ShaderCompiler::compileFromFile(const WString &filename, const WString &outputDir, ShaderType type) {
 	auto p = std::filesystem::absolute(filename.c_str());
-	if (!std::filesystem::exists(p)) {
-		return {};
+	if (!std::filesystem::exists(p) || !std::filesystem::is_regular_file(p)) {
+		return false;
 	}
 
-	return {};
+	auto name = p.filename();
+	std::ifstream ifs(p.c_str(), std::ios::in|std::ios::ate);
+	if (!ifs.good()) {
+		return false;
+	}
+
+	auto size = ifs.tellg();
+	char *memblock = new char[size];
+	ifs.seekg(0, std::ios::beg);
+	ifs.read(memblock, size);
+	ifs.close();
+	
+	bool res = compileFromSource(memblock, name, outputDir, type);
+	
+	delete[] memblock;
+
+	return res;
 }
 
-ShaderCompilerResult ShaderCompiler::compileFromSource(const char *src, const WString &name, const WString &outputDir, ShaderType type) {
+bool ShaderCompiler::compileFromSource(const char *src, const WString &name, const WString &outputDir, ShaderType type) {
 	WString entryPoint = L"main";
 	WString target = shaderTypeToStr(type) + L"_6_6";
 
 	WString filename = name + L"TEMP";
 	HANDLE f = CreateFileW(filename.c_str(), GENERIC_WRITE, FILE_SHARE_READ, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
 	if (!f) {
-		return {};
+		return false;
 	}
 
 	DWORD written = 0;
@@ -96,6 +112,8 @@ ShaderCompilerResult ShaderCompiler::compileFromSource(const char *src, const WS
 
 	if (!res) {
 		DWORD lastErr = GetLastError();
+		LOG_FMT(Error, "DXC failed to compile %s. Error: %d", name.c_str(), lastErr);
+		return false;
 	}
 
 	WaitForSingleObject(pi.hProcess, INFINITE);
@@ -106,7 +124,7 @@ ShaderCompilerResult ShaderCompiler::compileFromSource(const char *src, const WS
 
 	DeleteFileW(filename.c_str());
 
-	return {};
+	return true;
 }
 
 } // namespace Dar
