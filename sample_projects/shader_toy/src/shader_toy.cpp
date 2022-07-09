@@ -16,6 +16,7 @@
 
 #include <fstream>
 #include <sstream>
+#include <cstdlib>
 
 ShaderToy::ShaderToy(UINT width, UINT height, const String &windowTitle) : Dar::App(width, height, windowTitle.c_str()) {
 	memset(buffer, 0, 4096);
@@ -28,9 +29,6 @@ int ShaderToy::initImpl() {
 	constData[0].init(sizeof(ConstantData), 1);
 	constData[1].init(sizeof(ConstantData), 1);
 
-	addRenderPass(L"render_pass", "Render Pass 1", 1);
-	outputPassId = 0;
-
 	return loadPipelines();
 }
 
@@ -40,10 +38,15 @@ void ShaderToy::deinit() {
 }
 
 void ShaderToy::update() {
-	auto &resManager = Dar::getResourceManager();
+	const int frameIdx = renderer.getBackbufferIndex();
+	Dar::FrameData &fd = frameData[frameIdx];
 
 	if (updatePipelines) {
 		loadPipelines();
+		// Has to call begin frame on framedata again in order to update
+		// the render passes count.
+		// TODO: find a better way or refactor FrameData
+		fd.beginFrame(renderer);
 		updatePipelines = false;
 	}
 
@@ -54,13 +57,11 @@ void ShaderToy::update() {
 	cd.delta = deltaTime;
 	cd.hasOutput = (outputPassId >= 0 && outputPassId < renderPasses.size());
 
-	const int frameIdx = renderer.getBackbufferIndex();
-
+	auto &resManager = Dar::getResourceManager();
 	Dar::UploadHandle uploadHandle = resManager.beginNewUpload();
 	resManager.uploadBufferData(uploadHandle, constData[frameIdx].getHandle(), &cd, sizeof(ConstantData));
 	resManager.uploadBuffers();
 
-	Dar::FrameData &fd = frameData[frameIdx];
 	fd.addConstResource(constData[frameIdx].getHandle(), 0);
 	
 	const int numRPs = renderGraph.size();
@@ -91,28 +92,42 @@ void ShaderToy::drawUI() {
 
 	ImGui::Begin("Render Passes", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 		static int depRP = 0;
-
+		String addPopupName = "add_dep_popup";
+		String remPopupName = "rem_dep_popup";
+		
 		for (int i = 0; i < renderPasses.size(); ++i) {
 			auto &rp = renderPasses[i];
 
 			ImGui::Text("%d: %s", i, rp->name.c_str());
 
+			String outputButton = i == outputPassId ? "Remove as output" : "Set as output";
+			outputButton += "##";
+			outputButton += std::to_string(i);
+
 			ImGui::SameLine();
-			if (ImGui::Button(i == outputPassId ? "Remove as output" : "Set as output")) {
-				outputPassId = (i == outputPassId ? INVALID_PASS_ID : i);
-				updatePipelines = true;
+			if (rp->compiled) {
+				if (ImGui::Button(outputButton.c_str())) {
+					outputPassId = (i == outputPassId ? INVALID_PASS_ID : i);
+					updatePipelines = true;
+				}
 			}
-			
+
+			String addDepButton = "Add dependancy##";
+			addDepButton += std::to_string(i);
+
+			String remDepButton = "Remove dependancy##";
+			remDepButton += std::to_string(i);
+
 			ImGui::SameLine();
-			if (ImGui::Button("Add dependancy")) {
+			if (ImGui::Button(addDepButton.c_str())) {
 				depRP = i;
-				ImGui::OpenPopup("add_dep_popup");
+				ImGui::OpenPopup(addPopupName.c_str());
 			}
 
 			ImGui::SameLine();
-			if (ImGui::Button("Remove dependancy")) {
+			if (ImGui::Button(remDepButton.c_str())) {
 				depRP = i;
-				ImGui::OpenPopup("rem_dep_popup");
+				ImGui::OpenPopup(remPopupName.c_str());
 			}
 
 			ImGui::Text("Dependancies:");
@@ -123,16 +138,16 @@ void ShaderToy::drawUI() {
 			ImGui::Separator();
 		}
 
-		if (ImGui::BeginPopup("add_dep_popup")) {
+		if (ImGui::BeginPopup(addPopupName.c_str())) {
 			auto &deps = renderPasses[depRP]->dependancies;
-			for (int i = 0; i < renderPasses.size(); ++i) {
+			for (int j = 0; j < renderPasses.size(); ++j) {
 				// slow but whatever
-				if (i == depRP || std::find(deps.begin(), deps.end(), i) != deps.end()) {
+				if (j == depRP || std::find(deps.begin(), deps.end(), j) != deps.end()) {
 					continue;
 				}
 
-				if (ImGui::Button(renderPasses[i]->name.c_str())) {
-					deps.push_back(i);
+				if (ImGui::Button(renderPasses[j]->name.c_str())) {
+					deps.push_back(j);
 					if (std::find(renderGraph.begin(), renderGraph.end(), depRP) != renderGraph.end()) {
 						updatePipelines = true;
 					}
@@ -142,11 +157,11 @@ void ShaderToy::drawUI() {
 			ImGui::EndPopup();
 		}
 
-		if (ImGui::BeginPopup("rem_dep_popup")) {
+		if (ImGui::BeginPopup(remPopupName.c_str())) {
 			auto &deps = renderPasses[depRP]->dependancies;
-			for (int i = 0; i < deps.size(); ++i) {
-				if (ImGui::Button(renderPasses[deps[i]]->name.c_str())) {
-					deps.erase(deps.begin() + i);
+			for (int j = 0; j < deps.size(); ++j) {
+				if (ImGui::Button(renderPasses[deps[j]]->name.c_str())) {
+					deps.erase(deps.begin() + j);
 					if (std::find(renderGraph.begin(), renderGraph.end(), depRP) != renderGraph.end()) {
 						updatePipelines = true;
 					}
@@ -155,11 +170,11 @@ void ShaderToy::drawUI() {
 			}
 			ImGui::EndPopup();
 		}
+
 	ImGui::End();
 
 	ImGui::Begin("Shader Sources");
 	if (ImGui::Button("(+) Shader")) {
-		static int shaderCount = 0;
 		addRenderPass(String("Shader") + std::to_string(shaderCount++));
 	}
 
@@ -167,21 +182,30 @@ void ShaderToy::drawUI() {
 		for (int i = 0; i < renderPasses.size(); ++i) {
 			auto &rp = renderPasses[i];
 			if (ImGui::BeginTabItem(rp->name.c_str())) {
-				rp->textEdit.Render("Editor");
-
 				auto it = std::find(renderGraph.begin(), renderGraph.end(), i);
-
-				if (ImGui::Button("Recomiple")) {
-					LOG(InfoFancy, "RECOMPILE PRESSED");
+				String compileButton = rp->compiled ? "Recomiple" : "Compile";
+				compileButton += "##";
+				compileButton += std::to_string(i);
+				if (ImGui::Button(compileButton.c_str())) {
+					LOG(Debug, "RECOMPILE PRESSED");
 					static const char *vertexSource = "#include \"res\\shaders\\screen_quad.hlsli\"";
 					rp->shaderSource = rp->textEdit.GetText();
 					bool res = Dar::ShaderCompiler::compileFromSource(vertexSource, rp->shaderName, L".\\res\\shaders", Dar::ShaderType::Vertex);
 					res = res && Dar::ShaderCompiler::compileFromSource(rp->shaderSource.data(), rp->shaderName, L".\\res\\shaders", Dar::ShaderType::Pixel);
-					// Only recompile the pipeline if this render pass in the render graph structure
-					if (res && it != renderGraph.end()) {
-						updatePipelines = true;
+					if (res) {
+						rp->compiled = true;
+
+						// Only recompile the pipeline if this render pass in the render graph structure
+						updatePipelines = (it != renderGraph.end());
+					} else {
+						if (ImGui::BeginPopup("Error compiling")) {
+							ImGui::Text("%s failed to compile!", rp->name.c_str());
+							ImGui::EndPopup();
+						}
 					}
 				}
+
+				rp->textEdit.Render("Editor");
 
 				ImGui::EndTabItem();
 			}
@@ -268,7 +292,7 @@ bool ShaderToy::addRenderPass(const WString &shaderName, const String &displayNa
 }
 
 bool ShaderToy::addRenderPass(const char *code, const String &displayName, int numRenderPasses) {
-	auto shaderName = L"shader" + std::to_wstring(__COUNTER__);
+	auto shaderName = L"shader" + std::to_wstring(shaderCount++);
 	bool res = Dar::ShaderCompiler::compileFromSource(code, shaderName, L".\\res\\shaders", Dar::ShaderType::Pixel);
 
 	if (!res) {
@@ -286,9 +310,10 @@ bool ShaderToy::addRenderPass(const String &name) {
 
 	RenderPass &rp = *rpp;
 	rp.name = name;
-	rp.shaderName = L"shader" + std::to_wstring(__COUNTER__);
+	rp.shaderName = L"shader" + std::to_wstring(shaderCount++);
 	rp.shaderSource = "";
 	rp.textEdit.SetText("");
+	rp.compiled = false;
 
 	// Add a single render texture
 	rp.renderTextures.emplace_back();
@@ -315,6 +340,7 @@ void ShaderToy::prepareRenderGraph() {
 	s.push(outputPassId);
 	while (!s.empty()) {
 		auto id = s.top();
+		visited.insert(id);
 
 		if (renderPasses[id]->dependancies.empty()) {
 			renderGraph.push_back(id);
@@ -322,17 +348,21 @@ void ShaderToy::prepareRenderGraph() {
 			continue;
 		}
 
+		bool hasUnvisitedDependancy = false;
 		for (auto d : renderPasses[id]->dependancies) {
-			if (visited.find(d) == visited.end()) {
+			if (visited.find(d) != visited.end()) {
 				continue;
 			}
 
+			hasUnvisitedDependancy = true;
 			s.push(d);
 			break;
 		}
 
-		renderGraph.push_back(id);
-		s.pop();
+		if (!hasUnvisitedDependancy) {
+			renderGraph.push_back(id);
+			s.pop();
+		}
 	}
 }
 
@@ -381,8 +411,6 @@ int ShaderToy::loadPipelines() {
 	renderer.addRenderPass(renderPassDesc);
 
 	renderer.compilePipeline();
-
-	prepareRenderGraph();
 
 	return true;
 }

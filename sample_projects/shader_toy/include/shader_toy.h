@@ -37,12 +37,13 @@ private:
 	using RenderPassId = SizeType;
 	static constexpr RenderPassId INVALID_PASS_ID = RenderPassId(-1);
 	struct RenderPass {
-		String name;
-		WString shaderName;
-		String shaderSource;
+		String name = "";
+		WString shaderName = L"";
+		String shaderSource = "";
 		Vector<Dar::RenderTarget> renderTextures;
 		Vector<RenderPassId> dependancies;
 		TextEditor textEdit;
+		bool compiled = false;
 	};
 
 	struct ConstantData {
@@ -57,10 +58,12 @@ private:
 	Dar::DataBufferResource constData[Dar::FRAME_COUNT];
 	Vector<RenderPass*> renderPasses;
 	Vector<RenderPassId> renderGraph;
-	RenderPassId outputPassId;
+	RenderPassId outputPassId{ INVALID_PASS_ID };
 
 	char buffer[4096];
 	char nameBuffer[32];
 	bool inputTextActive = false;
 	bool updatePipelines = false;
+
+	static inline int shaderCount{ 0 };
 };
