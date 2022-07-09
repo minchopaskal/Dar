@@ -71,6 +71,19 @@ target_include_directories(
 
 copyD3D12Core(ShaderToy)
 
+set(SHADERS_TO_COPY
+	${SHADERS_DIR}/common.hlsli
+	${SHADERS_DIR}/screen_quad.hlsli
+)
+
+set(DXC_FILES_TO_COPY
+	${SUBMODULE_DIR}/dxc_1.6/dxc.exe
+	${SUBMODULE_DIR}/dxc_1.6/dxil.dll
+	${SUBMODULE_DIR}/dxc_1.6/dxcompiler.dll
+)
+
 add_custom_command(TARGET ShaderToy POST_BUILD
-	COMMAND ${CMAKE_COMMAND} -E copy ${SHADERS_DIR}/common.hlsli $<TARGET_FILE_DIR:ShaderToy>/res/shaders
+	COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:ShaderToy>/res/shaders
+	COMMAND ${CMAKE_COMMAND} -E copy ${SHADERS_TO_COPY} $<TARGET_FILE_DIR:ShaderToy>/res/shaders
+	COMMAND ${CMAKE_COMMAND} -E copy ${DXC_FILES_TO_COPY} $<TARGET_FILE_DIR:ShaderToy>
 )

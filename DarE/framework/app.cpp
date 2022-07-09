@@ -294,17 +294,21 @@ int App::mainLoopJob() {
 
 		FrameData &fd = getFrameData();
 		fd.beginFrame(renderer);
-		renderer.beginFrame();
 
 		beginFrame();
+
+		renderer.beginFrame();
 
 		update();
 
 		renderer.renderFrame(getFrameData());
 
-		endFrame();
 		renderer.endFrame();
+
+		endFrame();
+		
 		fd.endFrame(renderer);
+
 		resManager->endFrame();
 
 		glfwPollEvents();
