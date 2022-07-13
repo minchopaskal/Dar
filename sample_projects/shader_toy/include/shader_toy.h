@@ -31,6 +31,10 @@ private:
 
 	int loadPipelines();
 
+	void resetFrameCount() {
+		frameCountOffset = renderer.getNumRenderedFrames() + 1;
+	}
+
 private:
 	using Super = Dar::App;
 

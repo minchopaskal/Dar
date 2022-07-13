@@ -10,3 +10,9 @@
 [submodule "third_party/ImGuiColorTextEdit"]
 	path = third_party/ImGuiColorTextEdit
 	url = git@github.com:BalazsJako/ImGuiColorTextEdit.git
+[submodule "third_party/cppcoro"]
+	path = third_party/cppcoro
+	url = git@github.com:lewissbaker/cppcoro.git
+[submodule "third_party/imguifiledialog"]
+	path = third_party/imguifiledialog
+	url = git@github.com:aiekick/ImGuiFileDialog.git
