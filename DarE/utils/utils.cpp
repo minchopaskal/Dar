@@ -1,5 +1,7 @@
 #include "utils/utils.h"
 
+#include <fstream>
+
 namespace Dar {
 
 WString getPrefixedNameByType(D3D12_COMMAND_LIST_TYPE type, const wchar_t *prefix) {
@@ -54,6 +56,14 @@ DXGI_FORMAT getDepthFormatAsNormal(DXGI_FORMAT format) {
 		return DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
 	default:
 		return format;
+	}
+}
+
+cppcoro::generator<String> generateFileLines(const String &filename) {
+	std::ifstream file(filename);
+	std::string line;
+	while (std::getline(file, line)) {
+		co_yield line;
 	}
 }
 

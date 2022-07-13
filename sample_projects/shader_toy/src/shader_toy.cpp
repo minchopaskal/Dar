@@ -117,7 +117,7 @@ void ShaderToy::drawUI() {
 			ImGui::SameLine();
 			if (rp->compiled) {
 				if (ImGui::Button(outputButton.c_str())) {
-					frameCountOffset = renderer.getNumRenderedFrames() + 1;
+					resetFrameCount();
 					outputPassId = (i == outputPassId ? INVALID_PASS_ID : i);
 					updatePipelines = true;
 				}
@@ -204,11 +204,15 @@ void ShaderToy::drawUI() {
 			auto &rp = renderPasses[i];
 			if (ImGui::BeginTabItem(rp->name.c_str())) {
 				auto it = std::find(renderGraph.begin(), renderGraph.end(), i);
-				String compileButton = rp->compiled ? "Recomiple" : "Compile";
-				compileButton += "##";
-				compileButton += std::to_string(i);
+				String buttonIndex = std::to_string(i);
+
+				String compileButton = String(rp->compiled ? "Recomiple##" : "Compile##") + buttonIndex;
+
+				String loadFileButton = "Load from file##" + buttonIndex;
+
+				String saveFileButton = "Save to file##" + buttonIndex;
+
 				if (ImGui::Button(compileButton.c_str())) {
-					LOG(Debug, "RECOMPILE PRESSED");
 					static const char *vertexSource = "#include \"res\\shaders\\screen_quad.hlsli\"";
 					rp->shaderSource = rp->textEdit.GetText();
 					bool res = Dar::ShaderCompiler::compileFromSource(vertexSource, rp->shaderName, L".\\res\\shaders", Dar::ShaderType::Vertex);
@@ -217,7 +221,10 @@ void ShaderToy::drawUI() {
 						rp->compiled = true;
 
 						// Only recompile the pipeline if this render pass in the render graph structure
-						updatePipelines = (it != renderGraph.end());
+						if (it != renderGraph.end()) {
+							updatePipelines = true;
+							resetFrameCount();
+						}
 					} else {
 						if (ImGui::BeginPopup("Error compiling")) {
 							ImGui::Text("%s failed to compile!", rp->name.c_str());
@@ -226,6 +233,16 @@ void ShaderToy::drawUI() {
 					}
 				}
 
+				ImGui::SameLine();
+				if (ImGui::Button(loadFileButton.c_str())) {
+
+				}
+
+				ImGui::SameLine();
+				if (ImGui::Button(saveFileButton.c_str())) {
+
+				}
+				
 				rp->textEdit.Render("Editor");
 
 				ImGui::EndTabItem();
