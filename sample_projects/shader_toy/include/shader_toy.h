@@ -44,12 +44,14 @@ private:
 		Vector<RenderPassId> dependancies;
 		TextEditor textEdit;
 		bool compiled = false;
+
+		void addRenderTexture(const ShaderToy &app);
 	};
 
 	struct ConstantData {
 		int width;
 		int height;
-		int frame;
+		unsigned int frame;
 		float delta;
 		int hasOutput;
 	};
@@ -64,6 +66,10 @@ private:
 	char nameBuffer[32];
 	bool inputTextActive = false;
 	bool updatePipelines = false;
+
+	/// Each time we set a new output make sure to restart the frameCounter as seen by the shaders.
+	/// This way any frameCount dependant operations will be correct.
+	unsigned int frameCountOffset = 0;
 
 	static inline int shaderCount{ 0 };
 };

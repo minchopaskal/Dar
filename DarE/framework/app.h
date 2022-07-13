@@ -55,10 +55,6 @@ struct App : public IKeyboardInputQuery {
 	/// Called during renderUI().
 	virtual void drawUI() {};
 
-	double getFPS() const {
-		return fps;
-	}
-
 protected:
 	/// Toggle between windowed/fullscreen
 	void toggleFullscreen();
@@ -90,6 +86,14 @@ protected:
 	/// Note: call before D3D12::init() in order to skip ImGui initialization.
 	void setUseImGui();
 
+	double getFPS() const {
+		return fps;
+	}
+
+	double getDeltaTime() const {
+		return deltaTime;
+	}
+
 	virtual void onResize(const unsigned int w, const unsigned int h) = 0;
 	virtual void onKeyboardInput(int key, int action) = 0;
 	virtual void onMouseScroll(double xOffset, double yOffset) = 0;
@@ -120,6 +124,7 @@ protected:
 
 	Atomic<int> abort; ///< Abort the main loop if true.
 
+private:
 	// timing
 	double fps = 0.0;
 	double totalTime = 0.0;
@@ -128,7 +133,6 @@ protected:
 	UINT64 frameCount = 0;
 	HRC::time_point currentTime;
 
-private:
 	JobSystem::Fence *initJobFence = nullptr;
 
 	HWND window; ///< Pointer to the win32 window abstraction
