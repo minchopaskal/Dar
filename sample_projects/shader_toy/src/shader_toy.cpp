@@ -50,11 +50,13 @@ void ShaderToy::update() {
 		updatePipelines = false;
 	}
 
+	const int frameCount = renderer.getNumRenderedFrames();
+
 	ConstantData cd = { };
 	cd.width = width;
 	cd.height = height;
-	cd.frame = frameCount;
-	cd.delta = deltaTime;
+	cd.frame = frameCount - frameCountOffset;
+	cd.delta = getDeltaTime();
 	cd.hasOutput = (outputPassId >= 0 && outputPassId < renderPasses.size());
 
 	auto &resManager = Dar::getResourceManager();
@@ -65,7 +67,15 @@ void ShaderToy::update() {
 	fd.addConstResource(constData[frameIdx].getHandle(), 0);
 	
 	const int numRPs = renderGraph.size();
+	const int prevFrameIdx = frameIdx == 0 ? (Dar::FRAME_COUNT - 1) : ((frameIdx - 1) % Dar::FRAME_COUNT);
 	for (int i = 0; i < numRPs; ++i) {
+		// Add the previous frame's rendered textures as a texture resource
+		if (frameCount > 1) {
+			for (auto &rt : renderPasses[renderGraph[i]]->renderTextures) {
+				fd.addTextureResource(rt.getTextureResource(prevFrameIdx), i);
+			}
+		}
+
 		for (int j : renderPasses[renderGraph[i]]->dependancies) {
 			for (auto &rt : renderPasses[j]->renderTextures) {
 				fd.addTextureResource(rt.getTextureResource(frameIdx), i);
@@ -107,6 +117,7 @@ void ShaderToy::drawUI() {
 			ImGui::SameLine();
 			if (rp->compiled) {
 				if (ImGui::Button(outputButton.c_str())) {
+					frameCountOffset = renderer.getNumRenderedFrames() + 1;
 					outputPassId = (i == outputPassId ? INVALID_PASS_ID : i);
 					updatePipelines = true;
 				}
@@ -117,6 +128,9 @@ void ShaderToy::drawUI() {
 
 			String remDepButton = "Remove dependancy##";
 			remDepButton += std::to_string(i);
+
+			String addRTButton = "Add render target##";
+			addRTButton += std::to_string(i);
 
 			ImGui::SameLine();
 			if (ImGui::Button(addDepButton.c_str())) {
@@ -130,11 +144,18 @@ void ShaderToy::drawUI() {
 				ImGui::OpenPopup(remPopupName.c_str());
 			}
 
-			ImGui::Text("Dependancies:");
-			for (auto j : rp->dependancies) {
-				ImGui::Text("\t%s", renderPasses[j]->name.c_str());
+			ImGui::SameLine();
+			if (ImGui::Button(addRTButton.c_str())) {
+				renderPasses[i]->addRenderTexture(*this);
 			}
 
+			ImGui::Text("Dependancies:");
+			for (auto j : rp->dependancies) {
+				ImGui::SameLine();
+				ImGui::Text("\t%s", renderPasses[j]->name.c_str());
+			}
+			ImGui::Text("Num renderTargets: %d", renderPasses[i]->renderTextures.size());
+			
 			ImGui::Separator();
 		}
 
@@ -259,7 +280,7 @@ Dar::FrameData &ShaderToy::getFrameData() {
 	return frameData[renderer.getBackbufferIndex()];
 }
 
-bool ShaderToy::addRenderPass(const WString &shaderName, const String &displayName, int numRenderPasses) {
+bool ShaderToy::addRenderPass(const WString &shaderName, const String &displayName, int numRenderTargets) {
 	std::ifstream ifs(Dar::getAssetFullPath((shaderName + L"_ps.hlsl").c_str(), Dar::AssetType::Shader));
 	if (!ifs.good()) {
 		return false;
@@ -281,7 +302,7 @@ bool ShaderToy::addRenderPass(const WString &shaderName, const String &displayNa
 	texInitData.format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	texInitData.width = width;
 	texInitData.height = height;
-	for (int i = 0; i < numRenderPasses; ++i) {
+	for (int i = 0; i < numRenderTargets; ++i) {
 		rp.renderTextures.emplace_back();
 		auto &rt = rp.renderTextures.back();
 		rt.init(texInitData, Dar::FRAME_COUNT);
@@ -291,7 +312,7 @@ bool ShaderToy::addRenderPass(const WString &shaderName, const String &displayNa
 	return true;
 }
 
-bool ShaderToy::addRenderPass(const char *code, const String &displayName, int numRenderPasses) {
+bool ShaderToy::addRenderPass(const char *code, const String &displayName, int numRenderTargets) {
 	auto shaderName = L"shader" + std::to_wstring(shaderCount++);
 	bool res = Dar::ShaderCompiler::compileFromSource(code, shaderName, L".\\res\\shaders", Dar::ShaderType::Pixel);
 
@@ -299,7 +320,7 @@ bool ShaderToy::addRenderPass(const char *code, const String &displayName, int n
 		return false;
 	}
 
-	return addRenderPass(shaderName, displayName, numRenderPasses);
+	return addRenderPass(shaderName, displayName, numRenderTargets);
 }
 
 bool ShaderToy::addRenderPass(const String &name) {
@@ -310,10 +331,17 @@ bool ShaderToy::addRenderPass(const String &name) {
 
 	RenderPass &rp = *rpp;
 	rp.name = name;
-	rp.shaderName = L"shader" + std::to_wstring(shaderCount++);
-	rp.shaderSource = "";
+	rp.shaderName = L"shader" + std::to_wstring(shaderCount-1);
+	rp.shaderSource = 
+		"#include \"common.hlsli\"\n"
+		"\n"
+		"float4 main(PSInput IN) : SV_Target {\n"
+		"\treturn float4(1.f, 0.f, 0.f, 1.f);\n"
+		"}\n";
 	rp.textEdit.SetText("");
 	rp.compiled = false;
+
+	rp.textEdit.SetText(rp.shaderSource);
 
 	// Add a single render texture
 	rp.renderTextures.emplace_back();
@@ -413,4 +441,15 @@ int ShaderToy::loadPipelines() {
 	renderer.compilePipeline();
 
 	return true;
+}
+
+void ShaderToy::RenderPass::addRenderTexture(const ShaderToy &app) {
+	renderTextures.emplace_back();
+	auto &rt = renderTextures.back();
+
+	Dar::TextureInitData texInitData = {};
+	texInitData.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	texInitData.width = app.getWidth();
+	texInitData.height = app.getHeight();
+	rt.init(texInitData, Dar::FRAME_COUNT);
 }

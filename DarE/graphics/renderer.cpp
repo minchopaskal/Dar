@@ -320,6 +320,8 @@ void Renderer::renderFrame(const FrameData &frameData) {
 	commandQueueDirect.addCommandListForExecution(populateCommandList(frameData));
 	fenceValues[backbufferIndex] = commandQueueDirect.executeCommandLists();
 
+	++numRenderedFrames;
+
 	const UINT syncInterval = settings.vSyncEnabled ? 1 : 0;
 	const UINT presentFlags = allowTearing && !settings.vSyncEnabled ? DXGI_PRESENT_ALLOW_TEARING : 0;
 	RETURN_ON_ERROR(backbuffer.present(syncInterval, presentFlags), , "Failed to execute command list!");
