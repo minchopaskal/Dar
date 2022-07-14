@@ -17,12 +17,19 @@ set(SOURCES
 
 set(SHADERS
 	${SHADERS_DIR}/common.hlsli
-	${SHADERS_DIR}/render_pass_ps.hlsl
-	${SHADERS_DIR}/render_pass_vs.hlsl
 	${SHADERS_DIR}/screen_quad_ps.hlsl
 	${SHADERS_DIR}/screen_quad_vs.hlsl
 	${SHADERS_DIR}/screen_quad.hlsli
 )
+
+set(SHADERS_TO_SHOW
+	${SHADERS_DIR}/common.hlsli
+	${SHADERS_DIR}/screen_quad_ps.hlsl
+	${SHADERS_DIR}/screen_quad_vs.hlsl
+	${SHADERS_DIR}/screen_quad.hlsli
+	${SHADERS_DIR}/belousov_zhabotinsky.hlsl
+)
+set_source_files_properties(${SHADERS_DIR}/belousov_zhabotinsky.hlsl PROPERTIES VS_SETTINGS "ExcludedFromBuild=True")
 
 set(TEXT_EDITOR_SRC
 	${SUBMODULE_DIR}/ImGuiColorTextEdit/TextEditor.cpp
@@ -30,12 +37,12 @@ set(TEXT_EDITOR_SRC
 
 source_group("src"           FILES ${SOURCES})
 source_group("include"       FILES ${HEADERS})
-source_group("shaders"       FILES ${SHADERS})
+source_group("shaders"       FILES ${SHADERS_TO_SHOW})
 source_group("third_party"   FILES ${TEXT_EDITOR_SRC})
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:CONSOLE")
 
-add_executable(ShaderToy ${HEADERS} ${SOURCES} ${SUBMODULES} ${SHADERS} ${TEXT_EDITOR_SRC})
+add_executable(ShaderToy ${HEADERS} ${SOURCES} ${SUBMODULES} ${SHADERS_TO_SHOW} ${TEXT_EDITOR_SRC})
 
 compile_shaders(ShaderToy "${SHADERS}" "6_6")
 
@@ -75,6 +82,7 @@ copyD3D12Core(ShaderToy)
 set(SHADERS_TO_COPY
 	${SHADERS_DIR}/common.hlsli
 	${SHADERS_DIR}/screen_quad.hlsli
+	${SHADERS_DIR}/belousov_zhabotinsky.hlsl
 )
 
 set(DXC_FILES_TO_COPY

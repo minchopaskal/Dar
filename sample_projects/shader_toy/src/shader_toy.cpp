@@ -13,6 +13,7 @@
 #include "d3d12/pipeline_state.h"
 #include "utils/shader_compiler.h"
 #include "utils/utils.h"
+#include "utils/random.h"
 
 #include "imguifiledialog/ImGuiFileDialog.h"
 
@@ -72,9 +73,12 @@ void ShaderToy::update() {
 	ConstantData cd = { };
 	cd.width = width;
 	cd.height = height;
-	cd.frame = frameCount - frameCountOffset;
+	cd.frame = pauseAnimation ? freezeFrameCount : frameCount - frameCountOffset;
 	cd.delta = getDeltaTime();
 	cd.hasOutput = (outputPassId >= 0 && outputPassId < renderPasses.size());
+	Dar::Random rand;
+	cd.seed.x = rand.generateFlt(0.f, 1.f);
+	cd.seed.y = rand.generateFlt(0.f, 1.f);
 
 	auto &resManager = Dar::getResourceManager();
 	Dar::UploadHandle uploadHandle = resManager.beginNewUpload();
@@ -113,15 +117,36 @@ void ShaderToy::update() {
 void ShaderToy::drawUI() {
 	ImGui::SetNextWindowPos({ 0, 0 });
 	
-	ImGui::Begin("FPS", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-		ImGui::Text("%.2f", getFPS());
+	ImGui::Begin("Shader toy", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::Text("FPS: %.2f", getFPS());
+		if (ImGui::Button("Restart")) {
+			resetFrameCount();
+			pauseAnimation = false;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button(pauseAnimation ? "Continue" : "Pause")) {
+			pauseAnimation = !pauseAnimation;
+			if (!pauseAnimation) {
+				frameCountOffset = renderer.getNumRenderedFrames() - freezeFrameCount;
+			} else {
+				freezeFrameCount = renderer.getNumRenderedFrames() - frameCountOffset;
+			}
+		}
+
+		ImGui::SameLine();
+		if (pauseAnimation) {
+			if (ImGui::Button("Step")) {
+				++freezeFrameCount;
+			}
+		}
 	ImGui::End();
 
+	static int processedRP = 0;
+	if (!renderPasses.empty()) {
 	ImGui::Begin("Render Passes", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-		static int processedRP = 0;
 		String addPopupName = "add_dep_popup";
 		String remPopupName = "rem_dep_popup";
-		
+
 		for (int i = 0; i < renderPasses.size(); ++i) {
 			auto &rp = renderPasses[i];
 
@@ -172,7 +197,7 @@ void ShaderToy::drawUI() {
 				ImGui::Text("\t%s", renderPasses[j]->name.c_str());
 			}
 			ImGui::Text("Num renderTargets: %d", renderPasses[i]->renderTextures.size());
-			
+
 			ImGui::Separator();
 		}
 
@@ -215,7 +240,8 @@ void ShaderToy::drawUI() {
 			ImGui::EndPopup();
 		}
 
-	ImGui::End();
+	ImGui::End(); // Render passes window
+	}
 
 	ImGui::Begin("Shader Sources");
 	if (ImGui::Button("(+) Shader")) {

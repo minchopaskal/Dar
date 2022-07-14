@@ -58,6 +58,7 @@ private:
 		unsigned int frame;
 		float delta;
 		int hasOutput;
+		Vec2 seed;
 	};
 
 	Dar::FrameData frameData[Dar::FRAME_COUNT];
@@ -70,6 +71,9 @@ private:
 	char nameBuffer[32];
 	bool inputTextActive = false;
 	bool updatePipelines = false;
+	bool pauseAnimation = false;
+
+	unsigned int freezeFrameCount = 0;
 
 	/// Each time we set a new output make sure to restart the frameCounter as seen by the shaders.
 	/// This way any frameCount dependant operations will be correct.
