@@ -112,15 +112,22 @@ bool ShaderCompiler::compileFromSource(const char *src, const WString &name, con
 
 	if (!res) {
 		DWORD lastErr = GetLastError();
-		LOG_FMT(Error, "DXC failed to compile %s. Error: %d", name.c_str(), lastErr);
+		LOG_FMT(Error, "DXC failed to start. Error: %d", lastErr);
 		return false;
 	}
 
 	WaitForSingleObject(pi.hProcess, INFINITE);
 
+	DWORD exitCode;
+	GetExitCodeProcess(pi.hProcess, &exitCode);
+	if (exitCode != 0) {
+		LOG_FMT(Error, "DXC failed to compile %s. Error: %lu", name.c_str(), exitCode);
+		return false;
+	}
+
 	// Close process and thread handles. 
-	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
+	CloseHandle(pi.hProcess);
 
 	DeleteFileW(filename.c_str());
 

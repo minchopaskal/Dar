@@ -12,6 +12,7 @@ set(HEADERS
 set(SOURCES
 	${SRC_DIR}/main.cpp
 	${SRC_DIR}/shader_toy.cpp
+	${SUBMODULE_DIR}/imguifiledialog/ImGuiFileDialog.cpp
 )
 
 set(SHADERS
