@@ -37,6 +37,20 @@ int ShaderToy::initImpl() {
 
 void ShaderToy::deinit() {
 	flush();
+
+	// Delete all the temporary shader files.
+	for (auto &rp : renderPasses) {
+		WString vsShaderName = rp->shaderName + WString(L"_vs.bin");
+		WString psShaderName = rp->shaderName + WString(L"_ps.bin");
+
+		std::filesystem::path p("res\\shaders\\");
+		auto vsPath = p/vsShaderName;
+		auto psPath = p/psShaderName;
+
+		DeleteFileW(vsPath.c_str());
+		DeleteFileW(psPath.c_str());
+	}
+
 	Super::deinit();
 }
 
@@ -168,7 +182,7 @@ void ShaderToy::drawUI() {
 				ImGui::Text("No render passes to add as dependancies!");
 			}
 			for (int j = 0; j < renderPasses.size(); ++j) {
-				// slow but whatever
+				// slow but whatever - we don't expect a lot of shaders nevertheless.
 				if (j == processedRP || std::find(deps.begin(), deps.end(), j) != deps.end()) {
 					continue;
 				}
