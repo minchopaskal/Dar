@@ -14,9 +14,12 @@
 #include "utils/shader_compiler.h"
 #include "utils/utils.h"
 
+#include "imguifiledialog/ImGuiFileDialog.h"
+
 #include <fstream>
 #include <sstream>
 #include <cstdlib>
+#include <filesystem>
 
 ShaderToy::ShaderToy(UINT width, UINT height, const String &windowTitle) : Dar::App(width, height, windowTitle.c_str()) {
 	memset(buffer, 0, 4096);
@@ -101,7 +104,7 @@ void ShaderToy::drawUI() {
 	ImGui::End();
 
 	ImGui::Begin("Render Passes", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-		static int depRP = 0;
+		static int processedRP = 0;
 		String addPopupName = "add_dep_popup";
 		String remPopupName = "rem_dep_popup";
 		
@@ -134,13 +137,13 @@ void ShaderToy::drawUI() {
 
 			ImGui::SameLine();
 			if (ImGui::Button(addDepButton.c_str())) {
-				depRP = i;
+				processedRP = i;
 				ImGui::OpenPopup(addPopupName.c_str());
 			}
 
 			ImGui::SameLine();
 			if (ImGui::Button(remDepButton.c_str())) {
-				depRP = i;
+				processedRP = i;
 				ImGui::OpenPopup(remPopupName.c_str());
 			}
 
@@ -160,16 +163,19 @@ void ShaderToy::drawUI() {
 		}
 
 		if (ImGui::BeginPopup(addPopupName.c_str())) {
-			auto &deps = renderPasses[depRP]->dependancies;
+			auto &deps = renderPasses[processedRP]->dependancies;
+			if (renderPasses.size() == 1) {
+				ImGui::Text("No render passes to add as dependancies!");
+			}
 			for (int j = 0; j < renderPasses.size(); ++j) {
 				// slow but whatever
-				if (j == depRP || std::find(deps.begin(), deps.end(), j) != deps.end()) {
+				if (j == processedRP || std::find(deps.begin(), deps.end(), j) != deps.end()) {
 					continue;
 				}
 
 				if (ImGui::Button(renderPasses[j]->name.c_str())) {
 					deps.push_back(j);
-					if (std::find(renderGraph.begin(), renderGraph.end(), depRP) != renderGraph.end()) {
+					if (std::find(renderGraph.begin(), renderGraph.end(), processedRP) != renderGraph.end()) {
 						updatePipelines = true;
 					}
 					ImGui::CloseCurrentPopup();
@@ -179,11 +185,14 @@ void ShaderToy::drawUI() {
 		}
 
 		if (ImGui::BeginPopup(remPopupName.c_str())) {
-			auto &deps = renderPasses[depRP]->dependancies;
+			auto &deps = renderPasses[processedRP]->dependancies;
+			if (deps.empty()) {
+				ImGui::Text("Render pass has no dependancies!");
+			}
 			for (int j = 0; j < deps.size(); ++j) {
 				if (ImGui::Button(renderPasses[deps[j]]->name.c_str())) {
 					deps.erase(deps.begin() + j);
-					if (std::find(renderGraph.begin(), renderGraph.end(), depRP) != renderGraph.end()) {
+					if (std::find(renderGraph.begin(), renderGraph.end(), processedRP) != renderGraph.end()) {
 						updatePipelines = true;
 					}
 					ImGui::CloseCurrentPopup();
@@ -199,6 +208,7 @@ void ShaderToy::drawUI() {
 		addRenderPass(String("Shader") + std::to_string(shaderCount++));
 	}
 
+	bool openCompileErrorPopup = false;
 	if (ImGui::BeginTabBar("Files tab")) {
 		for (int i = 0; i < renderPasses.size(); ++i) {
 			auto &rp = renderPasses[i];
@@ -226,21 +236,21 @@ void ShaderToy::drawUI() {
 							resetFrameCount();
 						}
 					} else {
-						if (ImGui::BeginPopup("Error compiling")) {
-							ImGui::Text("%s failed to compile!", rp->name.c_str());
-							ImGui::EndPopup();
-						}
+						processedRP = i;
+						openCompileErrorPopup = true;
 					}
 				}
 
 				ImGui::SameLine();
 				if (ImGui::Button(loadFileButton.c_str())) {
-
+					ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".hlsl", ".");
+					processedRP = i;
 				}
 
 				ImGui::SameLine();
 				if (ImGui::Button(saveFileButton.c_str())) {
-
+					ImGuiFileDialog::Instance()->OpenDialog("SaveToFileDlgKey", "Save to File", ".hlsl", String("./") + rp->name + ".hlsl");
+					processedRP = i;
 				}
 				
 				rp->textEdit.Render("Editor");
@@ -251,6 +261,57 @@ void ShaderToy::drawUI() {
 
 		ImGui::EndTabBar();
 	}
+
+	if (openCompileErrorPopup) {
+		ImGui::OpenPopup("Error##compiler");
+		openCompileErrorPopup = false;
+	}
+
+	bool popupOpen = true;
+	if (ImGui::BeginPopupModal("Error##compiler", &popupOpen)) {
+		auto &rp = renderPasses[processedRP];
+		ImGui::Text("%s failed to compile!", rp->name.c_str());
+		ImGui::EndPopup();
+	}
+
+	if (ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey")) {
+		if (ImGuiFileDialog::Instance()->IsOk()) {
+			String filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
+
+			std::filesystem::path p(filePathName);
+
+			if (std::filesystem::exists(p)) {
+				auto &rp = renderPasses[processedRP];
+				std::stringstream ss;
+				for (const auto &line : Dar::generateFileLines(filePathName)) {
+					ss << line << std::endl;
+				}
+
+				rp->shaderSource = ss.str();
+				rp->textEdit.SetText(rp->shaderSource);
+			}
+		}
+
+		ImGuiFileDialog::Instance()->Close();
+	}
+
+	if (ImGuiFileDialog::Instance()->Display("SaveToFileDlgKey")) {
+		if (ImGuiFileDialog::Instance()->IsOk()) {
+			String filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
+
+			std::ofstream ofs(filePathName, std::ios::trunc);
+
+			if (ofs.good()) {
+				auto &rp = renderPasses[processedRP];
+				rp->shaderSource = rp->textEdit.GetText();
+				ofs << rp->shaderSource;
+				ofs.close();
+			}
+		}
+
+		ImGuiFileDialog::Instance()->Close();
+	}
+
 	ImGui::End();
 }
 

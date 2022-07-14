@@ -16,3 +16,4 @@
 [submodule "third_party/imguifiledialog"]
 	path = third_party/imguifiledialog
 	url = git@github.com:aiekick/ImGuiFileDialog.git
+	branch = Lib_Only

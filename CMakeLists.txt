@@ -7,8 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Configs" FORCE)
 
-# Enable parallel compilation for MSVC by defult.
-add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
+add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>) # Enable parallel compilation for MSVC by defult.
+add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/await>) # Enable coroutine support. Since we use cppcoro we don't want /await:strict
 add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/we4834>) # Make an error ignoring result of nodiscard function
 add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/we4715>) # Make an error failing to provide each path with a return value.
 add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/wd4996>) # Ignore CRT non-conforming warnings.
