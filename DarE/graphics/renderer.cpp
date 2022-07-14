@@ -267,13 +267,6 @@ void Renderer::init() {
 }
 
 void Renderer::deinit() {
-	ImGui_ImplDX12_InvalidateDeviceObjects();
-	if (!imGuiShutdown) {
-		ImGui_ImplDX12_Shutdown();
-		imGuiShutdown = true;
-	}
-	imguiSRVHeap.Reset();
-
 	for (int i = 0; i < renderPasses.size(); ++i) {
 		renderPasses[i]->deinit();
 	}
@@ -308,6 +301,19 @@ void Renderer::deinit() {
 		debugLayer->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_FLAGS(DXGI_DEBUG_RLO_IGNORE_INTERNAL | DXGI_DEBUG_RLO_SUMMARY));
 	}
 #endif // DAR_DEBUG
+}
+
+bool Renderer::deinitImGui() {
+	ImGui_ImplDX12_InvalidateDeviceObjects();
+	if (!imGuiShutdown) {
+		ImGui_ImplDX12_Shutdown();
+		ImGui_ImplGlfw_Shutdown();
+		ImGui::DestroyContext();
+		imGuiShutdown = true;
+	}
+	imguiSRVHeap.Reset();
+
+	return true;
 }
 
 void Renderer::flush() {
@@ -349,6 +355,9 @@ bool Renderer::resizeBackBuffers() {
 	}
 	
 	backbufferIndex = backbuffer.getCurrentBackBufferIndex();
+
+	deinitImGui();
+	initImGui();
 
 	return true;
 }

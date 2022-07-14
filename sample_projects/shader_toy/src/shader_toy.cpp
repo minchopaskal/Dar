@@ -209,6 +209,7 @@ void ShaderToy::drawUI() {
 	}
 
 	bool openCompileErrorPopup = false;
+	inputTextActive = false;
 	if (ImGui::BeginTabBar("Files tab")) {
 		for (int i = 0; i < renderPasses.size(); ++i) {
 			auto &rp = renderPasses[i];
@@ -253,7 +254,7 @@ void ShaderToy::drawUI() {
 					processedRP = i;
 				}
 				
-				rp->textEdit.Render("Editor");
+				inputTextActive = inputTextActive || rp->textEdit.Render("Editor");
 
 				ImGui::EndTabItem();
 			}
@@ -334,9 +335,6 @@ void ShaderToy::onResize(const unsigned int w, const unsigned int h) {
 }
 
 void ShaderToy::onKeyboardInput(int key, int action) {
-	// TODO: fix input not detected
-	return;
-
 	if (inputTextActive) {
 		return;
 	}

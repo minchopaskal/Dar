@@ -435,6 +435,7 @@ struct Renderer {
 private:
 	bool initDevice();
 	bool initImGui();
+	bool deinitImGui();
 
 	void renderUI(CommandList &cmdList, D3D12_CPU_DESCRIPTOR_HANDLE &rtvHandle);
 
