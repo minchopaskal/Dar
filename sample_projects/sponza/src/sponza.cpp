@@ -80,7 +80,7 @@ void Sponza::update() {
 		//Dar::JobSystem::kickJobsAndWait(jobs, 100);
 	}
 
-	camControl->processKeyboardInput(this, deltaTime);
+	camControl->processKeyboardInput(this, getDeltaTime());
 
 	const Dar::Camera &cam = camControl->getCamera();
 
@@ -135,13 +135,17 @@ void Sponza::update() {
 		fd.addTextureResource(gBufferRTs[i].getTextureResource(frameIndex), 1);
 	}
 
-	fd.addRenderCommand(Dar::RenderCommand::drawInstanced(3, 1, 0, 0), 1);
+	fd.addRenderCommand(Dar::RenderCommandDrawInstanced(3, 1, 0, 0), 1);
 
 	// Post-process pass
 	fd.addTextureResource(lightPassRT.getTextureResource(frameIndex), 2);
 	fd.addTextureResource(depthBuffer.getTexture(), 2);
 
-	fd.addRenderCommand(Dar::RenderCommand::drawInstanced(3, 1, 0, 0), 2);
+	fd.addRenderCommand(Dar::RenderCommandDrawInstanced(3, 1, 0, 0), 2);
+
+	if (renderer.getNumRenderedFrames() < Dar::FRAME_COUNT) {
+		fd.setUseSameCommands(true);
+	}
 }
 
 void Sponza::drawUI() {
@@ -152,7 +156,7 @@ void Sponza::drawUI() {
 	ImGui::SetNextWindowPos({ 0, 0 });
 
 	ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-		ImGui::Text("FPS: %.2f", fps);
+		ImGui::Text("FPS: %.2f", getFPS());
 		ImGui::Text("Camera FOV: %.2f", cam.getFOV());
 		ImGui::Text("Camera Speed: %.2f", camControl->getSpeed());
 		Vec3 pos = cam.getPos();
@@ -299,11 +303,11 @@ void Sponza::onKeyboardInput(int key, int action) {
 }
 
 void Sponza::onMouseScroll(double xOffset, double yOffset) {
-	camControl->onMouseScroll(xOffset, yOffset, deltaTime);
+	camControl->onMouseScroll(xOffset, yOffset, getDeltaTime());
 }
 
 void Sponza::onMouseMove(double xPos, double yPos) {
-	camControl->onMouseMove(xPos, yPos, deltaTime);
+	camControl->onMouseMove(xPos, yPos, getDeltaTime());
 }
 
 void Sponza::onWindowClose() {

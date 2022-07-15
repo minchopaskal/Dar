@@ -584,9 +584,7 @@ CommandList Renderer::populateCommandList(const FrameData &frameData) {
 
 		cmdList->OMSetRenderTargets(numRenderTargets, &rtvHandle, TRUE, hasDepthBuffer ? &dsvHandle : nullptr);
 
-		for (auto &renderCmd : frameData.renderCommands[renderPassIndex]) {
-			renderCmd.exec(cmdList);
-		}
+		frameData.renderCommands[renderPassIndex].execCommands(cmdList);
 
 		renderPass.end(cmdList);
 	}
@@ -799,70 +797,49 @@ void FrameData::beginFrame(const Renderer &renderer) {
 	indexBuffer = nullptr;
 	constantBuffers.clear();
 	shaderResources.clear();
-	renderCommands.clear();
 	shaderResources.resize(renderer.getNumPasses());
-	renderCommands.resize(renderer.getNumPasses());
+	
+	if (!useSameCommands) {
+		renderCommands.clear();
+		renderCommands.resize(renderer.getNumPasses());
+	}
 }
 
-RenderCommand RenderCommand::drawInstanced(UINT vertexCount, UINT instanceCount, UINT startVertex, UINT startInstance) {
-	RenderCommand res;
-	res.vertexCountDI = vertexCount;
-	res.instanceCountDI = instanceCount;
-	res.startVertexDI = startVertex;
-	res.startInstanceDI = startInstance;
-	res.type = RenderCommandType::DrawInstanced;
-
-	return res;
+RenderCommandList::~RenderCommandList() {
+	delete[] memory;
+	memory = nullptr;
+	size = 0;
 }
 
-RenderCommand RenderCommand::drawIndexedInstanced(UINT indexCount, UINT instanceCount, UINT startIndex, UINT baseVertex, UINT startInstance) {
-	RenderCommand res;
-	res.indexCountDII = indexCount;
-	res.instanceCountDII = instanceCount;
-	res.startIndexDII = startIndex;
-	res.baseVertexDII = baseVertex;
-	res.startInstanceDII = startInstance;
-	res.type = RenderCommandType::DrawIndexedInstanced;
-
-	return res;
-}
-
-RenderCommand RenderCommand::setConstantBuffer(ResourceHandle constBufferHandle, UINT rootIndex) {
-	RenderCommand res;
-	res.constBufferHandleSCB = constBufferHandle;
-	res.rootIndexSCB = rootIndex;
-	res.type = RenderCommandType::SetConstantBuffer;
-
-	return res;
-}
-
-RenderCommand RenderCommand::transition(ResourceHandle resource, D3D12_RESOURCE_STATES toState, UINT subresIndex) {
-	RenderCommand res;
-	res.resourceT = resource;
-	res.toStateT = toState;
-	res.subresIndexT = subresIndex;
-	res.type = RenderCommandType::Transition;
-
-	return res;
-}
-
-void RenderCommand::exec(CommandList &cmdList) const {
-	switch (type) {
-	case RenderCommandType::DrawInstanced:
-		cmdList->DrawInstanced(vertexCountDI, instanceCountDI, startVertexDI, startInstanceDI);
-		break;
-	case RenderCommandType::DrawIndexedInstanced:
-		cmdList->DrawIndexedInstanced(indexCountDII, instanceCountDII, startIndexDII, baseVertexDII, startInstanceDII);
-		break;
-	case RenderCommandType::SetConstantBuffer:
-		cmdList.transition(constBufferHandleSCB, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-		cmdList.setConstantBufferView(rootIndexSCB, constBufferHandleSCB);
-		break;
-	case RenderCommandType::Transition:
-		cmdList.transition(resourceT, toStateT, subresIndexT);
-		break;
-	default:
-		break;
+void RenderCommandList::execCommands(CommandList &cmdList) const {
+	using RenderCommandIterator = Byte*;
+	RenderCommandIterator it = memory;
+	while (it != memory + size) {
+		auto *renderCommand = std::bit_cast<RenderCommandInvalid*>(it);
+		SizeType rcSize = 0;
+		switch (renderCommand->type) {
+		using enum RenderCommandType;
+		case DrawInstanced:
+			std::bit_cast<RenderCommandDrawInstanced*>(it)->exec(cmdList);
+			rcSize = sizeof(RenderCommandDrawInstanced);
+			break;
+		case DrawIndexedInstanced:
+			std::bit_cast<RenderCommandDrawIndexedInstanced *>(it)->exec(cmdList);
+			rcSize = sizeof(RenderCommandDrawIndexedInstanced);
+			break;
+		case SetConstantBuffer:
+			std::bit_cast<RenderCommandSetConstantBuffer *>(it)->exec(cmdList);
+			rcSize = sizeof(RenderCommandSetConstantBuffer);
+			break;
+		case Transition:
+			std::bit_cast<RenderCommandTransition *>(it)->exec(cmdList);
+			rcSize = sizeof(RenderCommandTransition);
+			break;
+		default:
+			dassert(false);
+			break;
+		}
+		it += rcSize;
 	}
 }
 

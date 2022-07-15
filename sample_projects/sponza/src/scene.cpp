@@ -72,8 +72,8 @@ void ModelNode::draw(Dar::FrameData &frameData, const Scene &scene) const {
 	for (int i = 0; i < numMeshes; ++i) {
 		const Mesh &mesh = meshes[i];
 
-		frameData.addRenderCommand(Dar::RenderCommand::setConstantBuffer(mesh.meshDataHandle, static_cast<UINT>(ConstantBufferView::MeshData)), 0);
-		frameData.addRenderCommand(Dar::RenderCommand::drawIndexedInstanced(static_cast<UINT>(mesh.numIndices), 1, static_cast<UINT>(mesh.indexOffset), 0, 0), 0);
+		frameData.addRenderCommand(Dar::RenderCommandSetConstantBuffer(mesh.meshDataHandle, static_cast<UINT>(ConstantBufferView::MeshData)), 0);
+		frameData.addRenderCommand(Dar::RenderCommandDrawIndexedInstanced(static_cast<UINT>(mesh.numIndices), 1, static_cast<UINT>(mesh.indexOffset), 0, 0), 0);
 	}
 }
 

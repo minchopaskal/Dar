@@ -69,7 +69,7 @@ void D3D12HelloTriangle::update() {
 	fd.setVertexBuffer(&vertexBuffer);
 	fd.setIndexBuffer(&indexBuffer);
 	fd.addConstResource(mvpResourceHandle[frameIndex], 0);
-	fd.addRenderCommand(Dar::RenderCommand::drawIndexedInstanced(3, 1, 0, 0, 0), 0);
+	fd.addRenderCommand(Dar::RenderCommandDrawIndexedInstanced(3, 1, 0, 0, 0), 0);
 }
 
 void D3D12HelloTriangle::onResize(const unsigned int w, const unsigned int h) {
@@ -102,7 +102,7 @@ void D3D12HelloTriangle::onKeyboardInput(int key, int action) {
 
 void D3D12HelloTriangle::onMouseScroll(double xOffset, double yOffset) {
 	static const double speed = 500.f;
-	FOV -= float(speed * deltaTime * yOffset);
+	FOV -= float(speed * getDeltaTime() * yOffset);
 	FOV = dmath::min(dmath::max(30.f, FOV), 120.f);
 }
 

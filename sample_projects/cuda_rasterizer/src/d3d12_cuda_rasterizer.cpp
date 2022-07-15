@@ -89,7 +89,7 @@ void CudaRasterizer::update() {
 
 	Dar::FrameData &fd = frameData[renderer.getBackbufferIndex()];
 	fd.addTextureResource(dx12RT, 0);
-	fd.addRenderCommand(Dar::RenderCommand::drawInstanced(3, 1, 0, 0), 0);
+	fd.addRenderCommand(Dar::RenderCommandDrawInstanced(3, 1, 0, 0), 0);
 }
 
 void CudaRasterizer::onResize(const unsigned int w, const unsigned int h) {

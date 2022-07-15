@@ -12,7 +12,6 @@
 
 #include <concepts>
 
-
 namespace Dar {
 
 constexpr UINT FRAME_COUNT = 2;
@@ -98,74 +97,118 @@ public:
 	ResourceHandle backBuffersHandles[FRAME_COUNT]; ///< Handles to the RT resources in the resource manager
 };
 
-struct RenderCommand {
-	static RenderCommand drawInstanced(
-		UINT vertexCount,
-		UINT instanceCount,
-		UINT startVertex,
-		UINT startInstance
-	);
+enum class RenderCommandType {
+	DrawInstanced,
+	DrawIndexedInstanced,
+	SetConstantBuffer,
+	Transition,
 
-	static RenderCommand drawIndexedInstanced(
+	Invalid,
+};
+
+template <class T>
+concept RenderCommandConcept = requires (const T &x, CommandList &l) {
+	x.exec(l); // Existence of non-static void T::exec(CommandList&)
+	T::type; // Existence of member variable T::type
+	std::is_same_v<decltype(T::type), RenderCommandType>; // type of T::type == RenderCommandType1
+};
+
+struct RenderCommandInvalid {
+	RenderCommandType type = RenderCommandType::Invalid;
+
+	void exec(CommandList &l) { }
+};
+
+struct RenderCommandDrawInstanced {
+	RenderCommandType type = RenderCommandType::DrawInstanced;
+
+	RenderCommandDrawInstanced(UINT vertexCount, UINT instanceCount, UINT startVertex, UINT startInstance)
+		: vc(vertexCount), ic(instanceCount), sv(startVertex), si(startInstance) { }
+
+	void exec(CommandList &cmdList) const {
+		cmdList->DrawInstanced(vc, ic, sv, si);
+	}
+
+private:
+	UINT vc, ic, sv, si;
+};
+
+struct RenderCommandDrawIndexedInstanced {
+	RenderCommandType type = RenderCommandType::DrawIndexedInstanced;
+
+	RenderCommandDrawIndexedInstanced(
 		UINT indexCount,
 		UINT instanceCount,
 		UINT startIndex,
 		UINT baseVertex,
 		UINT startInstance
-	);
+	) : idxCnt(indexCount), ic(instanceCount), si(startIndex), bv(baseVertex), sInst(startInstance) {}
 
-	static RenderCommand setConstantBuffer(
-		ResourceHandle constBufferHandle,
-		UINT rootIndex
-	);
+	void exec(CommandList &cmdList) const {
+		cmdList->DrawIndexedInstanced(idxCnt, ic, si, bv, sInst);
+	}
 
-	static RenderCommand transition(
+private:
+	UINT idxCnt, ic, si, bv, sInst;
+};
+
+struct RenderCommandSetConstantBuffer {
+	RenderCommandType type = RenderCommandType::SetConstantBuffer;
+
+	RenderCommandSetConstantBuffer(ResourceHandle constBufferHandle, UINT rootIndex) 
+		: constBufferHandle(constBufferHandle), rootIndex(rootIndex) {}
+
+	void exec(CommandList &cmdList) const {
+		cmdList.transition(constBufferHandle, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+		cmdList.setConstantBufferView(rootIndex, constBufferHandle);
+	}
+
+private:
+	ResourceHandle constBufferHandle;
+	UINT rootIndex;
+};
+
+struct RenderCommandTransition {
+	RenderCommandType type = RenderCommandType::Transition;
+
+	RenderCommandTransition(
 		ResourceHandle resource,
 		D3D12_RESOURCE_STATES toState,
 		UINT subresIndex = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES
-	);
+	) 
+		: resource(resource), toState(toState), subresIndex(subresIndex) {}
 
-	void exec(CommandList &cmdList) const;
+	void exec(CommandList &cmdList) const {
+		cmdList.transition(resource, toState, subresIndex);
+	}
 
 private:
-	RenderCommand() : type(RenderCommandType::Invalid) {}
+	ResourceHandle resource;
+	D3D12_RESOURCE_STATES toState;
+	UINT subresIndex;
+};
 
-	enum class RenderCommandType {
-		DrawInstanced,
-		DrawIndexedInstanced,
-		SetConstantBuffer,
-		Transition,
+struct RenderCommandList {
+	RenderCommandList() : memory(nullptr), size(0) {}
+	
+	~RenderCommandList();
 
-		Invalid,
-		// ...
-	} type;
-	union {
-		struct {
-			UINT vertexCountDI;
-			UINT instanceCountDI;
-			UINT startVertexDI;
-			UINT startInstanceDI;
-		};
+	void addRenderCommand(RenderCommandConcept auto rc) {
+		SizeType rcSize = sizeof(rc);
+		// TODO: This would be done best with a custom allocator(per frame one in this exact case).
+		Byte *newMemory = new Byte[size + rcSize];
+		memcpy(newMemory, memory, size);
+		memcpy(newMemory + size, &rc, rcSize);
+		delete[] memory;
+		memory = newMemory;
+		size += rcSize;
+	}
 
-		struct {
-			UINT indexCountDII;
-			UINT instanceCountDII;
-			UINT startIndexDII;
-			UINT baseVertexDII;
-			UINT startInstanceDII;
-		};
+	void execCommands(CommandList &cmdList) const;
 
-		struct {
-			ResourceHandle constBufferHandleSCB;
-			UINT rootIndexSCB;
-		};
-
-		struct {
-			ResourceHandle resourceT;
-			D3D12_RESOURCE_STATES toStateT;
-			UINT subresIndexT;
-		};
-	};
+private:
+	Byte *memory;
+	SizeType size;
 };
 
 struct FrameData {
@@ -202,8 +245,16 @@ struct FrameData {
 		shaderResources[passIndex].emplace_back(shaderResource);
 	}
 	
-	void addRenderCommand(RenderCommand &&renderCmd, int passIndex) {
-		renderCommands[passIndex].emplace_back(std::move(renderCmd));
+	void addRenderCommand(RenderCommandConcept auto renderCmd, int passIndex) {
+		if (!useSameCommands) {
+			renderCommands[passIndex].addRenderCommand(renderCmd);
+		}
+	}
+
+	/// Optimization. If set to true doesn't update
+	// the commands on the next frame.
+	void setUseSameCommands(bool useSameCommands) {
+		this->useSameCommands = useSameCommands;
 	}
 
 private:
@@ -235,10 +286,12 @@ private:
 
 	/// List of render commands for each pass. The list is executed as is,
 	/// i.e it preserves the order of the commands as they were passed.
-	Vector<Vector<RenderCommand>> renderCommands;
+	Vector<RenderCommandList> renderCommands;
 
 	VertexBuffer *vertexBuffer = nullptr;
 	IndexBuffer *indexBuffer = nullptr;
+
+	bool useSameCommands = false;
 };
 
 enum class RenderPassAttachmentType {

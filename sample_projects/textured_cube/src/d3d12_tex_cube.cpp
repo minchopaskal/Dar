@@ -70,10 +70,10 @@ void D3D12TexturedCube::deinit() {
 }
 
 void D3D12TexturedCube::update() {
-	camControl.processKeyboardInput(this, deltaTime);
+	camControl.processKeyboardInput(this, getDeltaTime());
 
 	// Update MVP matrices
-	const auto angle = static_cast<float>(totalTime * 90.0);
+	const auto angle = static_cast<float>(getTotalTime() * 90.0);
 	const auto rotationAxis = Vec3(0, 1, 1);
 	auto modelMat = Mat4(1.f);
 	modelMat = modelMat.rotate(rotationAxis, angle);
@@ -110,12 +110,12 @@ void D3D12TexturedCube::update() {
 		fd.addTextureResource(textures[i], 0);
 	}
 
-	fd.addRenderCommand(Dar::RenderCommand::drawIndexedInstanced(36, 1, 0, 0, 0), 0);
+	fd.addRenderCommand(Dar::RenderCommandDrawIndexedInstanced(36, 1, 0, 0, 0), 0);
 }
 
 void D3D12TexturedCube::drawUI() {
 	ImGui::Begin("Stats");
-	ImGui::Text("FPS: %.2f", fps);
+	ImGui::Text("FPS: %.2f", getFPS());
 	ImGui::Text("Camera FOV: %.2f", cam.getFOV());
 	ImGui::Text("Camera speed: %.2f", camControl.getSpeed());
 	Vec3 pos = cam.getPos();
@@ -164,11 +164,11 @@ void D3D12TexturedCube::onKeyboardInput(int key, int action) {
 }
 
 void D3D12TexturedCube::onMouseScroll(double xOffset, double yOffset) {
-	camControl.onMouseScroll(xOffset, yOffset, deltaTime);
+	camControl.onMouseScroll(xOffset, yOffset, getDeltaTime());
 }
 
 void D3D12TexturedCube::onMouseMove(double xPos, double yPos) {
-	camControl.onMouseMove(xPos, yPos, deltaTime);
+	camControl.onMouseMove(xPos, yPos, getDeltaTime());
 }
 
 Dar::FrameData &D3D12TexturedCube::getFrameData() {

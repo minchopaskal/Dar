@@ -102,7 +102,7 @@ void ShaderToy::update() {
 				fd.addTextureResource(rt.getTextureResource(frameIdx), i);
 			}
 		}
-		fd.addRenderCommand(Dar::RenderCommand::drawInstanced(3, 1, 0, 0), i);
+		fd.addRenderCommand(Dar::RenderCommandDrawInstanced(3, 1, 0, 0), i);
 	}
 
 	if (outputPassId >= 0 && outputPassId < renderPasses.size()) {
@@ -111,7 +111,7 @@ void ShaderToy::update() {
 		}
 	}
 
-	fd.addRenderCommand(Dar::RenderCommand::drawInstanced(3, 1, 0, 0), numRPs);
+	fd.addRenderCommand(Dar::RenderCommandDrawInstanced(3, 1, 0, 0), numRPs);
 }
 
 void ShaderToy::drawUI() {

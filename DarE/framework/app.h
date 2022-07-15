@@ -8,7 +8,7 @@
 
 #include "framework/input_query.h"
 
-#include "imgui.h"
+#include "imgui/imgui.h"
 
 #include <chrono>
 using HRC = std::chrono::high_resolution_clock;
@@ -92,6 +92,10 @@ protected:
 
 	double getDeltaTime() const {
 		return deltaTime;
+	}
+
+	double getTotalTime() const {
+		return totalTime;
 	}
 
 	virtual void onResize(const unsigned int w, const unsigned int h) = 0;
