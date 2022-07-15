@@ -188,6 +188,7 @@ private:
 	UINT subresIndex;
 };
 
+// TODO: when execCommands is called cache the commands in a bundle for next frame use.
 struct RenderCommandList {
 	RenderCommandList() : memory(nullptr), size(0) {}
 	
