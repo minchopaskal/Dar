@@ -814,26 +814,28 @@ RenderCommandList::~RenderCommandList() {
 void RenderCommandList::execCommands(CommandList &cmdList) const {
 	using RenderCommandIterator = Byte*;
 	RenderCommandIterator it = memory;
+	SizeType rcSize = 0;
+
+	auto perCmdCallback = [&cmdList, &it, &rcSize]<RenderCommandConcept T>(T*) -> void {
+		reinterpret_cast<T*>(it)->exec(cmdList);
+		rcSize = sizeof(T);
+	};
+
 	while (it != memory + size) {
 		auto *renderCommand = std::bit_cast<RenderCommandInvalid*>(it);
-		SizeType rcSize = 0;
 		switch (renderCommand->type) {
 		using enum RenderCommandType;
 		case DrawInstanced:
-			std::bit_cast<RenderCommandDrawInstanced*>(it)->exec(cmdList);
-			rcSize = sizeof(RenderCommandDrawInstanced);
+			perCmdCallback((RenderCommandDrawInstanced*)nullptr);
 			break;
 		case DrawIndexedInstanced:
-			std::bit_cast<RenderCommandDrawIndexedInstanced *>(it)->exec(cmdList);
-			rcSize = sizeof(RenderCommandDrawIndexedInstanced);
+			perCmdCallback((RenderCommandDrawIndexedInstanced*)nullptr);
 			break;
 		case SetConstantBuffer:
-			std::bit_cast<RenderCommandSetConstantBuffer *>(it)->exec(cmdList);
-			rcSize = sizeof(RenderCommandSetConstantBuffer);
+			perCmdCallback((RenderCommandSetConstantBuffer*)nullptr);
 			break;
 		case Transition:
-			std::bit_cast<RenderCommandTransition *>(it)->exec(cmdList);
-			rcSize = sizeof(RenderCommandTransition);
+			perCmdCallback((RenderCommandSetConstantBuffer*)nullptr);
 			break;
 		default:
 			dassert(false);

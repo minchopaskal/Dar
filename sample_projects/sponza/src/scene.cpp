@@ -187,7 +187,7 @@ bool Scene::uploadLightData(Dar::UploadHandle uploadHandle) {
 
 	SizeType lightsOldBufferSize = lightsBuffer.getSize();
 	if (lightsDataSize > lightsOldBufferSize) {
-		lightsBuffer.init(sizeof(LightData), lightsDataSize);
+		lightsBuffer.init(sizeof(LightData), numLights);
 	
 		lightsBuffer.setName(L"LightsData");
 	}
