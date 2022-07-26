@@ -384,9 +384,28 @@ struct Mat3t {
 		return Mat3t{ -row1, -row2, -row3 };
 	}
 
+	[[nodiscard]] T determinant() const {
+		return
+				(row1.x * row2.y * row3.z +
+				 row1.y * row2.z * row3.x +
+				 row1.z * row2.x * row3.y)-
+				(row1.x * row2.z * row3.y +
+				 row1.y * row2.x * row3.z +
+				 row1.z * row2.y * row3.x);
+	}
+
 	[[nodiscard]] Mat3t inverse() const {
-		// TODO:
-		return Mat3t(T(1));
+		auto invD = T(1) / determinant();
+		return Mat3t{
+			VecType { detMinor<0>(), detMinor<3>(), detMinor<6>() },
+			VecType { detMinor<1>(), detMinor<4>(), detMinor<7>() },
+			VecType { detMinor<2>(), detMinor<5>(), detMinor<8>() },
+		}.scale(VecType(invD));
+	}
+
+	// Only use if you know the matrix is orthogonal
+	[[nodiscard]] Mat3t inverseIfOrthogonal() const {
+		return transpose();
 	}
 
 	[[nodiscard]] Mat3t transpose() const {
@@ -411,6 +430,27 @@ struct Mat3t {
 	}
 
 private:
+	template <int idx>
+	requires (idx >= 0 && idx < 9)
+	T detMinor() const {
+		int row = idx / 3;
+		int col = idx % 3;
+		T minor[4];
+		int it = 0;
+		for (int i = 0; i < 9; ++i) {
+			if (i / 3 == row || i % 3 == col) {
+				continue;
+			}
+			minor[it++] = data[i];
+		}
+		
+		if ((row + col) % 2 == 0) {
+			return minor[0] * minor[3] - minor[1] * minor[2];
+		} else {
+			return minor[1] * minor[2] - minor[0] * minor[3];
+		}
+	}
+
 	void copy(const T data[9]) {
 		memcpy(this->data, data, sizeof(Mat3t));
 	}
@@ -475,9 +515,47 @@ struct Mat4t {
 		return Mat4t{ -row1, -row2, -row3, -row4 };
 	}
 
+	[[nodiscard]] T determinant() const {
+		int maxZeroes = 0;
+		int idx = 0;
+		for (int col = 0; col < 4; ++col) {
+			int zeroes = 0;
+			for (int row = 0; row < 4; ++row) {
+				zeroes += areEqual<T>(data[row * 4 + col], T(0));
+			}
+			if (zeroes > maxZeroes) {
+				maxZeroes = zeroes;
+				idx = col;
+			}
+		}
+
+		T det = T(0);
+		const int col = idx;
+		for (int row = 0; row < 4; ++row) {
+			const int elem = row * 4 + col;
+			if (areEqual<T>(data[elem], T(0))) {
+				continue;
+			}
+			T val = detMinor(elem);
+			det += val * data[elem];
+		}
+
+		return det;
+	}
+
 	[[nodiscard]] Mat4t inverse() const {
-		// TODO:
-		return Mat4t(T(1));
+		auto invD = T(1) / determinant();
+		return Mat4t {
+			VecType { detMinor(0), detMinor(4), detMinor(8),  detMinor(12) },
+			VecType { detMinor(1), detMinor(5), detMinor(9),  detMinor(13) },
+			VecType { detMinor(2), detMinor(6), detMinor(10), detMinor(14) },
+			VecType { detMinor(3), detMinor(7), detMinor(11), detMinor(15) },
+		}.scale(Vec3t<T>(invD));
+	}
+
+	// Only use if you know the matrix is orthogonal
+	[[nodiscard]] Mat4t inverseIfOrthogonal() const {
+		return transpose();
 	}
 
 	[[nodiscard]] Mat4t transpose() const {
@@ -535,6 +613,25 @@ struct Mat4t {
 	}
 
 private:
+	T detMinor(int idx) const {
+		int row = idx / 4;
+		int col = idx % 4;
+		Mat3t<T> minor;
+		int it = 0;
+		for (int i = 0; i < 16; ++i) {
+			if (i / 4 == row || i % 4 == col) {
+				continue;
+			}
+			minor.data[it++] = data[i];
+		}
+
+		if ((row + col) % 2 == 0) {
+			return minor.determinant();
+		} else {
+			return -minor.determinant();
+		}
+	}
+
 	void copy(const T data[16]) {
 		memcpy(this->data, data, sizeof(Mat4t));
 	}

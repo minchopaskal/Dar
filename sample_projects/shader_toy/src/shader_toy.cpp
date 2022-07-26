@@ -150,7 +150,7 @@ void ShaderToy::drawUI() {
 		for (int i = 0; i < renderPasses.size(); ++i) {
 			auto &rp = renderPasses[i];
 
-			ImGui::Text("%d: %s", i, rp->name.c_str());
+			ImGui::Text("%s", rp->name.c_str());
 
 			String outputButton = i == outputPassId ? "Remove as output" : "Set as output";
 			outputButton += "##";
