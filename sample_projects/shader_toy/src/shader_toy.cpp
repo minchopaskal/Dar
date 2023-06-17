@@ -22,6 +22,32 @@
 #include <cstdlib>
 #include <filesystem>
 
+// For loading the texture image
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_WINDOWS_UTF8
+#include "stb_image.h"
+
+struct ImageData {
+	void *data = nullptr;
+	int width = 0;
+	int height = 0;
+	int ncomp = 0;
+};
+
+ImageData loadImage(const String &imgPath) {
+	WString imgPathWStr(imgPath.begin(), imgPath.end());
+	const WString fullPathWStr = imgPathWStr.c_str();
+	const SizeType bufferLen = fullPathWStr.size() * sizeof(wchar_t) + 1;
+	char *path = new char[bufferLen];
+	stbi_convert_wchar_to_utf8(path, bufferLen, fullPathWStr.c_str());
+
+	ImageData result = {};
+	result.data = stbi_load(path, &result.width, &result.height, nullptr, 4);
+	result.ncomp = 4;
+
+	return result;
+}
+
 ShaderToy::ShaderToy(UINT width, UINT height, const String &windowTitle) : Dar::App(width, height, windowTitle.c_str()) {
 	memset(buffer, 0, 4096);
 	memset(nameBuffer, 0, 32);
@@ -87,7 +113,12 @@ void ShaderToy::update() {
 
 	auto &resManager = Dar::getResourceManager();
 	Dar::UploadHandle uploadHandle = resManager.beginNewUpload();
-	resManager.uploadBufferData(uploadHandle, constData[frameIdx].getHandle(), &cd, sizeof(ConstantData));
+	{
+		resManager.uploadBufferData(uploadHandle, constData[frameIdx].getHandle(), &cd, sizeof(ConstantData));
+		for (auto &rp : renderPasses) {
+			rp->uploadTextures(uploadHandle);
+		}
+	}
 	resManager.uploadBuffers();
 
 	fd.addConstResource(constData[frameIdx].getHandle(), 0);
@@ -95,18 +126,26 @@ void ShaderToy::update() {
 	const int numRPs = renderGraph.size();
 	const int prevFrameIdx = frameIdx == 0 ? (Dar::FRAME_COUNT - 1) : ((frameIdx - 1) % Dar::FRAME_COUNT);
 	for (int i = 0; i < numRPs; ++i) {
+		auto &renderPass = renderPasses[renderGraph[i]];
+		
 		// Add the previous frame's rendered textures as a texture resource
 		if (frameCount > 1) {
-			for (auto &rt : renderPasses[renderGraph[i]]->renderTextures) {
+			for (auto &rt : renderPass->renderTextures) {
 				fd.addTextureResource(rt.getTextureResource(prevFrameIdx), i);
 			}
 		}
 
-		for (int j : renderPasses[renderGraph[i]]->dependancies) {
+		for (int j : renderPass->dependancies) {
 			for (auto &rt : renderPasses[j]->renderTextures) {
 				fd.addTextureResource(rt.getTextureResource(frameIdx), i);
 			}
 		}
+
+		auto &textures = renderPass->textures;
+		for (auto& texture : textures) {
+			fd.addTextureResource(texture, i);
+		}
+
 		fd.addRenderCommand(Dar::RenderCommandDrawInstanced(3, 1, 0, 0), i);
 	}
 
@@ -149,8 +188,9 @@ void ShaderToy::drawUI() {
 	static int processedRP = 0;
 	if (!renderPasses.empty()) {
 	ImGui::Begin("Render Passes", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-		String addPopupName = "add_dep_popup";
-		String remPopupName = "rem_dep_popup";
+		const char *addPopupName = "add_dep_popup";
+		const char *remPopupName = "rem_dep_popup";
+		const char *addTextureName = "add_tex_popup";
 
 		for (int i = 0; i < renderPasses.size(); ++i) {
 			auto &rp = renderPasses[i];
@@ -179,21 +219,32 @@ void ShaderToy::drawUI() {
 			String addRTButton = "Add render target##";
 			addRTButton += std::to_string(i);
 
+			String addTextureButton = "Add texture##";
+			addTextureButton += std::to_string(i);
+
 			ImGui::SameLine();
 			if (ImGui::Button(addDepButton.c_str())) {
 				processedRP = i;
-				ImGui::OpenPopup(addPopupName.c_str());
+				ImGui::OpenPopup(addPopupName);
 			}
 
 			ImGui::SameLine();
 			if (ImGui::Button(remDepButton.c_str())) {
 				processedRP = i;
-				ImGui::OpenPopup(remPopupName.c_str());
+				ImGui::OpenPopup(remPopupName);
 			}
 
 			ImGui::SameLine();
 			if (ImGui::Button(addRTButton.c_str())) {
-				renderPasses[i]->addRenderTexture(*this);
+				ImGui::OpenPopup("Unsupported##1");
+				// TODO:
+				// renderPasses[i]->addRenderTexture(*this);
+			}
+
+			ImGui::SameLine();
+			if (ImGui::Button(addTextureButton.c_str())) {
+				processedRP = i;
+				ImGui::OpenPopup(addTextureName);
 			}
 
 			ImGui::Text("Dependancies:");
@@ -202,11 +253,19 @@ void ShaderToy::drawUI() {
 				ImGui::Text("\t%s", renderPasses[j]->name.c_str());
 			}
 			ImGui::Text("Num renderTargets: %d", renderPasses[i]->renderTextures.size());
+			ImGui::Text("Num loaded textures: %d", renderPasses[i]->textures.size());
 
 			ImGui::Separator();
 		}
 
-		if (ImGui::BeginPopup(addPopupName.c_str())) {
+		if (ImGui::BeginPopup("Unsupported##1")) {
+			ImGui::Text("WIP!");
+			if (ImGui::Button("Ok")) {
+				ImGui::CloseCurrentPopup();
+			}
+		}
+
+		if (ImGui::BeginPopup(addPopupName)) {
 			auto &deps = renderPasses[processedRP]->dependancies;
 			if (renderPasses.size() == 1) {
 				ImGui::Text("No render passes to add as dependancies!");
@@ -228,7 +287,7 @@ void ShaderToy::drawUI() {
 			ImGui::EndPopup();
 		}
 
-		if (ImGui::BeginPopup(remPopupName.c_str())) {
+		if (ImGui::BeginPopup(remPopupName)) {
 			auto &deps = renderPasses[processedRP]->dependancies;
 			if (deps.empty()) {
 				ImGui::Text("Render pass has no dependancies!");
@@ -242,6 +301,13 @@ void ShaderToy::drawUI() {
 					ImGui::CloseCurrentPopup();
 				}
 			}
+			ImGui::EndPopup();
+		}
+
+		if (ImGui::BeginPopup(addTextureName)) {
+			auto path = shadersPath / "img.png";
+			ImGuiFileDialog::Instance()->OpenDialog("ChooseTextureDlgKey", "Choose texture", ".png,.jpg,.jpeg", path.string());
+		
 			ImGui::EndPopup();
 		}
 
@@ -356,6 +422,16 @@ void ShaderToy::drawUI() {
 				ofs << rp->shaderSource;
 				ofs.close();
 			}
+		}
+
+		ImGuiFileDialog::Instance()->Close();
+	}
+
+	if (ImGuiFileDialog::Instance()->Display("ChooseTextureDlgKey")) {
+		if (ImGuiFileDialog::Instance()->IsOk()) {
+			String filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
+
+			renderPasses[processedRP]->addResourceTexture(filePathName);
 		}
 
 		ImGuiFileDialog::Instance()->Close();
@@ -576,4 +652,82 @@ void ShaderToy::RenderPass::addRenderTexture(const ShaderToy &app) {
 	texInitData.width = app.getWidth();
 	texInitData.height = app.getHeight();
 	rt.init(texInitData, Dar::FRAME_COUNT);
+}
+
+void ShaderToy::RenderPass::addResourceTexture(const String &path) {
+	if (auto it = std::find(textureDescs.begin(), textureDescs.end(), path); it != textureDescs.end()) {
+		return;
+	}
+
+	textureDescs.push_back(path);
+	needUpdate = true;
+}
+
+bool ShaderToy::RenderPass::uploadTextures(Dar::UploadHandle uploadHandle) {
+	if (!needUpdate) {
+		return true;
+	}
+
+	Dar::ResourceManager &resManager = Dar::getResourceManager();
+
+	SizeType numTextures = textureDescs.size();
+
+	std::for_each(
+		textures.begin(),
+		textures.end(),
+		[](Dar::TextureResource &texResource) {
+			texResource.deinit();
+		}
+	);
+
+	textures.resize(numTextures);
+
+	Vector<ImageData> texData(numTextures);
+	Vector<D3D12_RESOURCE_DESC> texDescs(numTextures);
+	Vector<Dar::TextureInitData> texInitDatas(numTextures);
+	for (int i = 0; i < numTextures; ++i) {
+		String &tex = textureDescs[i];
+		texData[i] = loadImage(tex);
+
+		wchar_t textureName[32] = L"";
+		swprintf(textureName, 32, L"Texture[%d]", i);
+
+		Dar::TextureInitData &texInitData = texInitDatas[i];
+		texInitData.width = texData[i].width;
+		texInitData.height = texData[i].height;
+		texInitData.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+		Dar::ResourceInitData resInitData = {};
+		resInitData.init(Dar::ResourceType::TextureBuffer);
+		resInitData.textureData = texInitData;
+		resInitData.name = textureName;
+
+		texDescs[i] = resInitData.getResourceDescriptor();
+	}
+
+	resManager.createHeap(texDescs.data(), static_cast<UINT>(texDescs.size()), texturesHeap);
+
+	if (texturesHeap == INVALID_HEAP_HANDLE) {
+		return false;
+	}
+
+	SizeType heapOffset = 0;
+	for (int i = 0; i < numTextures; ++i) {
+		Dar::HeapInfo heapInfo = {};
+		heapInfo.handle = texturesHeap;
+		heapInfo.offset = heapOffset;
+
+		Dar::TextureInitData initData = {};
+		initData.width = texData[i].width;
+		initData.height = texData[i].height;
+		initData.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		textures[i].init(initData, Dar::TextureResourceType::ShaderResource, &heapInfo);
+
+		UINT64 size = textures[i].upload(uploadHandle, texData[i].data);
+
+		heapOffset += size;
+	}
+
+	needUpdate = false;
+	return true;
 }

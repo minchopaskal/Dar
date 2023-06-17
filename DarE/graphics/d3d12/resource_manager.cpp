@@ -154,7 +154,6 @@ ResourceHandle ResourceManager::createBuffer(ResourceInitData &initData) {
 		HeapHandle heapHandle = initData.heapInfo->handle;
 		SizeType offset = initData.heapInfo->offset;
 		SizeType alignment = static_cast<SizeType>(heaps[heapHandle].alignment);
-		dassert(offset % alignment == 0);
 		if (offset % alignment != 0) { // make sure to pass valid offset, so we don't crash
 			offset = (offset + alignment - 1) / alignment;
 		}

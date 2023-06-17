@@ -49,13 +49,21 @@ private:
 		String shaderSource = "";
 		Vector<Dar::RenderTarget> renderTextures;
 		Vector<RenderPassId> dependancies;
+		Vector<Dar::TextureResource> textures;
+		Vector<String> textureDescs;
 		TextEditor textEdit;
 		bool compiled = false;
+		bool needUpdate = false;
+		Dar::HeapHandle texturesHeap; ///< Heap of the memory holding the textures' data
 
 		// TODO: This doesn't currently work.
 		// We need to rebuild the pipeline after adding
 		// more render targets.
 		void addRenderTexture(const ShaderToy &app);
+
+		void addResourceTexture(const String &path);
+
+		bool uploadTextures(Dar::UploadHandle);
 	};
 
 	struct ConstantData {
