@@ -56,6 +56,8 @@ struct App : public IKeyboardInputQuery {
 	virtual void drawUI() {};
 
 protected:
+	void setNumThreads(int numThreads);
+
 	/// Toggle between windowed/fullscreen
 	void toggleFullscreen();
 
@@ -137,7 +139,9 @@ private:
 	UINT64 frameCount = 0;
 	HRC::time_point currentTime;
 
+	// job system
 	JobSystem::Fence *initJobFence = nullptr;
+	int numThreads;
 
 	HWND window; ///< Pointer to the win32 window abstraction
 	RECT windowRect; ///< Window rectangle. Not to be confused with scissor rect

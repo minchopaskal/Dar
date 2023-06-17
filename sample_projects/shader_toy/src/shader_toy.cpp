@@ -25,6 +25,7 @@
 ShaderToy::ShaderToy(UINT width, UINT height, const String &windowTitle) : Dar::App(width, height, windowTitle.c_str()) {
 	memset(buffer, 0, 4096);
 	memset(nameBuffer, 0, 32);
+	setNumThreads(2);
 }
 
 int ShaderToy::initImpl() {

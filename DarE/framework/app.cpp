@@ -84,6 +84,7 @@ App::App(UINT width, UINT height, const char *windowTitle) :
 {
 	strncpy(title, windowTitle, strlen(windowTitle) + 1);
 	title[strlen(windowTitle)] = '\0';
+	setNumThreads(-1);
 }
 
 App::~App() {
@@ -93,7 +94,7 @@ App::~App() {
 int App::init() {
 	g_App = this; // save global state for glfw callbacks
 
-	JobSystem::init();
+	JobSystem::init(numThreads);
 
 	auto initJobLambda = [](void *param) {
 		App *app = reinterpret_cast<App*>(param);
@@ -175,6 +176,10 @@ bool App::queryReleased(int key) {
 
 GLFWwindow *App::getGLFWWindow() const {
 	return glfwWindow;
+}
+
+void App::setNumThreads(int numThreads) {
+	this->numThreads = numThreads;
 }
 
 void App::toggleFullscreen() {

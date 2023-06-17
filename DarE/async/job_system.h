@@ -23,7 +23,9 @@ struct JobDecl {
 struct Fence;
 
 /// Intialize the job system
-void init();
+/// @param numThreads Set desired number of threads used for the process.
+///                   If <= 0 sets to maximum number of threads.
+void init(int numThreads);
 
 /// Stop the job system
 void stop();

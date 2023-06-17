@@ -224,12 +224,12 @@ JobSystem::Fence *getFreeFence() {
 /// ==========================================================================
 /// Public
 /// ==========================================================================
-void JobSystem::init() {
-	stopJobSystem = 0;
+void JobSystem::init(int numThreads) {
+	const int numSystemThreads = dmath::min(dmath::max(1u, std::thread::hardware_concurrency()), 64u);
 
-	const unsigned int numSystemThreads = dmath::min(dmath::max(1u, std::thread::hardware_concurrency()), 64u);
+	numThreads = numThreads > 0 ? dmath::min(numThreads, numSystemThreads) : numSystemThreads;
 
-	threads.resize(numSystemThreads);
+	threads.resize(numThreads);
 
 	for (SizeType i = 0; i < NUM_FIBERS; ++i) {
 		fibers[i].address = CreateFiber(
@@ -241,8 +241,10 @@ void JobSystem::init() {
 		fibersPool.push(i);
 	}
 
+	stopJobSystem = 0;
+
 	// Create worker fibers
-	for (SizeType i = 0; i < numSystemThreads; ++i) {
+	for (SizeType i = 0; i < numThreads; ++i) {
 		threads[i] = CreateThread(
 			NULL,
 			0,
