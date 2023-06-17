@@ -6,8 +6,15 @@
 static float alpha = 1.2f;
 static float beta = 1.f;
 static float gamma = 1.f;
-static float updateConstant = 50.f;
-static float pixelSize = 100.f;
+
+// We don't want to update each frame as it will
+// just die out really quickly. If the reaction is
+// too slow for you, lower this paramer,
+// if it's too fast - make it bigger.
+static float updateConstant = 5.f;
+
+// Initial pixel size
+static float pixelSize = 256.f;
 
 enum PixelDirection {
 	NW = 0,
@@ -43,8 +50,7 @@ float4 main(PSInput IN) : SV_TARGET
 	const int y = constData.height * IN.uv.y;
 	const int3 index = int3(x, y, 0);
 
-	// 
-	if (constData.frame % updateConstant != 0 && constData.frame > 10) {
+	if (constData.frame % updateConstant != 0) {
 		return p.Load(index);
 	}
 	

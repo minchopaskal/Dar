@@ -71,9 +71,12 @@ private:
 		int height;
 		unsigned int frame;
 		float delta;
+		float time;
 		int hasOutput;
 		Vec2 seed;
 	};
+
+	float timePassed = 0.f;
 
 	Dar::FrameData frameData[Dar::FRAME_COUNT];
 	Dar::DataBufferResource constData[Dar::FRAME_COUNT];

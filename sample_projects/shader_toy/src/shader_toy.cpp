@@ -100,12 +100,14 @@ void ShaderToy::update() {
 	}
 
 	const int frameCount = renderer.getNumRenderedFrames();
+	timePassed += pauseAnimation ? 0.f : getDeltaTime();
 
 	ConstantData cd = { };
 	cd.width = width;
 	cd.height = height;
 	cd.frame = pauseAnimation ? freezeFrameCount : frameCount - frameCountOffset;
 	cd.delta = getDeltaTime();
+	cd.time = timePassed;
 	cd.hasOutput = (outputPassId >= 0 && outputPassId < renderPasses.size());
 	Dar::Random rand;
 	cd.seed.x = rand.generateFlt(0.f, 1.f);

@@ -3,6 +3,7 @@ struct ConstData {
 	int height;
 	uint frame;
 	float delta;
+	float time;
 	int hasOutput;
 	float2 seed;
 };
@@ -41,4 +42,28 @@ float2 randFloat2_2(in float2 uv) {
 	float noiseX = (frac(sin(dot(uv, float2(12.9898, 78.233))) * 43758.5453));
 	float noiseY = (frac(sin(dot(uv, float2(12.9898, 78.233) * 2.0)) * 43758.5453));
 	return float2(noiseX, noiseY) * 0.004;
+}
+
+float2 resolution() {
+	return float2(constData.width, constData.height);
+}
+
+float2 getCenteredUV(float2 uv) {
+	float2 sz = resolution();
+	return (uv * 2. - 1.) * sz / constData.height;
+}
+
+float4 average(Texture2D<float4> tex, float2 uv, float sz) {
+	float2 offset[9] = {
+		float2(-sz, -sz), float2(0., -sz), float2(sz, -sz),
+		float2(-sz, 0.0), float2(0., 0.0), float2(sz, 0.0),
+		float2(-sz,  sz), float2(0.,  sz), float2(sz,  sz),
+	};
+
+	float4 res = 0.f;
+	for (int i = 0; i < 9; ++i) {
+		res += tex.Sample(Sampler, uv + offset[i]);
+	}
+
+	return res / 9.;
 }
