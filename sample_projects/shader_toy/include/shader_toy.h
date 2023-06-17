@@ -7,6 +7,8 @@
 
 #include "ImGuiColorTextEdit/TextEditor.h"
 
+#include <filesystem>
+
 struct IDxcBlob;
 
 struct ShaderToy : Dar::App {
@@ -27,6 +29,7 @@ private:
 	bool addRenderPass(const char *code, const String &displayName, int numRenderTargets);
 	bool addRenderPass(const String &name);
 
+	// Topological ordering of render graph.
 	void prepareRenderGraph();
 
 	int loadPipelines();
@@ -49,6 +52,9 @@ private:
 		TextEditor textEdit;
 		bool compiled = false;
 
+		// TODO: This doesn't currently work.
+		// We need to rebuild the pipeline after adding
+		// more render targets.
 		void addRenderTexture(const ShaderToy &app);
 	};
 
@@ -66,6 +72,8 @@ private:
 	Vector<RenderPass*> renderPasses;
 	Vector<RenderPassId> renderGraph;
 	RenderPassId outputPassId{ INVALID_PASS_ID };
+
+	std::filesystem::path shadersPath;
 
 	char buffer[4096];
 	char nameBuffer[32];

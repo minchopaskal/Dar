@@ -33,6 +33,10 @@ int ShaderToy::initImpl() {
 	constData[0].init(sizeof(ConstantData), 1);
 	constData[1].init(sizeof(ConstantData), 1);
 
+	auto homeDir = std::string{ getenv("USERPROFILE") };
+	shadersPath = std::filesystem::path(homeDir) / "Documents" / "ShaderToy";
+	std::filesystem::create_directory(shadersPath);
+
 	return loadPipelines();
 }
 
@@ -284,13 +288,16 @@ void ShaderToy::drawUI() {
 
 				ImGui::SameLine();
 				if (ImGui::Button(loadFileButton.c_str())) {
-					ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".hlsl", ".");
+					auto path = shadersPath / (rp->name + ".hlsl");
+					ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".hlsl", path.string());
 					processedRP = i;
 				}
 
 				ImGui::SameLine();
 				if (ImGui::Button(saveFileButton.c_str())) {
-					ImGuiFileDialog::Instance()->OpenDialog("SaveToFileDlgKey", "Save to File", ".hlsl", String("./") + rp->name + ".hlsl");
+					auto path = shadersPath / (rp->name + ".hlsl");
+
+					ImGuiFileDialog::Instance()->OpenDialog("SaveToFileDlgKey", "Save to File", ".hlsl", path.string());
 					processedRP = i;
 				}
 				
