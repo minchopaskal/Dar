@@ -73,6 +73,8 @@ private:
 
 	Dar::FrameData frameData[Dar::FRAME_COUNT];
 
+	Dar::JobSystem::Fence *fences[Dar::FRAME_COUNT];
+
 	// Const buffers
 	Dar::ResourceHandle sceneDataHandle[Dar::FRAME_COUNT];
 

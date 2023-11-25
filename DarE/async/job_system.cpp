@@ -186,7 +186,7 @@ void fiberStartRoutine(void *param) {
 		thisFiber.currentJobType = job.type;
 
 		job.function(job.param);
-		if (job.fence != nullptr) { // no one is waiting on the job. Nothing to do anymore.
+		if (job.fence != nullptr) { // if no one is waiting on the job. Nothing to do anymore.
 			job.fence->decrement();
 
 			// If the fence completed make the fibers waiting on
@@ -274,7 +274,10 @@ void Dar::JobSystem::stop() {
 
 void JobSystem::kickJobs(JobSystem::JobDecl *jobs, int numJobs, JobSystem::Fence **fence, JobSystem::JobType type) {
 	if (fence != nullptr) {
-		*fence = getFreeFence();
+		if (*fence == nullptr) {
+			*fence = getFreeFence();
+		}
+
 		(*fence)->init(numJobs);
 	}
 

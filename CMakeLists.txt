@@ -31,13 +31,13 @@ macro(copyD3D12Core TRG)
 		COMMAND ${CMAKE_COMMAND} -E copy
 		${DLLS_TO_COPY} $<TARGET_FILE_DIR:${TRG}>/D3D12/
 	)
-	#set(DLLS_TO_COPY
-	#	${SUBMODULE_DIR}/dxc_1.6/dxil.dll
-	#	${SUBMODULE_DIR}/dxc_1.6/dxcompiler.dll
-	#)
-	#add_custom_command(TARGET ${TRG} POST_BUILD
-	#	COMMAND ${CMAKE_COMMAND} -E copy ${DLLS_TO_COPY} $<TARGET_FILE_DIR:${TRG}>/
-	#)
+	set(DLLS_TO_COPY
+		${SUBMODULE_DIR}/dxc_1.6/dxil.dll
+		${SUBMODULE_DIR}/dxc_1.6/dxcompiler.dll
+	)
+	add_custom_command(TARGET ${TRG} POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy ${DLLS_TO_COPY} $<TARGET_FILE_DIR:${TRG}>/
+	)
 endmacro()
 
 macro(compile_shaders TRG SHADER_FILES SHADER_VERSION)

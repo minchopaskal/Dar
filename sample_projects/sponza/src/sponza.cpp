@@ -27,6 +27,10 @@ void setGLFWCursorHiddenState(GLFWwindow *window, bool show) {
 }
 
 int Sponza::initImpl() {
+	for (int i = 0; i < Dar::FRAME_COUNT; ++i) {
+		fences[i] = nullptr;
+	}
+
 	setUseImGui();
 
 	fpsModeControl.window = editModeControl.window = getGLFWWindow();
@@ -60,24 +64,29 @@ void Sponza::deinit() {
 }
 
 void Sponza::update() {
-	/* Simulate some work to test the fiber job system. */
+	/* Simulate work that is done for the next frame. */
 	{
+		const auto frameIndex = renderer.getBackbufferIndex();
+		if (fences[frameIndex] != nullptr) {
+			Dar::JobSystem::waitFence(fences[frameIndex]);
+		}
+
+		static int LOG_CNT = 0;
 		auto busyWork = [](void *param) {
-			DAR_OPTICK_EVENT("Busy work");
-			const SizeType n = reinterpret_cast<SizeType>(param);
-			for (int i = 0; i < n; ++i) {
-				const int a = 5000 * 50000;
-				const double b = sqrt(pow(a, 2.2));
+			DAR_OPTICK_EVENT("Busy work 2");
+			if (LOG_CNT++ < 300) {
+				const int n = reinterpret_cast<int>(param);
+				//printf("Busy bee %d\n", n);
 			}
 		};
 
 		Dar::JobSystem::JobDecl jobs[100];
 		for (SizeType i = 0; i < 100; ++i) {
 			jobs[i].f = busyWork;
-			jobs[i].param = reinterpret_cast<void *>(i * 1000);
+			jobs[i].param = reinterpret_cast<void*>(static_cast<int>(i));
 		}
 
-		//Dar::JobSystem::kickJobsAndWait(jobs, 100);
+		Dar::JobSystem::kickJobs(jobs, 100, &fences[frameIndex]);
 	}
 
 	camControl->processKeyboardInput(this, getDeltaTime());
@@ -403,6 +412,27 @@ bool Sponza::loadAssets() {
 	}
 
 	resManager.uploadBuffers();
+
+	/* Simulate some work to test the fiber job system. */
+	{
+		auto busyWork = [](void *param) {
+			DAR_OPTICK_EVENT("Busy work");
+			const SizeType n = reinterpret_cast<SizeType>(param);
+			for (int i = 0; i < n; ++i) {
+				const int a = 5000 * 50000;
+				const double b = sqrt(pow(a, 2.2));
+			}
+			//printf("Hello %llu\n", n);
+			};
+
+		Dar::JobSystem::JobDecl jobs[100];
+		for (SizeType i = 0; i < 100; ++i) {
+			jobs[i].f = busyWork;
+			jobs[i].param = reinterpret_cast<void *>(i * 1000);
+		}
+
+		Dar::JobSystem::kickJobsAndWait(jobs, 100);
+	}
 
 	return true;
 }
