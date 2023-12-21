@@ -1,13 +1,12 @@
-[submodule "imgui"]
+[submodule "third_party/ImGuiColorTextEdit"]
+	path = third_party/ImGuiColorTextEdit
+	url = https://github.com/BalazsJako/ImGuiColorTextEdit
+[submodule "third_party/imgui"]
 	path = third_party/imgui
 	url = https://github.com/ocornut/imgui
 [submodule "third_party/optick"]
 	path = third_party/optick
 	url = https://github.com/bombomby/optick
-[submodule "third_party/ImGuiColorTextEdit"]
-	path = third_party/ImGuiColorTextEdit
-	url = git@github.com:BalazsJako/ImGuiColorTextEdit.git
 [submodule "third_party/imguifiledialog"]
 	path = third_party/imguifiledialog
-	url = git@github.com:aiekick/ImGuiFileDialog.git
-	branch = Lib_Only
+	url = https://github.com/aiekick/ImGuiFileDialog

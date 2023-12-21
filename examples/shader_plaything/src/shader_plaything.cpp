@@ -373,7 +373,8 @@ void ShaderPlaything::drawUI() {
 					processedRP = i;
 				}
 				
-				inputTextActive = inputTextActive || rp->textEdit.Render("Editor");
+				inputTextActive = true;
+				rp->textEdit.Render("Editor");
 
 				ImGui::EndTabItem();
 			}
