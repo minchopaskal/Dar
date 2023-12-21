@@ -1,18 +1,12 @@
 [submodule "imgui"]
 	path = third_party/imgui
 	url = https://github.com/ocornut/imgui
-[submodule "cuda_base"]
-	path = sample_projects/cuda_rasterizer/third_party/CUDAPlayground
-	url = https://github.com/minchopaskal/CUDAPlayground
 [submodule "third_party/optick"]
 	path = third_party/optick
 	url = https://github.com/bombomby/optick
 [submodule "third_party/ImGuiColorTextEdit"]
 	path = third_party/ImGuiColorTextEdit
 	url = git@github.com:BalazsJako/ImGuiColorTextEdit.git
-[submodule "third_party/cppcoro"]
-	path = third_party/cppcoro
-	url = git@github.com:lewissbaker/cppcoro.git
 [submodule "third_party/imguifiledialog"]
 	path = third_party/imguifiledialog
 	url = git@github.com:aiekick/ImGuiFileDialog.git
