@@ -1,0 +1,189 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\..\dar\async\job_system.cpp">
+      <Filter>async</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\framework\app.cpp">
+      <Filter>framework</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\framework\camera.cpp">
+      <Filter>framework</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\graphics\backbuffer.cpp">
+      <Filter>graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\graphics\d3d12\command_list.cpp">
+      <Filter>graphics\d3d12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\graphics\d3d12\command_queue.cpp">
+      <Filter>graphics\d3d12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\graphics\d3d12\data_buffer.cpp">
+      <Filter>graphics\d3d12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\graphics\d3d12\depth_buffer.cpp">
+      <Filter>graphics\d3d12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\graphics\d3d12\descriptor_heap.cpp">
+      <Filter>graphics\d3d12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\graphics\d3d12\pipeline_state.cpp">
+      <Filter>graphics\d3d12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\graphics\d3d12\resource_handle.cpp">
+      <Filter>graphics\d3d12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\graphics\d3d12\resource_manager.cpp">
+      <Filter>graphics\d3d12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\graphics\d3d12\texture_res.cpp">
+      <Filter>graphics\d3d12</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\graphics\device.cpp">
+      <Filter>graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\graphics\frame_data.cpp">
+      <Filter>graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\graphics\frame_pipeline.cpp">
+      <Filter>graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\graphics\renderer.cpp">
+      <Filter>graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\graphics\render_command_list.cpp">
+      <Filter>graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\graphics\render_pass.cpp">
+      <Filter>graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\graphics\render_target.cpp">
+      <Filter>graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\utils\logger.cpp">
+      <Filter>utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\dar\utils\utils.cpp">
+      <Filter>utils</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\dar\async\async.h">
+      <Filter>async</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\async\job_system.h">
+      <Filter>async</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\framework\app.h">
+      <Filter>framework</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\framework\camera.h">
+      <Filter>framework</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\framework\input_query.h">
+      <Filter>framework</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\backbuffer.h">
+      <Filter>graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\core.h">
+      <Filter>graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\d3d12\command_list.h">
+      <Filter>graphics\d3d12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\d3d12\command_queue.h">
+      <Filter>graphics\d3d12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\d3d12\data_buffer.h">
+      <Filter>graphics\d3d12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\d3d12\depth_buffer.h">
+      <Filter>graphics\d3d12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\d3d12\descriptor_heap.h">
+      <Filter>graphics\d3d12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\d3d12\includes.h">
+      <Filter>graphics\d3d12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\d3d12\pipeline_state.h">
+      <Filter>graphics\d3d12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\d3d12\resource_handle.h">
+      <Filter>graphics\d3d12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\d3d12\resource_manager.h">
+      <Filter>graphics\d3d12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\d3d12\texture_res.h">
+      <Filter>graphics\d3d12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\d3d12\vertex_index_buffer.h">
+      <Filter>graphics\d3d12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\device.h">
+      <Filter>graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\frame_data.h">
+      <Filter>graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\frame_pipeline.h">
+      <Filter>graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\renderer.h">
+      <Filter>graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\render_command_list.h">
+      <Filter>graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\render_pass.h">
+      <Filter>graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\render_target.h">
+      <Filter>graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\math\dar_math.h">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\utils\defines.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\utils\logger.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\utils\profile.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\utils\random.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\utils\timer.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\utils\utils.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="async">
+      <UniqueIdentifier>{343ef90d-3b27-7b36-b63b-ad28c94c78d5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="framework">
+      <UniqueIdentifier>{dc576475-f185-5034-b3df-ba2cbc1465e5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="graphics">
+      <UniqueIdentifier>{2d47b073-0643-0391-642f-fa07997ff20a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="graphics\d3d12">
+      <UniqueIdentifier>{0b0e35a5-a310-8b0e-91f3-078975210f57}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="math">
+      <UniqueIdentifier>{9e6e677e-3b66-40eb-fd13-3f5ee24487c2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="utils">
+      <UniqueIdentifier>{e683352b-77e1-c521-4496-bd04e57a0c15}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

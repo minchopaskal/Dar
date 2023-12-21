@@ -1,3 +1,5 @@
-build/
-vs-chromium-project.txt
-.vs/
+/solution/**/.vs
+/solution/**/obj/
+/solution/**/output/
+/**/*.shlib
+/**/*.txlib

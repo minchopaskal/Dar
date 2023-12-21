@@ -1,0 +1,52 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\..\examples\hello_triangle\src\hello_triangle.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\examples\hello_triangle\src\main.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\examples\hello_triangle\compile_shaders.bat" />
+    <ClInclude Include="..\..\examples\hello_triangle\include\geometry.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\hello_triangle\include\hello_triangle.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\hello_triangle\res\shaders\basic_ps.hlsl">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\hello_triangle\res\shaders\basic_vs.hlsl">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\third_party\res\shaders.shlib">
+      <Filter>third_party\res</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="hellotriangle_runtimedependencies.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="include">
+      <UniqueIdentifier>{0feb36d4-ded9-b510-4a82-8ce6435f7e81}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="res">
+      <UniqueIdentifier>{6771209b-38e5-471c-682c-6b4f58a623fb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="res\shaders">
+      <UniqueIdentifier>{13584a2a-e6d8-d9f5-88aa-cb18e7a1cd51}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{c202d925-8342-8cab-fbac-54dfa101ad31}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party">
+      <UniqueIdentifier>{5d0e2315-94ad-aeff-fa7b-526c0c1e89e5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party\res">
+      <UniqueIdentifier>{f5ff89d1-32e4-82e9-d744-f4c7953b7949}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

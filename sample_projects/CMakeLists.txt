@@ -1,7 +1,0 @@
-if (DAR_COMPILE_SAMPLE_PROJECTS)
-add_subdirectory(hello_triangle)
-add_subdirectory(textured_cube)
-add_subdirectory(cuda_rasterizer)
-add_subdirectory(sponza)
-add_subdirectory(shader_toy)
-endif()

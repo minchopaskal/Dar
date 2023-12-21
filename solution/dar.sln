@@ -1,0 +1,61 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloTriangle", "hellotriangle\hellotriangle.vcxproj", "{D0783E1B-E09B-07BC-F3D7-5C5988657560}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Dar", "dar\dar.vcxproj", "{E919868C-959E-90BF-4F38-943A3E5B725B}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ImGui", "imgui\imgui.vcxproj", "{2607C313-AE0F-047B-7EDD-8683860E0F53}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MikkTSpaceLib", "mikktspacelib\mikktspacelib.vcxproj", "{7E070620-6561-C963-F736-FE2DD409E6AE}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Optick", "optick\optick.vcxproj", "{B7CFC9D1-D265-57D8-C7EA-322EE6922296}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ResourceManagerLib", "resourcemanagerlib\resourcemanagerlib.vcxproj", "{6AE797B7-CBEC-6D8A-96D2-BD857BD6D7AE}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ShaderPlaything", "shaderplaything\shaderplaything.vcxproj", "{C57EBEA0-476F-3637-EE95-336986792061}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Sponza", "sponza\sponza.vcxproj", "{EE98EE88-72CB-0CF9-059D-0F8175F81214}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D0783E1B-E09B-07BC-F3D7-5C5988657560}.Debug|x64.ActiveCfg = Debug|x64
+		{D0783E1B-E09B-07BC-F3D7-5C5988657560}.Debug|x64.Build.0 = Debug|x64
+		{D0783E1B-E09B-07BC-F3D7-5C5988657560}.Release|x64.ActiveCfg = Release|x64
+		{D0783E1B-E09B-07BC-F3D7-5C5988657560}.Release|x64.Build.0 = Release|x64
+		{E919868C-959E-90BF-4F38-943A3E5B725B}.Debug|x64.ActiveCfg = Debug|x64
+		{E919868C-959E-90BF-4F38-943A3E5B725B}.Debug|x64.Build.0 = Debug|x64
+		{E919868C-959E-90BF-4F38-943A3E5B725B}.Release|x64.ActiveCfg = Release|x64
+		{E919868C-959E-90BF-4F38-943A3E5B725B}.Release|x64.Build.0 = Release|x64
+		{2607C313-AE0F-047B-7EDD-8683860E0F53}.Debug|x64.ActiveCfg = Debug|x64
+		{2607C313-AE0F-047B-7EDD-8683860E0F53}.Debug|x64.Build.0 = Debug|x64
+		{2607C313-AE0F-047B-7EDD-8683860E0F53}.Release|x64.ActiveCfg = Release|x64
+		{2607C313-AE0F-047B-7EDD-8683860E0F53}.Release|x64.Build.0 = Release|x64
+		{7E070620-6561-C963-F736-FE2DD409E6AE}.Debug|x64.ActiveCfg = Debug|x64
+		{7E070620-6561-C963-F736-FE2DD409E6AE}.Debug|x64.Build.0 = Debug|x64
+		{7E070620-6561-C963-F736-FE2DD409E6AE}.Release|x64.ActiveCfg = Release|x64
+		{7E070620-6561-C963-F736-FE2DD409E6AE}.Release|x64.Build.0 = Release|x64
+		{B7CFC9D1-D265-57D8-C7EA-322EE6922296}.Debug|x64.ActiveCfg = Debug|x64
+		{B7CFC9D1-D265-57D8-C7EA-322EE6922296}.Debug|x64.Build.0 = Debug|x64
+		{B7CFC9D1-D265-57D8-C7EA-322EE6922296}.Release|x64.ActiveCfg = Release|x64
+		{B7CFC9D1-D265-57D8-C7EA-322EE6922296}.Release|x64.Build.0 = Release|x64
+		{6AE797B7-CBEC-6D8A-96D2-BD857BD6D7AE}.Debug|x64.ActiveCfg = Debug|x64
+		{6AE797B7-CBEC-6D8A-96D2-BD857BD6D7AE}.Debug|x64.Build.0 = Debug|x64
+		{6AE797B7-CBEC-6D8A-96D2-BD857BD6D7AE}.Release|x64.ActiveCfg = Release|x64
+		{6AE797B7-CBEC-6D8A-96D2-BD857BD6D7AE}.Release|x64.Build.0 = Release|x64
+		{C57EBEA0-476F-3637-EE95-336986792061}.Debug|x64.ActiveCfg = Debug|x64
+		{C57EBEA0-476F-3637-EE95-336986792061}.Debug|x64.Build.0 = Debug|x64
+		{C57EBEA0-476F-3637-EE95-336986792061}.Release|x64.ActiveCfg = Release|x64
+		{C57EBEA0-476F-3637-EE95-336986792061}.Release|x64.Build.0 = Release|x64
+		{EE98EE88-72CB-0CF9-059D-0F8175F81214}.Debug|x64.ActiveCfg = Debug|x64
+		{EE98EE88-72CB-0CF9-059D-0F8175F81214}.Debug|x64.Build.0 = Debug|x64
+		{EE98EE88-72CB-0CF9-059D-0F8175F81214}.Release|x64.ActiveCfg = Release|x64
+		{EE98EE88-72CB-0CF9-059D-0F8175F81214}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

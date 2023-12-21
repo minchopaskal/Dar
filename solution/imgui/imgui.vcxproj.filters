@@ -1,0 +1,50 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\..\third_party\imgui\backends\imgui_impl_dx12.cpp">
+      <Filter>backends</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\imgui\backends\imgui_impl_glfw.cpp">
+      <Filter>backends</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\imgui\imgui.cpp" />
+    <ClCompile Include="..\..\third_party\imgui\imgui_draw.cpp" />
+    <ClCompile Include="..\..\third_party\imgui\imgui_tables.cpp" />
+    <ClCompile Include="..\..\third_party\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="..\..\third_party\imgui\misc\fonts\binary_to_compressed_c.cpp">
+      <Filter>misc\fonts</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\third_party\imgui\backends\imgui_impl_dx12.h">
+      <Filter>backends</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\third_party\imgui\backends\imgui_impl_glfw.h">
+      <Filter>backends</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\third_party\imgui\imconfig.h" />
+    <ClInclude Include="..\..\third_party\imgui\imgui.h" />
+    <ClInclude Include="..\..\third_party\imgui\imstb_rectpack.h" />
+    <ClInclude Include="..\..\third_party\imgui\imstb_textedit.h" />
+    <ClInclude Include="..\..\third_party\imgui\imstb_truetype.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="..\..\third_party\imgui\misc\debuggers\imgui.natvis">
+      <Filter>misc\debuggers</Filter>
+    </Natvis>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="backends">
+      <UniqueIdentifier>{07a09644-0699-4336-dea8-aaf0a58e22a5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="misc">
+      <UniqueIdentifier>{267e95bc-41ff-0c47-556e-e5d09e96880b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="misc\debuggers">
+      <UniqueIdentifier>{da7401c8-6326-7dc4-b543-2cd32342f403}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="misc\fonts">
+      <UniqueIdentifier>{63845651-cd6b-cbe1-2e17-ba3b7b800e8d}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

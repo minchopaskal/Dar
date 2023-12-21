@@ -1,0 +1,171 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\..\examples\sponza\src\fps_camera_controller.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\examples\sponza\src\fps_edit_camera_controller.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\examples\sponza\src\hud.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\examples\sponza\src\loading_screen.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\examples\sponza\src\main.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\examples\sponza\src\scene.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\examples\sponza\src\scene_loader.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\examples\sponza\src\sponza.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\examples\sponza\src\texture_utils.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\examples\sponza\compile_resources.bat" />
+    <ClInclude Include="..\..\examples\sponza\compile_shaders.bat" />
+    <ClInclude Include="..\..\examples\sponza\compile_textures.bat" />
+    <ClInclude Include="..\..\examples\sponza\include\fps_camera_controller.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\include\fps_edit_camera_controller.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\include\hud.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\include\loading_screen.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\include\scene.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\include\scene_loader.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\include\sponza.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\include\texture_utils.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\scenes\sponza.json">
+      <Filter>res\scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\scenes\Sponza\Sponza.bin">
+      <Filter>res\scenes\Sponza</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\scenes\Sponza\Sponza.gltf">
+      <Filter>res\scenes\Sponza</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\common.hlsli">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\deferred_ps.hlsl">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\deferred_vs.hlsl">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\forward_ps.hlsl">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\forward_vs.hlsl">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\fxaa.hlsli">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\gpu_cpu_common.hlsli">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\hud_common.hlsli">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\hud_ps.hlsl">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\hud_vs.hlsl">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\interop.hlsli">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\lighting_common.hlsli">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\lighting_ps.hlsl">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\lighting_vs.hlsl">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\loading_screen_common.hlsli">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\loading_screen_ps.hlsl">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\loading_screen_vs.hlsl">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\post_ps.hlsl">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\post_vs.hlsl">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\screen_quad_vs.hlsli">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\shadow_map_ps.hlsl">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\shadow_map_vs.hlsl">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\third_party\res\shaders.shlib">
+      <Filter>third_party\res</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\third_party\res\textures.txlib">
+      <Filter>third_party\res</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="sponza_runtimedependencies.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="include">
+      <UniqueIdentifier>{0feb36d4-ded9-b510-4a82-8ce6435f7e81}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="res">
+      <UniqueIdentifier>{6771209b-38e5-471c-682c-6b4f58a623fb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="res\scenes">
+      <UniqueIdentifier>{90bba80e-d642-8c76-9df4-ce171a92cdc6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="res\scenes\Sponza">
+      <UniqueIdentifier>{18e59384-ccfe-75d8-4f64-4dfbf88a308f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="res\shaders">
+      <UniqueIdentifier>{13584a2a-e6d8-d9f5-88aa-cb18e7a1cd51}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{c202d925-8342-8cab-fbac-54dfa101ad31}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party">
+      <UniqueIdentifier>{5d0e2315-94ad-aeff-fa7b-526c0c1e89e5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party\res">
+      <UniqueIdentifier>{f5ff89d1-32e4-82e9-d744-f4c7953b7949}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

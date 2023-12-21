@@ -1,0 +1,10 @@
+﻿
+Debug|x64
+  ..\..\..\lib\nvtt30204.dll
+  ..\..\..\third_party\dxc_1.7\dxcompiler.dll
+  ..\..\..\third_party\dxc_1.7\dxil.dll
+
+Release|x64
+  ..\..\..\lib\nvtt30204.dll
+  ..\..\..\third_party\dxc_1.7\dxcompiler.dll
+  ..\..\..\third_party\dxc_1.7\dxil.dll

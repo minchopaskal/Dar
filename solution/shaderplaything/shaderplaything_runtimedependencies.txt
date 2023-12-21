@@ -1,0 +1,18 @@
+﻿
+Debug|x64
+  ..\..\examples\shader_plaything\res\shaders.shlib
+  ..\..\examples\shader_plaything\res\shaders\common.hlsli
+  ..\..\examples\shader_plaything\res\shaders\screen_quad.hlsli
+  ..\..\lib\D3D12AgilitySDK\D3D12Core.dll
+  ..\..\lib\nvtt30204.dll
+  ..\..\third_party\dxc_1.7\dxcompiler.dll
+  ..\..\third_party\dxc_1.7\dxil.dll
+
+Release|x64
+  ..\..\examples\shader_plaything\res\shaders.shlib
+  ..\..\examples\shader_plaything\res\shaders\common.hlsli
+  ..\..\examples\shader_plaything\res\shaders\screen_quad.hlsli
+  ..\..\lib\D3D12AgilitySDK\D3D12Core.dll
+  ..\..\lib\nvtt30204.dll
+  ..\..\third_party\dxc_1.7\dxcompiler.dll
+  ..\..\third_party\dxc_1.7\dxil.dll
