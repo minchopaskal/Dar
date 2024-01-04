@@ -84,7 +84,7 @@ private:
 	bool updateRenderTargetViews();
 	bool resizeDepthBuffer();
 
-	void uploadShaderRenderData();
+	void uploadShaderRenderData(Dar::UploadHandle);
 
 	bool loadMainPipeline();
 	bool prepareVertexIndexBuffers(Dar::UploadHandle);

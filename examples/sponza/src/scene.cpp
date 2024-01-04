@@ -129,18 +129,18 @@ bool Scene::uploadSceneData(Dar::UploadHandle uploadHandle) {
 //	}
 //}
 
-void Scene::prepareFrameData(Dar::FrameData &frameData) {
+void Scene::prepareFrameData(Dar::FrameData &frameData, Dar::UploadHandle uploadHandle) {
 	frameData.addDataBufferResource(materialsBuffer);
 	for (int i = 0; i < textures.size(); ++i) {
 		frameData.addTextureResource(textures[i]);
 	}
 
-	drawMeshes(frameData);
+	drawMeshes(frameData, uploadHandle);
 }
 
-void Scene::prepareFrameDataForShadowMap(int shadowMapPassIndex, Dar::FrameData & frameData) {
+void Scene::prepareFrameDataForShadowMap(int shadowMapPassIndex, Dar::FrameData & frameData, Dar::UploadHandle uploadHandle) {
 	if (shadowMapPassIndex == 0) {
-		updateLightData();
+		updateLightData(uploadHandle);
 	}
 
 	if (getLightcaster(shadowMapPassIndex) == nullptr) {
@@ -158,7 +158,7 @@ void Scene::prepareFrameDataForShadowMap(int shadowMapPassIndex, Dar::FrameData 
 		)
 	);
 	
-	prepareFrameData(frameData);
+	prepareFrameData(frameData, uploadHandle);
 }
 
 LightId Scene::getLightcasterId(int lightcasterIndex) const {
@@ -174,7 +174,7 @@ LightNode* Scene::getLightcaster(int lightcasterIndex) const {
 	return nullptr;
 }
 
-void Scene::updateLightData() {
+void Scene::updateLightData(Dar::UploadHandle uploadHandle) {
 	for (int i = 0; i < MAX_SHADOW_MAPS_COUNT; ++i) {
 		lightcasterIndices[i] = -1;
 	}
@@ -232,28 +232,21 @@ void Scene::updateLightData() {
 		}
 	}
 
-	auto& resman = Dar::getResourceManager();
-	auto handle = resman.beginNewUpload();
-	uploadLightData(handle);
+	uploadLightData(uploadHandle);
 
 	for (int i = 0; i < MAX_SHADOW_MAPS_COUNT; ++i) {
 		LightcasterDesc desc = {};
 		desc.index = lightcasterIndices[i];
 
 		lightcasterDescs[i].init(sizeof(LightcasterDesc), 1);
-		lightcasterDescs[i].upload(handle, &desc);
+		lightcasterDescs[i].upload(uploadHandle, &desc);
 	}
-
-	resman.uploadBuffers();
 }
 
-void Scene::drawMeshes(Dar::FrameData &frameData) {
-	Dar::ResourceManager &resManager = Dar::getResourceManager();
-	Dar::UploadHandle handle = resManager.beginNewUpload();
+void Scene::drawMeshes(Dar::FrameData &frameData, Dar::UploadHandle uploadHandle) {
 	for (SizeType i = 0; i < meshes.size(); ++i) {
-		meshes[i].uploadMeshData(handle);
+		meshes[i].uploadMeshData(uploadHandle);
 	}
-	resManager.uploadBuffers();
 
 	for (SizeType i = 0; i < meshes.size(); ++i) {
 		const Mesh &mesh = meshes[i];

@@ -379,8 +379,8 @@ struct Scene {
 		return result;
 	}
 
-	void prepareFrameData(Dar::FrameData &frameData);
-	void prepareFrameDataForShadowMap(int shadowMapPassIndex, Dar::FrameData &frameData);
+	void prepareFrameData(Dar::FrameData &frameData, Dar::UploadHandle uploadHandle);
+	void prepareFrameDataForShadowMap(int shadowMapPassIndex, Dar::FrameData &frameData, Dar::UploadHandle uploadHandle);
 
 	LightId getLightcasterId(int lightcasterIndex) const;
 	LightNode* getLightcaster(int lightcasterIndex) const;
@@ -390,8 +390,8 @@ private:
 	bool uploadMaterialData(Dar::UploadHandle uploadHandle);
 
 	// update view-projection matrices for moving lightcasters
-	void updateLightData();
-	void drawMeshes(Dar::FrameData &frameData);
+	void updateLightData(Dar::UploadHandle uploadHandle);
+	void drawMeshes(Dar::FrameData &frameData, Dar::UploadHandle uploadHandle);
 
 	//void draw(Dar::FrameData &frameData) const;
 	//void drawNodeImpl(Node *node, Dar::FrameData &frameData, const Scene &scene, DynamicBitset &drawnNodes) const;
