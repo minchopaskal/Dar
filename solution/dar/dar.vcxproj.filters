@@ -153,6 +153,9 @@
     <ClInclude Include="..\..\dar\utils\logger.h">
       <Filter>utils</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\dar\utils\pooled_vector.h">
+      <Filter>utils</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\dar\utils\profile.h">
       <Filter>utils</Filter>
     </ClInclude>

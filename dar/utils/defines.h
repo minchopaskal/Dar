@@ -31,11 +31,11 @@
 #ifdef DAR_DEBUG
 #define RETURN_ON_ERROR_FMT(cmd, retval, msg, ...) \
 do { \
-  if (!SUCCEEDED((cmd))) { \
-      auto err__ = GetLastError(); \
-      LOG_FMT(Error, "D3D12 Error: %s\n Last Error: %lu\n", (msg), err__); \
+  auto res__ = (cmd); \
+  if (!SUCCEEDED(res__)) { \
+      LOG_FMT(Error, "D3D12 Error: %s\n Last Error: %lu\n", (msg), res__); \
       char error__[512]; \
-      sprintf(error__, "D3D12 Error: %s\n", _com_error(err__).ErrorMessage()); \
+      sprintf(error__, "D3D12 Error: %s\n", _com_error(res__).ErrorMessage()); \
       OutputDebugString(error__); \
       DebugBreak(); \
       return retval; \
@@ -44,9 +44,9 @@ do { \
 #else
 #define RETURN_ON_ERROR_FMT(cmd, retval, msg, ...) \
 do { \
-  if (!SUCCEEDED(cmd)) { \
-      auto err__ = GetLastError(); \
-      LOG_FMT(Error, "D3D12 Error: %s\n Last Error: %lu\n", (msg), err__); \
+  auto res__ = (cmd); \
+  if (!SUCCEEDED(res__)) { \
+      LOG_FMT(Error, "D3D12 Error: %s\n Error(%lu): %s\n", (msg), res__, _com_error(res__).ErrorMessage()); \
       return retval; \
     } \
   } \

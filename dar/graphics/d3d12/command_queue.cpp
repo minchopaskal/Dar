@@ -252,8 +252,6 @@ bool CommandQueue::fenceCompleted(FenceValue fenceVal) const {
 	return fence->GetCompletedValue() >= fenceVal;
 }
 
-#include <unordered_set>
-
 void CommandQueue::waitForFenceValue(FenceValue fenceVal) {
 	while (!fenceCompleted(fenceVal)) {
 		RETURN_ON_ERROR(
@@ -272,12 +270,12 @@ void CommandQueue::flush() {
 	waitForFenceValue(fenceVal);
 }
 
-void CommandQueue::waitQueueForFenceValue(const CommandQueue &queue, FenceValue val) {
+bool CommandQueue::waitQueueForFenceValue(const CommandQueue &queue, FenceValue val) {
 	if (commandQueue == nullptr || queue.commandQueue == nullptr) {
-		return;
+		return false;
 	}
 
-	commandQueue->Wait(queue.fence.Get(), val);
+	RETURN_FALSE_ON_ERROR(commandQueue->Wait(queue.fence.Get(), val), "Call to D3D12CommandQueue::Wait failed!");
 }
 
 ComPtr<ID3D12CommandAllocator> CommandQueue::createCommandAllocator() {

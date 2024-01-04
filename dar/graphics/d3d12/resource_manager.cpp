@@ -49,6 +49,7 @@ ResourceManager::ResourceManager(int nt) : copyQueue(D3D12_COMMAND_LIST_TYPE_COP
 
 	cmdLists.resize(numThreads);
 	stagingBuffers.resize(numThreads);
+	uploadContexts.resize(numThreads);
 }
 
 HeapHandle ResourceManager::createHeap(SizeType size, HeapAlignmentType alignment) {
@@ -337,13 +338,20 @@ UINT64 ResourceManager::uploadTextureData(UploadHandle uploadHandle, ResourceHan
 }
 
 bool ResourceManager::uploadBuffers() {
+	const auto handle = uploadBuffersAsync();
+	const bool result = waitUploadFence(handle);
+
+	return result;
+}
+
+UploadContextHandle ResourceManager::uploadBuffersAsync() {
 	const auto threadIdx = JobSystem::getCurrentThreadIndex();
 
 	Vector<ResourceHandle> stagingBuffersToRelease;
 	auto &stagingBuffs = stagingBuffers[threadIdx];
 	auto &threadCmdLists = cmdLists[threadIdx];
 
-	for (int i = INVALID_UPLOAD_HANDLE + 1; i < threadCmdLists.size(); ++i) {
+	for (int i = 0; i < threadCmdLists.size(); ++i) {
 		if (auto it = stagingBuffs.find(i); it != stagingBuffs.end()) {
 			for (auto handle : it->second) {
 				stagingBuffersToRelease.push_back(handle);
@@ -355,32 +363,43 @@ bool ResourceManager::uploadBuffers() {
 	// TODO: see if it's reasonable to have multiple copy queues
 	// per thread. Guess is it will not be much quicker as there wouldn't
 	// be so many copy engines on the gpu(if any at all).
-	{
-		auto lock = copyQueueCS.lock();
+	auto lock = copyQueueCS.lock();
 
-		for (int i = INVALID_UPLOAD_HANDLE + 1; i < threadCmdLists.size(); ++i) {
-			copyQueue.addCommandListForExecution(std::move(threadCmdLists[i]));
-			
-		}
-		resetCommandLists();
+	for (int i = 0; i < threadCmdLists.size(); ++i) {
+		copyQueue.addCommandListForExecution(std::move(threadCmdLists[i]));
 
-		FenceValue fence = copyQueue.executeCommandLists();
-		copyQueue.waitForFenceValue(fence);
+	}
+	resetCommandLists();
+
+	FenceValue fence = copyQueue.executeCommandLists();
+
+	UploadContext uploadCtx = {};
+	uploadCtx.fence = fence;
+	uploadCtx.buffersToRelease = stagingBuffersToRelease;
+
+	return uploadContexts[threadIdx].push(uploadCtx);
+}
+
+bool ResourceManager::waitUploadFence(UploadContextHandle handle) {
+	const auto threadIdx = JobSystem::getCurrentThreadIndex();
+
+	auto &uploadCtx = uploadContexts[threadIdx].at(handle);
+	if (!uploadCtx.has_value()) {
+		return false;
 	}
 
-	for (auto sb : stagingBuffersToRelease) {
-		deregisterResource(sb);
+	copyQueue.waitForFenceValue(uploadCtx->fence);
+	for (auto bufHandle : uploadCtx->buffersToRelease) {
+		deregisterResource(bufHandle);
 	}
+
+	dassert(uploadContexts[threadIdx].release(handle));
 
 	return true;
 }
 
-FenceValue ResourceManager::uploadBuffersAsync() {
-	// TODO
-	return FenceValue();
-}
-
 bool ResourceManager::flush() {
+	// TODO: Currently doesn't work as intended, since it depends on the thread it was called on.
 	return uploadBuffers();
 }
 

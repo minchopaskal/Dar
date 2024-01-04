@@ -61,6 +61,10 @@ struct FrameData {
 		}
 	}
 
+	void addUploadContextToWait(UploadContextHandle handle) {
+		uploadsToWait.push_back(handle);
+	}
+
 	/// Optimization. If set to true doesn't update
 	// the commands on the next frame.
 	void setUseSameCommands(bool use) {
@@ -102,6 +106,8 @@ private:
 	/// List of render commands for each pass. The list is executed as is,
 	/// i.e it preserves the order of the commands as they were passed.
 	Vector<RenderCommandList> renderCommands;
+
+	Vector<UploadContextHandle> uploadsToWait;
 
 	VertexBuffer *vertexBuffer = nullptr;
 	IndexBuffer *indexBuffer = nullptr;

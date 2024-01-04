@@ -187,7 +187,10 @@ void Sponza::updateMainLoop() {
 	}
 
 	Dar::JobSystem::waitFenceAndFree(hudJobFence);
+	//auto uploadCtx = resManager->uploadBuffersAsync();
+	//fd.addUploadContextToWait(uploadCtx);
 	resManager->uploadBuffers();
+
 	renderer.renderFrame(fd);
 }
 

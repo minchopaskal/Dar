@@ -47,9 +47,7 @@ void Renderer::beginFrame() {
 		backbufferIndex = (backbufferIndex + 1) % Dar::FRAME_COUNT;
 	}
 
-	// wait for the current frame's buffer
 	waitFence(fenceValues[backbufferIndex]);
-
 	++numRenderedFrames;
 }
 
@@ -59,6 +57,7 @@ void Renderer::endFrame() {
 
 		const UINT syncInterval = settings.vSyncEnabled ? 1 : 0;
 		const UINT presentFlags = allowTearing && !settings.vSyncEnabled ? DXGI_PRESENT_ALLOW_TEARING : 0;
+
 		RETURN_ON_ERROR(backbuffer.present(syncInterval, presentFlags), , "Failed to execute command list!");
 	}
 }
@@ -121,6 +120,11 @@ CommandList Renderer::populateCommandList(const FrameData &frameData) {
 	if (framePipeline == nullptr) {
 		LOG_FMT(Warning, "Empty frame pipeline!");
 		return cmdList;
+	}
+
+	auto &resman = getResourceManager();
+	for (auto uploadCtxHandle : frameData.uploadsToWait) {
+		// TODO
 	}
 
 	auto app = getApp();

@@ -4,14 +4,18 @@
 #include "d3d12/command_queue.h"
 #include "d3d12/resource_handle.h"
 
+#include "utils/pooled_vector.h"
+
 namespace Dar {
 
 using SubresStates = Vector<D3D12_RESOURCE_STATES>;
 using UploadHandle = SizeType;
 using HeapHandle = SizeType;
+using UploadContextHandle = PooledIndex;
 
 #define INVALID_UPLOAD_HANDLE SizeType(-1)
 #define INVALID_HEAP_HANDLE SizeType(-1)
+#define INVALID_UPLOAD_FENCE INVALID_POOLED_INDEX
 
 enum class ResourceType : unsigned int {
 	Invalid = 0,
@@ -78,6 +82,14 @@ struct ResourceInitData {
 };
 
 struct ResourceManager {
+	CommandQueue &getCopyQueue() {
+		return copyQueue;
+	}
+
+	const CommandQueue &getCopyQueue() const {
+		return copyQueue;
+	}
+
 	/// Create a heap which can be used for placed resources.
 	/// Use createBuffer to create a resource on the heap by specifying
 	/// the ResourceInitData::heapInfo member.
@@ -149,7 +161,17 @@ struct ResourceManager {
 	bool uploadBuffers();
 
 	/// Same as uploadBuffers but doesn't wait for copying to finish.
-	FenceValue uploadBuffersAsync();
+	/// One must wait on the returned UploadContextHandle in order to wait for the upload to finish.
+	/// @return an upload context handle that is an opaque to the resource manager user.
+	UploadContextHandle uploadBuffersAsync();
+
+	/// @brief Wait on an upload fence
+	/// @return false if the fence is invalid
+	bool waitUploadFence(UploadContextHandle fence);
+
+	// TODO: this method makes the queue wait on the upload fence withotut blocking.
+	// Make sure to save the upload ctx somewhere so the staging buffers are freed only after the frame has ended.
+	bool waitUploadFence(CommandQueue &queue, UploadContextHandle fence) { return false; }
 
 	/// Flushes any command lists's work. Same as uploadBuffers()
 	bool flush();
@@ -221,6 +243,13 @@ private:
 		SizeType size = 0;
 		SizeType offset = 0;
 	};
+
+	struct UploadContext {
+		FenceValue fence;
+		Vector<ResourceHandle> buffersToRelease;
+	};
+
+	Vector<PooledVector<UploadContext>> uploadContexts;
 
 	ComPtr<ID3D12Device> device;
 	CommandQueue copyQueue;

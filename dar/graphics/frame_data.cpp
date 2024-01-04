@@ -11,6 +11,7 @@ void FrameData::clear() {
 	constantBuffers.clear();
 	shaderResources.clear();
 	renderCommands.clear();
+	uploadsToWait.clear();
 }
 
 void FrameData::beginFrame(const Renderer &renderer) {
@@ -19,6 +20,7 @@ void FrameData::beginFrame(const Renderer &renderer) {
 	indexBuffer = nullptr;
 	constantBuffers.clear();
 	shaderResources.clear();
+	uploadsToWait.clear();
 	shaderResources.resize(renderer.getNumPasses());
 	
 	if (!useSameCommands) {
