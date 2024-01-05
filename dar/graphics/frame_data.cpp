@@ -12,6 +12,7 @@ void FrameData::clear() {
 	shaderResources.clear();
 	renderCommands.clear();
 	uploadsToWait.clear();
+	fencesToWait.clear();
 }
 
 void FrameData::beginFrame(const Renderer &renderer) {
@@ -21,6 +22,7 @@ void FrameData::beginFrame(const Renderer &renderer) {
 	constantBuffers.clear();
 	shaderResources.clear();
 	uploadsToWait.clear();
+	fencesToWait.clear();
 	shaderResources.resize(renderer.getNumPasses());
 	
 	if (!useSameCommands) {

@@ -49,7 +49,6 @@ ResourceManager::ResourceManager(int nt) : copyQueue(D3D12_COMMAND_LIST_TYPE_COP
 
 	cmdLists.resize(numThreads);
 	stagingBuffers.resize(numThreads);
-	uploadContexts.resize(numThreads);
 }
 
 HeapHandle ResourceManager::createHeap(SizeType size, HeapAlignmentType alignment) {
@@ -337,16 +336,7 @@ UINT64 ResourceManager::uploadTextureData(UploadHandle uploadHandle, ResourceHan
 	return UpdateSubresources(cmdLists[threadIdx][uploadHandle].get(), destResource, stageResource, 0, startSubresourceIndex, numSubresources, subresData);
 }
 
-bool ResourceManager::uploadBuffers() {
-	const auto handle = uploadBuffersAsync();
-	const bool result = waitUploadFence(handle);
-
-	return result;
-}
-
-UploadContextHandle ResourceManager::uploadBuffersAsync() {
-	const auto threadIdx = JobSystem::getCurrentThreadIndex();
-
+ResourceManager::UploadContext ResourceManager::uploadBuffersInternal(int threadIdx) {
 	Vector<ResourceHandle> stagingBuffersToRelease;
 	auto &stagingBuffs = stagingBuffers[threadIdx];
 	auto &threadCmdLists = cmdLists[threadIdx];
@@ -363,44 +353,75 @@ UploadContextHandle ResourceManager::uploadBuffersAsync() {
 	// TODO: see if it's reasonable to have multiple copy queues
 	// per thread. Guess is it will not be much quicker as there wouldn't
 	// be so many copy engines on the gpu(if any at all).
-	auto lock = copyQueueCS.lock();
+	FenceValue fence = 0;
+	{
+		auto lock = copyQueueCS.lock();
 
-	for (int i = 0; i < threadCmdLists.size(); ++i) {
-		copyQueue.addCommandListForExecution(std::move(threadCmdLists[i]));
+		for (int i = 0; i < threadCmdLists.size(); ++i) {
+			copyQueue.addCommandListForExecution(std::move(threadCmdLists[i]));
+		}
+		resetCommandLists();
 
+		fence = copyQueue.executeCommandLists();
 	}
-	resetCommandLists();
 
-	FenceValue fence = copyQueue.executeCommandLists();
+	UploadContext ctx = {};
+	ctx.fence = fence;
+	ctx.buffersToRelease = stagingBuffersToRelease;
 
-	UploadContext uploadCtx = {};
-	uploadCtx.fence = fence;
-	uploadCtx.buffersToRelease = stagingBuffersToRelease;
-
-	return uploadContexts[threadIdx].push(uploadCtx);
+	return ctx;
 }
 
-bool ResourceManager::waitUploadFence(UploadContextHandle handle) {
-	const auto threadIdx = JobSystem::getCurrentThreadIndex();
-
-	auto &uploadCtx = uploadContexts[threadIdx].at(handle);
-	if (!uploadCtx.has_value()) {
-		return false;
-	}
-
-	copyQueue.waitForFenceValue(uploadCtx->fence);
-	for (auto bufHandle : uploadCtx->buffersToRelease) {
+void ResourceManager::waitUpload(const UploadContext &ctx) {
+	copyQueue.cpuWaitForFenceValue(ctx.fence);
+	for (auto bufHandle : ctx.buffersToRelease) {
 		deregisterResource(bufHandle);
 	}
+}
 
-	dassert(uploadContexts[threadIdx].release(handle));
+bool ResourceManager::uploadBuffers() {
+	const auto threadIdx = JobSystem::getCurrentThreadIndex();
+	auto uploadCtx = uploadBuffersInternal(threadIdx);
+	waitUpload(uploadCtx);
+
+	return true;
+}
+
+UploadContextHandle ResourceManager::uploadBuffersAsync() {
+	const auto threadIdx = JobSystem::getCurrentThreadIndex();
+	auto uploadCtx = uploadBuffersInternal(threadIdx);
+	return uploadContexts.push(uploadCtx);
+}
+
+bool ResourceManager::cpuWaitUpload(UploadContextHandle handle) {
+	auto &uploadCtx = uploadContexts.at(handle);
+	if (!uploadCtx.has_value()) {
+		return true;
+	}
+
+	auto &ctx = uploadCtx.value();
+	waitUpload(ctx);
+
+	dassert(uploadContexts.release(handle));
+
+	return true;
+}
+
+bool ResourceManager::gpuWaitUpload(CommandQueue &queue, UploadContextHandle handle) {
+	if (auto &uploadCtx = uploadContexts.at(handle); uploadCtx.has_value()) {
+		return queue.waitQueueForFenceValue(copyQueue, uploadCtx->fence);
+	}
 
 	return true;
 }
 
 bool ResourceManager::flush() {
-	// TODO: Currently doesn't work as intended, since it depends on the thread it was called on.
-	return uploadBuffers();
+	for (int i = 0; i < Dar::JobSystem::getNumThreads(); ++i) {
+		auto ctx = uploadBuffersInternal(i);
+		waitUpload(ctx);
+	}
+
+	return true;
 }
 
 unsigned int ResourceManager::getSubresourcesCount(ResourceHandle handle) {
@@ -509,7 +530,7 @@ bool ResourceManager::deregisterResource(ResourceHandle &handle) {
 	CHECK_RESOURCE_HANDLE(handle);
 
 	{
-		auto lock = resourcesCS.lock();
+		auto resourceLock = resources[handle].cs.lock();
 #pragma warning(suppress: 4189)
 		unsigned long refCount = resources[handle].res.Reset();
 
@@ -521,8 +542,10 @@ bool ResourceManager::deregisterResource(ResourceHandle &handle) {
 			dassert(refCount == 0);
 		}
 #endif // DAR_DEBUG
+	}
 
-
+	{
+		auto lock = resourcesCS.lock();
 		resourcePool.push(handle);
 	}
 

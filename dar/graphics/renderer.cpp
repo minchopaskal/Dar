@@ -47,7 +47,8 @@ void Renderer::beginFrame() {
 		backbufferIndex = (backbufferIndex + 1) % Dar::FRAME_COUNT;
 	}
 
-	waitFence(fenceValues[backbufferIndex]);
+	waitFrameResources(backbufferIndex);
+
 	++numRenderedFrames;
 }
 
@@ -74,15 +75,33 @@ FenceValue Renderer::renderFrame(const FrameData &frameData) {
 	auto &cmdQueue = device->getCommandQueue();
 
 	cmdQueue.addCommandListForExecution(populateCommandList(frameData));
+
+	auto &resman = getResourceManager();
+	uploadsToWait[backbufferIndex] = frameData.uploadsToWait;
+	for (auto uploadCtxHandle : uploadsToWait[backbufferIndex]) {
+		resman.gpuWaitUpload(device->getCommandQueue(), uploadCtxHandle);
+	}
+
+	for (auto fence : frameData.fencesToWait) {
+		device->getCommandQueue().gpuWaitForFenceValue(fence);
+	}
+
 	FenceValue fenceValue = cmdQueue.executeCommandLists();
 	fenceValues[backbufferIndex] = fenceValue;
 
 	return fenceValue;
 }
 
-void Renderer::waitFence(FenceValue value) {
+void Renderer::waitFrameResources(int backbufferIndex) {
 	auto &cmdQueue = device->getCommandQueue();
-	cmdQueue.waitForFenceValue(value);
+	cmdQueue.cpuWaitForFenceValue(fenceValues[backbufferIndex]);
+
+	auto &resman = getResourceManager();
+	for (auto handle : uploadsToWait[backbufferIndex]) {
+		resman.cpuWaitUpload(handle);
+	}
+
+	uploadsToWait[backbufferIndex].clear();
 }
 
 void Renderer::onBackbufferResize() {
@@ -120,11 +139,6 @@ CommandList Renderer::populateCommandList(const FrameData &frameData) {
 	if (framePipeline == nullptr) {
 		LOG_FMT(Warning, "Empty frame pipeline!");
 		return cmdList;
-	}
-
-	auto &resman = getResourceManager();
-	for (auto uploadCtxHandle : frameData.uploadsToWait) {
-		// TODO
 	}
 
 	auto app = getApp();

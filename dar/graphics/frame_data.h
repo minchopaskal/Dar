@@ -61,8 +61,14 @@ struct FrameData {
 		}
 	}
 
+	/// @brief Pass upload contexts for the command queue executing the rendering commands to wait for.
 	void addUploadContextToWait(UploadContextHandle handle) {
 		uploadsToWait.push_back(handle);
+	}
+
+	/// @brief Pass fences for the command queue executing the rendering commands to wait for.
+	void addFenceToWait(FenceValue fence) {
+		fencesToWait.push_back(fence);
 	}
 
 	/// Optimization. If set to true doesn't update
@@ -108,6 +114,7 @@ private:
 	Vector<RenderCommandList> renderCommands;
 
 	Vector<UploadContextHandle> uploadsToWait;
+	Vector<FenceValue> fencesToWait;
 
 	VertexBuffer *vertexBuffer = nullptr;
 	IndexBuffer *indexBuffer = nullptr;

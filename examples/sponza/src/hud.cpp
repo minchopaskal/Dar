@@ -121,7 +121,7 @@ WidgetType HUD::getWidgetType(WidgetHandle handle) {
 	return WidgetType::InvalidWidget;
 }
 
-bool HUD::render() {
+FenceValue HUD::render() {
 	Vector<HUDVertex> vertices;
 	Vector<uint32_t> indices;
 	Vector<WidgetData> widgetDatas;
@@ -230,10 +230,11 @@ bool HUD::render() {
 		LOG(Error, "Failed to upload HUD index buffer!");
 		return false;
 	}
-	resManager.uploadBuffers();
+	auto uploadCtx = resManager.uploadBuffersAsync();
 
 	const int frameIndex = hudRenderer.getBackbufferIndex();
 	auto &fd = frameData[frameIndex];
+	fd.addUploadContextToWait(uploadCtx);
 	fd.setVertexBuffer(&vertexBuffer);
 	fd.setIndexBuffer(&indexBuffer);
 	fd.addConstResource(constData[frameIndex], 0);
@@ -245,12 +246,7 @@ bool HUD::render() {
 	}
 	fd.addRenderCommand(Dar::RenderCommandDrawIndexedInstanced{ static_cast<UINT>(indices.size()), 1, 0, 0, 0 });
 
-	auto fence = hudRenderer.renderFrame(frameData[frameIndex]);
-	
-	// TODO: maybe we could return the fence and the user waits on it?
-	hudRenderer.waitFence(fence);
-
-	return true;
+	return hudRenderer.renderFrame(frameData[frameIndex]);
 }
 
 const Dar::TextureResource& HUD::getTexture() const {

@@ -14,6 +14,8 @@ public:
 	PooledVector() = default;
 
 	PooledIndex push(const T &v) {
+		auto lock = mutex.lock();
+
 		if (freeIndices.empty()) {
 			arr.push_back(v);
 			return arr.size() - 1;
@@ -35,6 +37,8 @@ public:
 			return false;
 		}
 
+		auto lock = mutex.lock();
+
 		if (idx >= arr.size()) {
 			return false;
 		}
@@ -48,7 +52,9 @@ public:
 		return true;
 	}
 
-	const std::optional<T>& at(PooledIndex idx) const {
+	const Optional<T>& at(PooledIndex idx) const {
+		auto lock = mutex.lock();
+
 		if (idx == INVALID_POOLED_INDEX || idx >= arr.size()) {
 			return std::nullopt;
 		}
@@ -59,6 +65,7 @@ public:
 private:
 	Vector<std::optional<T>> arr;
 	Queue<PooledIndex> freeIndices;
+	mutable SpinLock mutex;
 };
 
 }

@@ -50,7 +50,7 @@ public:
 
   /// @bried draw all widgets on screen
   /// @note depth \in [0;MAX_DEPTH)
-  bool render();
+  FenceValue render();
 
   /// Get rendered texture
   const Dar::TextureResource& getTexture() const;
@@ -96,7 +96,7 @@ private:
 
   Vector<Dar::TextureResource> textures;
   Vector<TextureDesc> textureDescriptions;
-  Dar::HeapHandle texturesHeap;
+  Dar::HeapHandle texturesHeap = INVALID_HEAP_HANDLE;
   Map<String, TextureId> textureName2Id;
 
   bool validBuffers = false;

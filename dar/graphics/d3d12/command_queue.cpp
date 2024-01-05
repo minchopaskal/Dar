@@ -252,7 +252,7 @@ bool CommandQueue::fenceCompleted(FenceValue fenceVal) const {
 	return fence->GetCompletedValue() >= fenceVal;
 }
 
-void CommandQueue::waitForFenceValue(FenceValue fenceVal) {
+void CommandQueue::cpuWaitForFenceValue(FenceValue fenceVal) {
 	while (!fenceCompleted(fenceVal)) {
 		RETURN_ON_ERROR(
 			fence->SetEventOnCompletion(fenceVal, fenceEvent), ,
@@ -262,12 +262,22 @@ void CommandQueue::waitForFenceValue(FenceValue fenceVal) {
 	}
 }
 
+bool CommandQueue::gpuWaitForFenceValue(FenceValue fenceVal) {
+	if (commandQueue == nullptr) {
+		return false;
+	}
+
+	RETURN_FALSE_ON_ERROR(commandQueue->Wait(fence.Get(), fenceVal), "Call to D3D12CommandQueue::Wait failed!");
+
+	return true;
+}
+
 void CommandQueue::flush() {
 	if (commandQueue == nullptr) {
 		return;
 	}
 	FenceValue fenceVal = signal();
-	waitForFenceValue(fenceVal);
+	cpuWaitForFenceValue(fenceVal);
 }
 
 bool CommandQueue::waitQueueForFenceValue(const CommandQueue &queue, FenceValue val) {
@@ -276,6 +286,8 @@ bool CommandQueue::waitQueueForFenceValue(const CommandQueue &queue, FenceValue 
 	}
 
 	RETURN_FALSE_ON_ERROR(commandQueue->Wait(queue.fence.Get(), val), "Call to D3D12CommandQueue::Wait failed!");
+
+	return true;
 }
 
 ComPtr<ID3D12CommandAllocator> CommandQueue::createCommandAllocator() {

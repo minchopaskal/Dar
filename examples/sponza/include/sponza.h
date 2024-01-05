@@ -121,6 +121,7 @@ private:
 		HUD *hud;
 		AppState *state;
 		WidgetHandle *quitButton;
+		FenceValue *hudFence;
 	} hudJobParams;
 
 	Dar::Renderer renderer;
@@ -147,6 +148,7 @@ private:
 	
 	HUD hud;
 	WidgetHandle quitButton;
+	FenceValue hudRenderFence;
 
 	Vec2 mousePos;
 

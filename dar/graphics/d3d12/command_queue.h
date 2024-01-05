@@ -35,7 +35,8 @@ struct CommandQueue {
 
 	FenceValue signal();
 	bool fenceCompleted(FenceValue fenceVal) const;
-	void waitForFenceValue(FenceValue fenceVal);
+	void cpuWaitForFenceValue(FenceValue fenceVal);
+	bool gpuWaitForFenceValue(FenceValue fenceVal);
 	void flush();
 
 	bool waitQueueForFenceValue(const CommandQueue &queue, FenceValue val);

@@ -187,9 +187,12 @@ void Sponza::updateMainLoop() {
 	}
 
 	Dar::JobSystem::waitFenceAndFree(hudJobFence);
-	//auto uploadCtx = resManager->uploadBuffersAsync();
-	//fd.addUploadContextToWait(uploadCtx);
-	resManager->uploadBuffers();
+	auto uploadCtx = resManager->uploadBuffersAsync();
+	fd.addUploadContextToWait(uploadCtx);
+	fd.addFenceToWait(hudRenderFence);
+	
+	//resManager->waitUpload(uploadCtx);
+	//resManager->uploadBuffers();
 
 	renderer.renderFrame(fd);
 }
@@ -695,7 +698,8 @@ void Sponza::updateHUD() {
 		return;
 	}
 
-	hudJobParams = { this, &hud, &state, &quitButton };
+	hudRenderFence = 0;
+	hudJobParams = { this, &hud, &state, &quitButton, &hudRenderFence };
 
 	Dar::JobSystem::JobDecl hudJob = {};
 	hudJob.f = [](void *param) {
@@ -704,6 +708,7 @@ void Sponza::updateHUD() {
 		auto &hud = *params->hud;
 		auto &state = *params->state;
 		auto &quitButton = *params->quitButton;
+		auto &fenceValue = *params->hudFence;
 
 		switch (state.getState()) {
 		case AppState::State::Loading:
@@ -739,7 +744,7 @@ void Sponza::updateHUD() {
 			break;
 		}
 
-		hud.render();
+		fenceValue = hud.render();
 	};
 	hudJob.param = &hudJobParams;
 	Dar::JobSystem::kickJobs(&hudJob, 1, &hudJobFence);
