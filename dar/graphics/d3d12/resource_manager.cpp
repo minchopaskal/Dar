@@ -42,11 +42,6 @@ String getResourceNameByType(ResourceType type) {
 ResourceManager::ResourceManager(int nt) : copyQueue(D3D12_COMMAND_LIST_TYPE_COPY) {
 	numThreads = nt;
 
-	if (numThreads > 1) {
-		resourcesCS.init();
-		copyQueueCS.init();
-	}
-
 	cmdLists.resize(numThreads);
 	stagingBuffers.resize(numThreads);
 }
@@ -484,21 +479,20 @@ bool ResourceManager::setGlobalStateForSubres(ResourceHandle handle, const D3D12
 
 ResourceHandle ResourceManager::registerResourceImpl(ComPtr<ID3D12Resource> resourcePtr, UINT subresourcesCount, SizeType size, D3D12_RESOURCE_STATES state) {
 	ResourceHandle handle;
-	auto lock = resourcesCS.lock();
-	if (!resourcePool.empty()) {
-		handle = resourcePool.front();
-		resourcePool.pop();
-		// No need to make a new 
-		resources[handle].res = resourcePtr;
-		resources[handle].subresStates = SubresStates{ subresourcesCount, state };
-		resources[handle].size = size;
-	} else {
-		resources.push_back(Resource{ resourcePtr, SubresStates(subresourcesCount, state), {}, size });
-		handle = resources.size() - 1;
-		if (numThreads > 1) {
-			resources[handle].cs.init();
+	{
+		auto lock = resourcesCS.lock();
+		if (!resourcePool.empty()) {
+			handle = resourcePool.front();
+			resourcePool.pop();
+		} else {
+			resources.resize(resources.size() + 1);
+			handle = resources.size() - 1;
 		}
 	}
+
+	resources[handle].res = resourcePtr;
+	resources[handle].subresStates = SubresStates{ subresourcesCount, state };
+	resources[handle].size = size;
 
 	return handle;
 }
@@ -530,7 +524,7 @@ bool ResourceManager::deregisterResource(ResourceHandle &handle) {
 	CHECK_RESOURCE_HANDLE(handle);
 
 	{
-		auto resourceLock = resources[handle].cs.lock();
+		auto lock = resourcesCS.lock();
 #pragma warning(suppress: 4189)
 		unsigned long refCount = resources[handle].res.Reset();
 
@@ -542,10 +536,6 @@ bool ResourceManager::deregisterResource(ResourceHandle &handle) {
 			dassert(refCount == 0);
 		}
 #endif // DAR_DEBUG
-	}
-
-	{
-		auto lock = resourcesCS.lock();
 		resourcePool.push(handle);
 	}
 

@@ -272,8 +272,8 @@ private:
 	Vector<Heap> heaps;
 	Queue<HeapHandle> heapHandlesPool;
 
-	CriticalSection resourcesCS;
-	CriticalSection copyQueueCS;
+	SpinLock resourcesCS;
+	SpinLock copyQueueCS;
 	unsigned int numThreads;
 
 	friend bool initResourceManager(ComPtr<ID3D12Device> device, const unsigned int numThreads);
