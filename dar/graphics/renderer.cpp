@@ -92,16 +92,16 @@ FenceValue Renderer::renderFrame(const FrameData &frameData) {
 	return fenceValue;
 }
 
-void Renderer::waitFrameResources(int backbufferIndex) {
+void Renderer::waitFrameResources(int backbufferIdx) {
 	auto &cmdQueue = device->getCommandQueue();
-	cmdQueue.cpuWaitForFenceValue(fenceValues[backbufferIndex]);
+	cmdQueue.cpuWaitForFenceValue(fenceValues[backbufferIdx]);
 
 	auto &resman = getResourceManager();
-	for (auto handle : uploadsToWait[backbufferIndex]) {
+	for (auto handle : uploadsToWait[backbufferIdx]) {
 		resman.cpuWaitUpload(handle);
 	}
 
-	uploadsToWait[backbufferIndex].clear();
+	uploadsToWait[backbufferIdx].clear();
 }
 
 void Renderer::onBackbufferResize() {

@@ -191,9 +191,6 @@ void Sponza::updateMainLoop() {
 	fd.addUploadContextToWait(uploadCtx);
 	fd.addFenceToWait(hudRenderFence);
 	
-	//resManager->waitUpload(uploadCtx);
-	//resManager->uploadBuffers();
-
 	renderer.renderFrame(fd);
 }
 

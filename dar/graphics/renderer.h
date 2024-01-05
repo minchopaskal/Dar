@@ -35,7 +35,7 @@ public:
 
 	FenceValue renderFrame(const FrameData &frameData);
 
-	void waitFrameResources(int backbufferIndex);
+	void waitFrameResources(int backbufferIdx);
 
 	void onBackbufferResize();
 
