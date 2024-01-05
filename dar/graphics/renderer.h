@@ -35,7 +35,7 @@ public:
 
 	FenceValue renderFrame(const FrameData &frameData);
 
-	void waitFence(FenceValue value);
+	void waitFrameResources(int backbufferIdx);
 
 	void onBackbufferResize();
 
@@ -81,6 +81,8 @@ private:
 
 	// TODO: We don't use scissoring for now
 	D3D12_RECT scissorRect = { 0,0, LONG_MAX, LONG_MAX };
+
+	Vector<UploadContextHandle> uploadsToWait[FRAME_COUNT];
 
 	// Keeping track of fence values for double/triple buffering
 	UINT64 fenceValues[FRAME_COUNT] = { 0, 0 };

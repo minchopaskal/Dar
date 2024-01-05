@@ -84,7 +84,7 @@ private:
 	bool updateRenderTargetViews();
 	bool resizeDepthBuffer();
 
-	void uploadShaderRenderData();
+	void uploadShaderRenderData(Dar::UploadHandle);
 
 	bool loadMainPipeline();
 	bool prepareVertexIndexBuffers(Dar::UploadHandle);
@@ -121,6 +121,7 @@ private:
 		HUD *hud;
 		AppState *state;
 		WidgetHandle *quitButton;
+		FenceValue *hudFence;
 	} hudJobParams;
 
 	Dar::Renderer renderer;
@@ -147,6 +148,7 @@ private:
 	
 	HUD hud;
 	WidgetHandle quitButton;
+	FenceValue hudRenderFence;
 
 	Vec2 mousePos;
 

@@ -156,7 +156,6 @@ void ShaderPlaything::update() {
 	fd.addRenderCommand(Dar::RenderCommandDrawInstanced(3, 1, 0, 0));
 
 	auto fenceValue = renderer.renderFrame(fd);
-	renderer.waitFence(fenceValue);
 }
 
 void ShaderPlaything::drawUI() {

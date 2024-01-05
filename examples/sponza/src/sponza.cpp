@@ -143,7 +143,8 @@ void Sponza::updateMainLoop() {
 		// any other updates...
 	}
 
-	uploadShaderRenderData();
+	auto uploadHandle = resManager->beginNewUpload();
+	uploadShaderRenderData(uploadHandle);
 
 	// TODO: If the app state is changed we need to disable using the same commands.
 	const auto frameIndex = renderer.getBackbufferIndex();
@@ -154,12 +155,12 @@ void Sponza::updateMainLoop() {
 
 	// Deferred pass:
 	fd.startNewPass();
-	scene.prepareFrameData(fd);
+	scene.prepareFrameData(fd, uploadHandle);
 
 	// Shadow map pass:
 	for (int i = 0; i < MAX_SHADOW_MAPS_COUNT; ++i) {
 		fd.startNewPass();
-		scene.prepareFrameDataForShadowMap(i, fd);
+		scene.prepareFrameDataForShadowMap(i, fd, uploadHandle);
 	}
 
 	// Lighting pass:
@@ -186,6 +187,10 @@ void Sponza::updateMainLoop() {
 	}
 
 	Dar::JobSystem::waitFenceAndFree(hudJobFence);
+	auto uploadCtx = resManager->uploadBuffersAsync();
+	fd.addUploadContextToWait(uploadCtx);
+	fd.addFenceToWait(hudRenderFence);
+	
 	renderer.renderFrame(fd);
 }
 
@@ -506,7 +511,7 @@ bool Sponza::resizeDepthBuffer() {
 	return depthBuffer.init(device.getDevice(), getWidth(), getHeight(), DXGI_FORMAT_D32_FLOAT, "DepthBuffer");
 }
 
-void Sponza::uploadShaderRenderData() {
+void Sponza::uploadShaderRenderData(Dar::UploadHandle uploadHandle) {
 	const Dar::RenderSettings& rs = renderer.getSettings();
 	const Dar::Camera& cam = camControl->getCamera();
 
@@ -538,9 +543,7 @@ void Sponza::uploadShaderRenderData() {
 	const int frameIndex = renderer.getBackbufferIndex();
 	sceneDataHandle[frameIndex].init(sizeof(ShaderRenderData), 1);
 
-	Dar::UploadHandle uploadHandle = resManager->beginNewUpload();
 	sceneDataHandle[frameIndex].upload(uploadHandle, &sceneData);
-	resManager->uploadBuffers();
 }
 
 bool Sponza::loadMainPipeline() {
@@ -692,7 +695,8 @@ void Sponza::updateHUD() {
 		return;
 	}
 
-	hudJobParams = { this, &hud, &state, &quitButton };
+	hudRenderFence = 0;
+	hudJobParams = { this, &hud, &state, &quitButton, &hudRenderFence };
 
 	Dar::JobSystem::JobDecl hudJob = {};
 	hudJob.f = [](void *param) {
@@ -701,6 +705,7 @@ void Sponza::updateHUD() {
 		auto &hud = *params->hud;
 		auto &state = *params->state;
 		auto &quitButton = *params->quitButton;
+		auto &fenceValue = *params->hudFence;
 
 		switch (state.getState()) {
 		case AppState::State::Loading:
@@ -736,7 +741,7 @@ void Sponza::updateHUD() {
 			break;
 		}
 
-		hud.render();
+		fenceValue = hud.render();
 	};
 	hudJob.param = &hudJobParams;
 	Dar::JobSystem::kickJobs(&hudJob, 1, &hudJobFence);

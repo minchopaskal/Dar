@@ -51,7 +51,9 @@ abstract class BaseProject : Project
         conf.IncludePaths.Add(@"[project.SharpmakeCsPath]/dar");
         conf.IncludePaths.Add(@"[project.SharpmakeCsPath]/dar/graphics");
         conf.IncludePaths.Add(@"[project.SharpmakeCsPath]/third_party");
-        conf.IncludePaths.Add(@"[project.SharpmakeCsPath]/third_party/imgui");
+        conf.IncludePaths.Add(@"[project.SharpmakeCsPath]/third_party/AgilitySDK/include");
+        conf.IncludePaths.Add(@"[project.SharpmakeCsPath]/third_party/AgilitySDK/include/d3dx12");
+		conf.IncludePaths.Add(@"[project.SharpmakeCsPath]/third_party/imgui");
         conf.IncludePaths.Add(@"[project.SharpmakeCsPath]/third_party/dxc_1.7");
         conf.IncludePaths.Add(@"[project.SharpmakeCsPath]/third_party/optick/src");
 

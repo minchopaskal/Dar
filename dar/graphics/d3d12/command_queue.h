@@ -35,10 +35,11 @@ struct CommandQueue {
 
 	FenceValue signal();
 	bool fenceCompleted(FenceValue fenceVal) const;
-	void waitForFenceValue(FenceValue fenceVal);
+	void cpuWaitForFenceValue(FenceValue fenceVal);
+	bool gpuWaitForFenceValue(FenceValue fenceVal);
 	void flush();
 
-	void waitQueueForFenceValue(const CommandQueue &queue, FenceValue val);
+	bool waitQueueForFenceValue(const CommandQueue &queue, FenceValue val);
 
 private:
 	ComPtr<ID3D12CommandAllocator> createCommandAllocator();

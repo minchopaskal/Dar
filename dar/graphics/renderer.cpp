@@ -47,8 +47,7 @@ void Renderer::beginFrame() {
 		backbufferIndex = (backbufferIndex + 1) % Dar::FRAME_COUNT;
 	}
 
-	// wait for the current frame's buffer
-	waitFence(fenceValues[backbufferIndex]);
+	waitFrameResources(backbufferIndex);
 
 	++numRenderedFrames;
 }
@@ -59,6 +58,7 @@ void Renderer::endFrame() {
 
 		const UINT syncInterval = settings.vSyncEnabled ? 1 : 0;
 		const UINT presentFlags = allowTearing && !settings.vSyncEnabled ? DXGI_PRESENT_ALLOW_TEARING : 0;
+
 		RETURN_ON_ERROR(backbuffer.present(syncInterval, presentFlags), , "Failed to execute command list!");
 	}
 }
@@ -75,15 +75,33 @@ FenceValue Renderer::renderFrame(const FrameData &frameData) {
 	auto &cmdQueue = device->getCommandQueue();
 
 	cmdQueue.addCommandListForExecution(populateCommandList(frameData));
+
+	auto &resman = getResourceManager();
+	uploadsToWait[backbufferIndex] = frameData.uploadsToWait;
+	for (auto uploadCtxHandle : uploadsToWait[backbufferIndex]) {
+		resman.gpuWaitUpload(device->getCommandQueue(), uploadCtxHandle);
+	}
+
+	for (auto fence : frameData.fencesToWait) {
+		device->getCommandQueue().gpuWaitForFenceValue(fence);
+	}
+
 	FenceValue fenceValue = cmdQueue.executeCommandLists();
 	fenceValues[backbufferIndex] = fenceValue;
 
 	return fenceValue;
 }
 
-void Renderer::waitFence(FenceValue value) {
+void Renderer::waitFrameResources(int backbufferIdx) {
 	auto &cmdQueue = device->getCommandQueue();
-	cmdQueue.waitForFenceValue(value);
+	cmdQueue.cpuWaitForFenceValue(fenceValues[backbufferIdx]);
+
+	auto &resman = getResourceManager();
+	for (auto handle : uploadsToWait[backbufferIdx]) {
+		resman.cpuWaitUpload(handle);
+	}
+
+	uploadsToWait[backbufferIdx].clear();
 }
 
 void Renderer::onBackbufferResize() {

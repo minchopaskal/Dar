@@ -4,14 +4,18 @@
 #include "d3d12/command_queue.h"
 #include "d3d12/resource_handle.h"
 
+#include "utils/pooled_vector.h"
+
 namespace Dar {
 
 using SubresStates = Vector<D3D12_RESOURCE_STATES>;
 using UploadHandle = SizeType;
 using HeapHandle = SizeType;
+using UploadContextHandle = PooledIndex;
 
 #define INVALID_UPLOAD_HANDLE SizeType(-1)
 #define INVALID_HEAP_HANDLE SizeType(-1)
+#define INVALID_UPLOAD_FENCE INVALID_POOLED_INDEX
 
 enum class ResourceType : unsigned int {
 	Invalid = 0,
@@ -78,6 +82,14 @@ struct ResourceInitData {
 };
 
 struct ResourceManager {
+	CommandQueue &getCopyQueue() {
+		return copyQueue;
+	}
+
+	const CommandQueue &getCopyQueue() const {
+		return copyQueue;
+	}
+
 	/// Create a heap which can be used for placed resources.
 	/// Use createBuffer to create a resource on the heap by specifying
 	/// the ResourceInitData::heapInfo member.
@@ -149,7 +161,18 @@ struct ResourceManager {
 	bool uploadBuffers();
 
 	/// Same as uploadBuffers but doesn't wait for copying to finish.
-	FenceValue uploadBuffersAsync();
+	/// One must wait on the returned UploadContextHandle in order to wait for the upload to finish.
+	/// @return an upload context handle that is an opaque to the resource manager user.
+	UploadContextHandle uploadBuffersAsync();
+
+	/// @brief Wait on an upload context
+	/// @return false if the fence is invalid
+	bool cpuWaitUpload(UploadContextHandle handle);
+
+	/// Makes a GPU call to the `queue` to wait on the upload. Does not block the CPU.
+	/// One must make sure to call waitUpload on the handle after the queue has finished execution
+	/// in order for the resource manager to clean up any temporary resources.
+	bool gpuWaitUpload(CommandQueue &queue, UploadContextHandle handle);
 
 	/// Flushes any command lists's work. Same as uploadBuffers()
 	bool flush();
@@ -193,18 +216,6 @@ struct ResourceManager {
 #endif // DAR_DEBUG
 
 private:
-	ResourceManager(int nt);
-	~ResourceManager();
-
-	void resetCommandLists();
-
-	bool isValidHeapHandle(HeapHandle handle) const;
-
-	ResourceHandle registerResourceImpl(ComPtr<ID3D12Resource> resourcePtr, UINT subresourcesCount, SizeType size, D3D12_RESOURCE_STATES state);
-
-	/// @NOTE NOT Thread-safe
-	void registerStagingBuffer(UploadHandle uploadHandle, ResourceHandle resourceHandle);
-
 	struct Resource {
 		ComPtr<ID3D12Resource> res;
 		SubresStates subresStates;
@@ -222,6 +233,30 @@ private:
 		SizeType offset = 0;
 	};
 
+	struct UploadContext {
+		FenceValue fence;
+		Vector<ResourceHandle> buffersToRelease;
+	};
+
+private:
+	ResourceManager(int nt);
+	~ResourceManager();
+
+	void resetCommandLists();
+
+	bool isValidHeapHandle(HeapHandle handle) const;
+
+	ResourceHandle registerResourceImpl(ComPtr<ID3D12Resource> resourcePtr, UINT subresourcesCount, SizeType size, D3D12_RESOURCE_STATES state);
+
+	UploadContext uploadBuffersInternal(int threadIdx);
+	void waitUpload(const UploadContext &ctx);
+
+	/// @NOTE NOT Thread-safe
+	void registerStagingBuffer(UploadHandle uploadHandle, ResourceHandle resourceHandle);
+
+private:
+	PooledVector<UploadContext> uploadContexts;
+
 	ComPtr<ID3D12Device> device;
 	CommandQueue copyQueue;
 
@@ -238,7 +273,7 @@ private:
 	Queue<HeapHandle> heapHandlesPool;
 
 	CriticalSection resourcesCS;
-	CriticalSection copyQueueCS;;
+	CriticalSection copyQueueCS;
 	unsigned int numThreads;
 
 	friend bool initResourceManager(ComPtr<ID3D12Device> device, const unsigned int numThreads);
