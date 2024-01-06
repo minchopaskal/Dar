@@ -28,6 +28,9 @@ struct DescriptorHeap {
 	/// Add a buffer SRV at the end of the heap.
 	void addBufferSRV(ID3D12Resource *resource, UINT numElements, UINT elementSize);
 
+	/// Add a buffer UAV at the end of the heap.
+	void addBufferUAV(ID3D12Resource *resource, UINT numElements, UINT elementSize);
+
 	void addRTV(ID3D12Resource *resource, D3D12_RENDER_TARGET_VIEW_DESC *rtvDesc);
 
 	void addDSV(ID3D12Resource *resource, DXGI_FORMAT foramt);

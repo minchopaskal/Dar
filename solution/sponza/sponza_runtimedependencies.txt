@@ -6,6 +6,9 @@ Debug|x64
   ..\..\examples\sponza\res\shaders.shlib
   ..\..\examples\sponza\res\textures.txlib
   ..\..\lib\D3D12AgilitySDK\D3D12Core.dll
+  ..\..\lib\D3D12AgilitySDK\D3D12Core.pdb
+  ..\..\lib\D3D12AgilitySDK\D3D12SDKLayers.dll
+  ..\..\lib\D3D12AgilitySDK\d3d12SDKLayers.pdb
   ..\..\lib\nvtt30204.dll
   ..\..\third_party\dxc_1.7\dxcompiler.dll
   ..\..\third_party\dxc_1.7\dxil.dll
@@ -17,6 +20,7 @@ Release|x64
   ..\..\examples\sponza\res\shaders.shlib
   ..\..\examples\sponza\res\textures.txlib
   ..\..\lib\D3D12AgilitySDK\D3D12Core.dll
+  ..\..\lib\D3D12AgilitySDK\D3D12SDKLayers.dll
   ..\..\lib\nvtt30204.dll
   ..\..\third_party\dxc_1.7\dxcompiler.dll
   ..\..\third_party\dxc_1.7\dxil.dll

@@ -255,6 +255,8 @@ String shaderTypeToStr(ShaderType type) {
 		return "vs";
 	case ShaderType::Pixel:
 		return "ps";
+	case ShaderType::Compute:
+		return "cs";
 	default:
 		// IMPLEMENT ME
 		break;
@@ -269,6 +271,8 @@ WString shaderTypeToWStr(ShaderType type) {
 		return L"vs";
 	case ShaderType::Pixel:
 		return L"ps";
+	case ShaderType::Compute:
+		return L"cs";
 	default:
 		// IMPLEMENT ME
 		break;
@@ -346,7 +350,7 @@ bool compileFolderAsBlob(const String &shaderFolder, const String &outputDir) {
 		}
 		auto base = sv.substr(0, extPos);
 		ext = sv.substr(extPos + 1);
-		if (ext == "vs" || ext == "ps" /* || TODO */) {
+		if (ext == "vs" || ext == "ps" || ext == "cs" /* || TODO */) {
 			basenames.insert(filename.substr(0, extPos));
 		}
 	}
@@ -412,7 +416,7 @@ Optional<CompiledShader> compileFromSource(const char *src, SizeType srcLen, con
 
 	CompiledShader result = {};
 	if (compileResult->HasOutput(DXC_OUT_OBJECT)) {
-		result.name = name + "_" + shaderTypeToStr(type);
+		result.name = name;
 		RETURN_ON_ERROR_FMT(
 			compileResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(result.blob.GetAddressOf()), nullptr),
 			std::nullopt,
@@ -424,8 +428,6 @@ Optional<CompiledShader> compileFromSource(const char *src, SizeType srcLen, con
 }
 
 bool compileShaderAsBlob(const String &basename, const String &outputDir, bool truncateFile) {
-	
-
 	Vector <CompiledShader> result;
 	for (int i = 0; i < static_cast<int>(ShaderType::COUNT); ++i) {
 		auto shaderType = static_cast<ShaderType>(i);
@@ -441,6 +443,8 @@ bool compileShaderAsBlob(const String &basename, const String &outputDir, bool t
 			continue;
 		}
 
+		LOG_FMT(Info, "Compiling shader file %s...", p.string().c_str());
+
 		const auto size = ifs.tellg();
 		auto srcMemblock = std::make_unique<char[]>(size);
 		ifs.seekg(0, std::ios::beg);
@@ -448,7 +452,7 @@ bool compileShaderAsBlob(const String &basename, const String &outputDir, bool t
 		ifs.close();
 
 		auto include_dir = p.parent_path().wstring();
-		auto compiled = compileFromSource(srcMemblock.get(), size, basename, {include_dir}, shaderType);
+		auto compiled = compileFromSource(srcMemblock.get(), size, shaderName, {include_dir}, shaderType);
 		if (compiled.has_value()) {
 			result.push_back(*compiled);
 		}

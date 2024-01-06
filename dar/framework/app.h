@@ -99,6 +99,10 @@ protected:
 		return totalTime;
 	}
 
+	void quit() const {
+		glfwSetWindowShouldClose(getGLFWWindow(), true);
+	}
+
 	virtual void onResize(const unsigned int w, const unsigned int h) = 0;
 	virtual void onKeyboardInput(int /*key*/, int /*action */) {};
 	virtual void onMouseScroll(double /*xOffset*/, double /*yOffset*/) {};

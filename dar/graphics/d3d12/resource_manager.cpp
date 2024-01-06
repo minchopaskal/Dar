@@ -144,7 +144,9 @@ ResourceHandle ResourceManager::createBuffer(ResourceInitData &initData) {
 	ResourceType type = initData.type;
 
 	if (type == ResourceType::StagingBuffer) {
-		CHECK_RESOURCE_HANDLE(initData.stagingData.destResource);
+		if (initData.stagingData.destResource == INVALID_RESOURCE_HANDLE) {
+			return INVALID_RESOURCE_HANDLE;
+		}
 	}
 
 	D3D12_RESOURCE_STATES initialState = initData.state;
@@ -166,9 +168,11 @@ ResourceHandle ResourceManager::createBuffer(ResourceInitData &initData) {
 	D3D12_CLEAR_VALUE *clearValuePtr = nullptr;
 	D3D12_RESOURCE_DESC resDesc = initData.getResourceDescriptor();
 	switch (type) {
-	case ResourceType::DataBuffer:
-		heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+	case ResourceType::ReadbackBuffer:
+		heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK);
 		break;
+	case ResourceType::DataBuffer:
+	case ResourceType::ReadWriteBuffer:
 	case ResourceType::TextureBuffer:
 		heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 		break;
@@ -646,8 +650,12 @@ D3D12_RESOURCE_DESC ResourceInitData::getResourceDescriptor() const {
 	D3D12_RESOURCE_DESC resDesc = {};
 	SizeType resourceSize = 0;
 	switch (type) {
+	case ResourceType::ReadbackBuffer:
 	case ResourceType::DataBuffer:
 		resDesc = CD3DX12_RESOURCE_DESC::Buffer(size);
+		break;
+	case ResourceType::ReadWriteBuffer:
+		resDesc = CD3DX12_RESOURCE_DESC::Buffer(size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 		break;
 	case ResourceType::TextureBuffer:
 		resDesc = CD3DX12_RESOURCE_DESC::Tex2D(

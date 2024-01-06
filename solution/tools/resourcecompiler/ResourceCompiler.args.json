@@ -1,0 +1,18 @@
+{
+  "FileVersion": 2,
+  "Id": "5635f0d7-7a81-4146-ff20-1c853bc76746",
+  "Items": [
+    {
+      "Id": "738cf148-4020-4487-bbe5-bbc627051b9c",
+      "Command": "C:\\Projects\\Dar\\examples\\sponza\\res"
+    },
+    {
+      "Id": "4091e558-ae97-434f-801d-fe7e2fda4714",
+      "Command": "C:\\Projects\\Dar\\examples\\sponza\\res"
+    },
+    {
+      "Id": "0e2aa982-d86a-4c82-bff6-41ed6fd481ba",
+      "Command": "shaders"
+    }
+  ]
+}

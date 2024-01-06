@@ -36,6 +36,9 @@ void RenderCommandList::execCommands(CommandList &cmdList) const {
 		case Transition:
 			perCmdCallback((RenderCommandSetConstantBuffer*)nullptr);
 			break;
+		case Dispatch:
+			perCmdCallback((RenderCommandDispatch *)nullptr);
+			break;
 		default:
 			dassert(false);
 			break;

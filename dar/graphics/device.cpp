@@ -87,6 +87,14 @@ bool Device::init() {
 		ComPtr<ID3D12Debug> debugLayer;
 		if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugLayer)))) {
 			debugLayer->EnableDebugLayer();
+
+//#define GPU_BASED_VALIDATION
+#if defined GPU_BASED_VALIDATION
+			ComPtr<ID3D12Debug1> debugLayer1;
+			debugLayer->QueryInterface(IID_PPV_ARGS(&debugLayer1));
+			debugLayer1->SetEnableGPUBasedValidation(true);
+#endif // GPU_BASED_VALIDATION
+
 		}
 	}
 #endif // defined(DAR_DEBUG)

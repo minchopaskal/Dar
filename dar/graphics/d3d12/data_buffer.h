@@ -48,6 +48,8 @@ private:
 	ResourceHandle handle = INVALID_RESOURCE_HANDLE;
 	SizeType size = 0;
 	SizeType elementSize = 0;
+
+	friend class ReadWriteBufferResource;
 };
 
 } // namespace Dar

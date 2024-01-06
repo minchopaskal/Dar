@@ -211,12 +211,14 @@ FenceValue HUD::render() {
 		return false;
 	}
 
+	const int frameIndex = hudRenderer.getBackbufferIndex();
+
 	Dar::VertexIndexBufferDesc vertexDesc = {};
 	vertexDesc.data = vertices.data();
 	vertexDesc.size = static_cast<UINT>(vertices.size() * sizeof(HUDVertex));
 	vertexDesc.name = "HUDVertexBuffer";
 	vertexDesc.vertexBufferStride = sizeof(HUDVertex);
-	if (!vertexBuffer.init(vertexDesc, uploadHandle)) {
+	if (!vertexBuffer[frameIndex].init(vertexDesc, uploadHandle)) {
 		LOG(Error, "Failed to upload HUD vertex buffer!");
 		return false;
 	}
@@ -226,17 +228,16 @@ FenceValue HUD::render() {
 	indexDesc.size = static_cast<UINT>(indices.size() * sizeof(uint32_t));
 	indexDesc.name = "HUDIndexBuffer";
 	indexDesc.indexBufferFormat = DXGI_FORMAT_R32_UINT;
-	if (!indexBuffer.init(indexDesc, uploadHandle)) {
+	if (!indexBuffer[frameIndex].init(indexDesc, uploadHandle)) {
 		LOG(Error, "Failed to upload HUD index buffer!");
 		return false;
 	}
 	auto uploadCtx = resManager.uploadBuffersAsync();
 
-	const int frameIndex = hudRenderer.getBackbufferIndex();
 	auto &fd = frameData[frameIndex];
 	fd.addUploadContextToWait(uploadCtx);
-	fd.setVertexBuffer(&vertexBuffer);
-	fd.setIndexBuffer(&indexBuffer);
+	fd.setVertexBuffer(&vertexBuffer[frameIndex]);
+	fd.setIndexBuffer(&indexBuffer[frameIndex]);
 	fd.addConstResource(constData[frameIndex], 0);
 
 	fd.startNewPass();

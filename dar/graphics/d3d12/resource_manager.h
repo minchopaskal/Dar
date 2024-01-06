@@ -21,6 +21,8 @@ enum class ResourceType : unsigned int {
 	Invalid = 0,
 	DataBuffer = 1,
 	StagingBuffer = 2,
+	ReadWriteBuffer = 3,
+	ReadbackBuffer = 4,
 	
 	TextureBuffer,
 	RenderTargetBuffer,

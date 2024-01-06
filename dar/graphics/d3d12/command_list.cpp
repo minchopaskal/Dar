@@ -126,11 +126,20 @@ void CommandList::transition(ResourceHandle resource, D3D12_RESOURCE_STATES stat
 	}
 }
 
-void CommandList::setConstantBufferView(unsigned int index, ResourceHandle constBufferHandle) {
+void CommandList::setConstantBufferView(unsigned int index, ResourceHandle constBufferHandle, bool compute) {
 	flushCurrentPendingBarriers();
 
 	dassert(index >= 0);
-	cmdList->SetGraphicsRootConstantBufferView(index, constBufferHandle->GetGPUVirtualAddress());
+	if (compute) {
+		cmdList->SetComputeRootConstantBufferView(index, constBufferHandle->GetGPUVirtualAddress());
+	} else {
+		cmdList->SetGraphicsRootConstantBufferView(index, constBufferHandle->GetGPUVirtualAddress());
+	}
+}
+
+void CommandList::dispatch(uint32_t threadGroupCount) {
+	flushCurrentPendingBarriers();
+	get()->Dispatch(threadGroupCount, 1, 1);
 }
 
 void CommandList::drawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t startVertex, uint32_t startInstance) {
@@ -169,6 +178,11 @@ void CommandList::resourceBarriers(const Vector<D3D12_RESOURCE_BARRIER> &barrier
 	resourceBarriersImpl(barriers);
 }
 
+void CommandList::copyResource(ResourceHandle dest, ResourceHandle src) {
+	flushCurrentPendingBarriers();
+	get()->CopyResource(dest.get(), src.get());
+}
+
 void CommandList::copyBufferRegion(ResourceHandle dest, ResourceHandle src, SizeType size) {
 	flushCurrentPendingBarriers();
 	auto &resManager = getResourceManager();
@@ -199,9 +213,14 @@ void CommandList::setScissorRect(const D3D12_RECT &rect) {
 	get()->RSSetScissorRects(1, &rect);
 }
 
-void CommandList::setRootSignature(ID3D12RootSignature *rootSignature) {
+void CommandList::setRootSignature(ID3D12RootSignature *rootSignature, bool compute) {
 	flushCurrentPendingBarriers();
-	get()->SetGraphicsRootSignature(rootSignature);
+
+	if (compute) {
+		get()->SetComputeRootSignature(rootSignature);
+	} else {
+		get()->SetGraphicsRootSignature(rootSignature);
+	}
 }
 
 void CommandList::clearRenderTarget(D3D12_CPU_DESCRIPTOR_HANDLE handle) {

@@ -91,8 +91,8 @@ private:
   
   Dar::ResourceHandle constData[Dar::FRAME_COUNT];
   Dar::DataBufferResource widgetDataBuffer;
-  Dar::VertexBuffer vertexBuffer;
-  Dar::IndexBuffer indexBuffer;
+  Dar::VertexBuffer vertexBuffer[Dar::FRAME_COUNT];
+  Dar::IndexBuffer indexBuffer[Dar::FRAME_COUNT];
 
   Vector<Dar::TextureResource> textures;
   Vector<TextureDesc> textureDescriptions;

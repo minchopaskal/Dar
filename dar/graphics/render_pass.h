@@ -129,6 +129,7 @@ struct RenderPassDesc {
 
 	void setPipelineStateDesc(const PipelineStateDesc &pd) {
 		psoDesc = pd;
+		compute = (pd.shadersMask & shaderInfoFlags_useCompute);
 	}
 
 	/// Add a render pass attachment
@@ -143,6 +144,7 @@ private:
 	PipelineStateDesc psoDesc = {}; ///< Description of the pipeline state. The render pass will construct it.
 	float viewportWidth = -1;
 	float viewportHeight = -1;
+	bool compute = false;
 };
 
 struct FrameData;
@@ -152,7 +154,7 @@ struct RenderPass {
 	/// @param device Device used for the render pass initialization steps.
 	/// @param rpd Render pass description.
 	/// @param frameCount How many frames are rendered at the same time. Used for determining the size of the SRV and RTV heaps.
-	void init(ComPtr<ID3D12Device> device, Backbuffer *backbuffer, const RenderPassDesc &rpd);
+	bool init(ComPtr<ID3D12Device> device, Backbuffer *backbuffer, const RenderPassDesc &rpd);
 
 	void begin(CommandList &cmdList, int backbufferIndex);
 	
@@ -170,6 +172,7 @@ public:
 	DescriptorHeap srvHeap[FRAME_COUNT];
 	D3D12_RENDER_PASS_DEPTH_STENCIL_DESC depthStencilDesc;
 	D3D12_VIEWPORT viewport;
+	bool compute = false;
 };
 
 } // namespace Dar

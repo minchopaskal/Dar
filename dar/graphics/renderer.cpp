@@ -134,6 +134,11 @@ void Renderer::renderUI(CommandList &cmdList, D3D12_CPU_DESCRIPTOR_HANDLE &rtvHa
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), gCmdList.Get());
 }
 
+struct ReadbackBufferPair {
+	ResourceHandle srcBuffer;
+	ResourceHandle dstReadbackBuffer;
+};
+
 CommandList Renderer::populateCommandList(const FrameData &frameData) {
 	CommandList cmdList = device->getCommandList();
 	if (framePipeline == nullptr) {
@@ -165,14 +170,26 @@ CommandList Renderer::populateCommandList(const FrameData &frameData) {
 			);
 		}
 
+		Vector<ReadbackBufferPair> readbackBuffers;
+
 		srvHeap.reset();
 		for (auto &res : shaderResources) {
 			ResourceHandle handle = {};
 			bool isTex = false;
+			auto stateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 			switch (res.type) {
 			case FrameData::ShaderResourceType::Data:
 				handle = res.data->getHandle();
 				srvHeap.addBufferSRV(handle.get(), static_cast<UINT>(res.data->getNumElements()), static_cast<UINT>(res.data->getElementSize()));
+				break;
+			case FrameData::ShaderResourceType::RWData:
+				handle = res.rwData->getHandle();
+				srvHeap.addBufferUAV(handle.get(), static_cast<UINT>(res.rwData->getNumElements()), static_cast<UINT>(res.rwData->getElementSize()));
+				stateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+
+				if (res.rwData->hasReadbackBuffer()) {
+					readbackBuffers.push_back({ handle, res.rwData->getReeadbackBufferHandle() });
+				}
 				break;
 			case FrameData::ShaderResourceType::Texture:
 				handle = res.tex->getHandle();
@@ -186,7 +203,7 @@ CommandList Renderer::populateCommandList(const FrameData &frameData) {
 				dassert(false);
 				break;
 			}
-			cmdList.transition(handle, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+			cmdList.transition(handle, stateAfter);
 			if (isTex) {
 			} else {
 			}
@@ -196,55 +213,66 @@ CommandList Renderer::populateCommandList(const FrameData &frameData) {
 			cmdList.setDescriptorHeap(renderPass.srvHeap[backbufferIndex].getAddressOf());
 		}
 
-		auto viewport = renderPass.viewport;
-		if (viewport.Width <= 0) {
-			viewport.Width = float(app->getWidth());
-		}
-		if (viewport.Height <= 0) {
-			viewport.Height = float(app->getHeight());
-		}
-		cmdList.setViewport(viewport);
-		cmdList.setScissorRect(scissorRect);
-
-		cmdList.setRootSignature(renderPass.pipeline.getRootSignature());
+		cmdList.setRootSignature(renderPass.pipeline.getRootSignature(), renderPass.compute);
 
 		for (auto &cb : frameData.constantBuffers) {
 			cmdList.transition(cb.handle, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-			cmdList.setConstantBufferView(cb.rootParameterIndex, cb.handle);
+			cmdList.setConstantBufferView(cb.rootParameterIndex, cb.handle, renderPass.compute);
 		}
 
-		const bool hasDepthBuffer = renderPass.depthBufferAttachment.valid();
-		const int numRenderTargets = static_cast<int>(renderPass.renderTargetDescs.size());
-		rtvHandle = renderPass.rtvHeap[backbufferIndex].getCPUHandle(0);
-		const D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = hasDepthBuffer ? renderPass.depthBufferAttachment.getCPUHandle() : D3D12_CPU_DESCRIPTOR_HANDLE{ 0 };
+		if (!renderPass.compute) {
+			auto viewport = renderPass.viewport;
+			if (viewport.Width <= 0) {
+				viewport.Width = float(app->getWidth());
+			}
+			if (viewport.Height <= 0) {
+				viewport.Height = float(app->getHeight());
+			}
+			cmdList.setViewport(viewport);
+			cmdList.setScissorRect(scissorRect);
 
-		for (int i = 0; i < numRenderTargets; ++i) {
-			cmdList.clearRenderTarget(renderPass.rtvHeap[backbufferIndex].getCPUHandle(i));
+			const bool hasDepthBuffer = renderPass.depthBufferAttachment.valid();
+			const int numRenderTargets = static_cast<int>(renderPass.renderTargetDescs.size());
+			rtvHandle = renderPass.rtvHeap[backbufferIndex].getCPUHandle(0);
+			const D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = hasDepthBuffer ? renderPass.depthBufferAttachment.getCPUHandle() : D3D12_CPU_DESCRIPTOR_HANDLE{ 0 };
+
+			for (int i = 0; i < numRenderTargets; ++i) {
+				cmdList.clearRenderTarget(renderPass.rtvHeap[backbufferIndex].getCPUHandle(i));
+			}
+
+			if (hasDepthBuffer && renderPass.depthBufferAttachment.clearDepthBuffer()) {
+				cmdList.transition(renderPass.depthBufferAttachment.getResourceHandle(0), D3D12_RESOURCE_STATE_DEPTH_WRITE);
+				cmdList.clearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH);
+			}
+
+			cmdList.setPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+			if (frameData.vertexBuffer) {
+				cmdList.transition(frameData.vertexBuffer->bufferHandle, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+				cmdList.setVertexBuffers(&frameData.vertexBuffer->bufferView, 1);
+			}
+			if (frameData.indexBuffer) {
+				cmdList.transition(frameData.indexBuffer->bufferHandle, D3D12_RESOURCE_STATE_INDEX_BUFFER);
+				cmdList.setIndexBuffer(&frameData.indexBuffer->bufferView);
+			}
+
+			cmdList.setRenderTargets(
+				numRenderTargets > 0 ? &rtvHandle : nullptr,
+				hasDepthBuffer ? &dsvHandle : nullptr,
+				numRenderTargets
+			);
 		}
-
-		if (hasDepthBuffer && renderPass.depthBufferAttachment.clearDepthBuffer()) {
-			cmdList.transition(renderPass.depthBufferAttachment.getResourceHandle(0), D3D12_RESOURCE_STATE_DEPTH_WRITE);
-			cmdList.clearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH);
-		}
-
-		cmdList.setPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-		if (frameData.vertexBuffer) {
-			cmdList.transition(frameData.vertexBuffer->bufferHandle, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-			cmdList.setVertexBuffers(&frameData.vertexBuffer->bufferView, 1);
-		}
-		if (frameData.indexBuffer) {
-			cmdList.transition(frameData.indexBuffer->bufferHandle, D3D12_RESOURCE_STATE_INDEX_BUFFER);
-			cmdList.setIndexBuffer(&frameData.indexBuffer->bufferView);
-		}
-
-		cmdList.setRenderTargets(
-			numRenderTargets > 0 ? &rtvHandle : nullptr,
-			hasDepthBuffer ? &dsvHandle : nullptr,
-			numRenderTargets
-		);
 
 		frameData.renderCommands[renderPassIndex].execCommands(cmdList);
+
+		for (auto &rbBuffer : readbackBuffers) {
+			cmdList.transition(rbBuffer.srcBuffer, D3D12_RESOURCE_STATE_COPY_SOURCE);
+			cmdList.transition(rbBuffer.dstReadbackBuffer, D3D12_RESOURCE_STATE_COPY_DEST);
+		}
+
+		for (auto &rbBuffer : readbackBuffers) {
+			cmdList.copyResource(rbBuffer.dstReadbackBuffer, rbBuffer.srcBuffer);
+		}
 
 		renderPass.end(cmdList);
 	}

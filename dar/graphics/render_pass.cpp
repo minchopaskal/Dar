@@ -24,9 +24,16 @@ void RenderPassDesc::setViewport(int width, int height) {
 	}
 }
 
-void RenderPass::init(ComPtr<ID3D12Device> device, Backbuffer *backbuf, const RenderPassDesc &rpd) {
+bool RenderPass::init(ComPtr<ID3D12Device> device, Backbuffer *backbuf, const RenderPassDesc &rpd) {
 	auto &psoDesc = rpd.psoDesc;
-	pipeline.init(device, psoDesc);
+	if (!pipeline.init(device, psoDesc)) {
+		return false;
+	}
+
+	compute = rpd.compute;
+	if (compute) {
+		return true;
+	}
 	
 	viewport = D3D12_VIEWPORT{ 0.f, 0.f, rpd.viewportWidth, rpd.viewportHeight, 0.f, 1.f };
 
@@ -97,10 +104,16 @@ void RenderPass::init(ComPtr<ID3D12Device> device, Backbuffer *backbuf, const Re
 			true /*shaderVisible*/
 		);
 	}
+
+	return true;
 }
 
 void RenderPass::begin(CommandList &cmdList, int backbufferIndex) {
 	cmdList.setPipelineState(pipeline.getPipelineState());
+
+	if (compute) {
+		return;
+	}
 
 	// Prepare the rtv heap. Do this each frame in order not to deal with
 	// tracking when the RTV texture is changed and stuff like that.

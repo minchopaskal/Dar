@@ -52,6 +52,8 @@ int main(int argc, char **argv) {
 	auto outputDir = fs::path(argv[2]);
 	auto resource_type = (argc > 3 ? Optional<String>(argv[3]) : std::nullopt);
 
+	LOG_FMT(Info, "Current path: %s", fs::current_path().string().c_str());
+
 	for (auto p : fs::directory_iterator{ inputDir }) {
 		if (!p.is_directory()) {
 			continue;

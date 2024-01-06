@@ -46,7 +46,7 @@ void ModelNode::draw(Dar::FrameData &frameData, const Scene &scene) const {
 	for (SizeType i = startMesh; i < startMesh + numMeshes; ++i) {
 		const Mesh &mesh = scene.meshes[i];
 
-		frameData.addRenderCommand(Dar::RenderCommandSetConstantBuffer(mesh.meshDataHandle, static_cast<UINT>(DefaultConstantBufferView::MeshData)));
+		frameData.addRenderCommand(Dar::RenderCommandSetConstantBuffer(mesh.meshDataHandle, static_cast<UINT>(DefaultConstantBufferView::MeshData), false));
 		frameData.addRenderCommand(Dar::RenderCommandDrawIndexedInstanced(static_cast<UINT>(mesh.numIndices), 1, static_cast<UINT>(mesh.indexOffset), 0, 0));
 	}
 }
@@ -154,7 +154,8 @@ void Scene::prepareFrameDataForShadowMap(int shadowMapPassIndex, Dar::FrameData 
 	frameData.addRenderCommand(
 		Dar::RenderCommandSetConstantBuffer(
 			lightcasterDescs[shadowMapPassIndex].getHandle(),
-			static_cast<int>(ShadowMapConstantBufferView::LightcasterDesc)
+			static_cast<int>(ShadowMapConstantBufferView::LightcasterDesc),
+			false
 		)
 	);
 	
@@ -251,7 +252,7 @@ void Scene::drawMeshes(Dar::FrameData &frameData, Dar::UploadHandle uploadHandle
 	for (SizeType i = 0; i < meshes.size(); ++i) {
 		const Mesh &mesh = meshes[i];
 
-		frameData.addRenderCommand(Dar::RenderCommandSetConstantBuffer(mesh.meshDataHandle, static_cast<UINT>(DefaultConstantBufferView::MeshData)));
+		frameData.addRenderCommand(Dar::RenderCommandSetConstantBuffer(mesh.meshDataHandle, static_cast<UINT>(DefaultConstantBufferView::MeshData), false));
 		frameData.addRenderCommand(Dar::RenderCommandDrawIndexedInstanced(static_cast<UINT>(mesh.numIndices), 1, static_cast<UINT>(mesh.indexOffset), 0, 0));
 	}
 }

@@ -33,9 +33,9 @@
 do { \
   auto res__ = (cmd); \
   if (!SUCCEEDED(res__)) { \
-      LOG_FMT(Error, "D3D12 Error: %s\n Last Error: %lu\n", (msg), res__); \
+      LOG_FMT(Error, "Error: %s\n Last Error Code: %lu\n", (msg), res__); \
       char error__[512]; \
-      sprintf(error__, "D3D12 Error: %s\n", _com_error(res__).ErrorMessage()); \
+      sprintf(error__, "Error: %s. D3D12 Error: %s\n", (msg), _com_error(res__).ErrorMessage()); \
       OutputDebugString(error__); \
       DebugBreak(); \
       return retval; \
@@ -46,7 +46,7 @@ do { \
 do { \
   auto res__ = (cmd); \
   if (!SUCCEEDED(res__)) { \
-      LOG_FMT(Error, "D3D12 Error: %s\n Error(%lu): %s\n", (msg), res__, _com_error(res__).ErrorMessage()); \
+      LOG_FMT(Error, "Error: %s\n D3D12 Error(%lu): %s\n", (msg), res__, _com_error(res__).ErrorMessage()); \
       return retval; \
     } \
   } \

@@ -4,6 +4,7 @@
 #include "d3d12/depth_buffer.h"
 #include "d3d12/pipeline_state.h"
 #include "d3d12/vertex_index_buffer.h"
+#include "d3d12/read_write_buffer.h"
 #include "framework/app.h"
 #include "framework/camera.h"
 #include "math/dar_math.h"
