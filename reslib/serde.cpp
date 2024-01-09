@@ -368,7 +368,7 @@ bool compileFolderAsBlob(const String &shaderFolder, const String &outputDir) {
 	return true;
 }
 
-Optional<CompiledShader> compileFromSource(const char *src, SizeType srcLen, const String &name, const Vector<WString> includeDirs, ShaderType type) {
+Optional<CompiledShader> compileFromSource(const char *src, SizeType srcLen, const String &basename, const Vector<WString> includeDirs, ShaderType type) {
 	ComPtr<IDxcCompiler3> compiler;
 	DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(compiler.GetAddressOf()));
 
@@ -407,16 +407,18 @@ Optional<CompiledShader> compileFromSource(const char *src, SizeType srcLen, con
 	ComPtr<IDxcResult> compileResult;
 	compiler->Compile(&sourceBuffer, args.data(), uint32_t(args.size()), includeHandler.Get(), IID_PPV_ARGS(compileResult.GetAddressOf()));
 
+	String shaderName = basename + "_" + shaderTypeToStr(type);
+
 	ComPtr<IDxcBlobUtf8> errors;
 	compileResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(errors.GetAddressOf()), nullptr);
 	if (errors && errors->GetStringLength() > 0) {
-		LOG_FMT(Error, "DXC {Error(%s): %s", name.c_str(), (char *)errors->GetBufferPointer());
+		LOG_FMT(Error, "DXC {Error(%s): %s", shaderName.c_str(), (char *)errors->GetBufferPointer());
 		return std::nullopt;
 	}
 
 	CompiledShader result = {};
 	if (compileResult->HasOutput(DXC_OUT_OBJECT)) {
-		result.name = name;
+		result.name = shaderName;
 		RETURN_ON_ERROR_FMT(
 			compileResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(result.blob.GetAddressOf()), nullptr),
 			std::nullopt,
@@ -432,7 +434,9 @@ bool compileShaderAsBlob(const String &basename, const String &outputDir, bool t
 	for (int i = 0; i < static_cast<int>(ShaderType::COUNT); ++i) {
 		auto shaderType = static_cast<ShaderType>(i);
 		const auto p = std::filesystem::absolute(basename + "_" + shaderTypeToStr(shaderType) + ".hlsl");
-		auto shaderName = p.stem().string();
+		auto shaderNameBase = p.stem().string();
+		auto underscorePos = shaderNameBase.find_last_of('_');
+		shaderNameBase = shaderNameBase.substr(0, underscorePos);
 
 		if (!std::filesystem::exists(p) || !std::filesystem::is_regular_file(p)) {
 			continue;
@@ -452,7 +456,7 @@ bool compileShaderAsBlob(const String &basename, const String &outputDir, bool t
 		ifs.close();
 
 		auto include_dir = p.parent_path().wstring();
-		auto compiled = compileFromSource(srcMemblock.get(), size, shaderName, {include_dir}, shaderType);
+		auto compiled = compileFromSource(srcMemblock.get(), size, shaderNameBase, {include_dir}, shaderType);
 		if (compiled.has_value()) {
 			result.push_back(*compiled);
 		}

@@ -131,7 +131,7 @@ void ShaderPlaything::update() {
 			}
 		}
 
-		for (int j : renderPass->dependancies) {
+		for (SizeType j : renderPass->dependancies) {
 			for (auto &rt : renderPasses[j]->renderTextures) {
 				fd.addTextureResource(rt.getTextureResource(frameIdx));
 			}
@@ -156,6 +156,7 @@ void ShaderPlaything::update() {
 	fd.addRenderCommand(Dar::RenderCommandDrawInstanced(3, 1, 0, 0));
 
 	auto fenceValue = renderer.renderFrame(fd);
+	device.getCommandQueue().cpuWaitForFenceValue(fenceValue);
 }
 
 void ShaderPlaything::drawUI() {

@@ -15,11 +15,11 @@ enum class ReadbackBufferMapError {
 class ReadWriteBufferResource {
 public:
 	/// Intialize or resize the data buffer.
-/// @param elemSize Size of the elements in the buffer to be allocated.
-/// @param numElems Number of elements in the buffer to be allocated.
-/// @param readback Wheather this buffer will be readback on CPU.
-/// @param heapInfo Optional pointer to a HeapInfo object describing the heap on which we want the allocation to happen.
-/// @return true on success, false otherwise.
+	/// @param elemSize Size of the elements in the buffer to be allocated.
+	/// @param numElems Number of elements in the buffer to be allocated.
+	/// @param readback Wheather this buffer will be readback on CPU.
+	/// @param heapInfo Optional pointer to a HeapInfo object describing the heap on which we want the allocation to happen.
+	/// @return true on success, false otherwise.
 	bool init(SizeType elemSize, SizeType numElems, bool readback, Optional<HeapHandle> heapHandle = std::nullopt);
 
 	/// Upload CPU data to the buffer.
