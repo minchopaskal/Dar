@@ -208,7 +208,7 @@ void Scene::updateLightData(Dar::UploadHandle uploadHandle) {
 		{
 			auto &cam = *getRenderCamera();
 
-			Vec3 offset = 10.f * cam.getCameraZ();
+			Vec3 offset = 10.f * cam.getCameraZ() - 50.f * cam.getCameraY();
 
 			// TODO: wiggle while moving?
 			gpuLight.position = cam.getPos() + offset;

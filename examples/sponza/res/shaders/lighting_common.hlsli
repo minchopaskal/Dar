@@ -142,7 +142,8 @@ float calcShadowFactor(Material material, LightData light) {
 	float percentLit = 0.0f;
 	[unroll]
 	for (int i = 0; i < 9; ++i) {
-		percentLit += shadowMap.SampleCmp(SamplerDepth, uvDepth.xy + offsets[i], uvDepth.z);
+		// TODO: bias via RASTERIZER_DESC
+		percentLit += shadowMap.SampleCmp(SamplerDepth, uvDepth.xy + offsets[i], uvDepth.z - 0.005);
 	}
 
 	return percentLit / 9.0;
