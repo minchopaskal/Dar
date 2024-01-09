@@ -69,6 +69,9 @@
     <ClInclude Include="..\..\examples\sponza\res\shaders\common.hlsli">
       <Filter>res\shaders</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\comptest_cs.hlsl">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\examples\sponza\res\shaders\deferred_ps.hlsl">
       <Filter>res\shaders</Filter>
     </ClInclude>

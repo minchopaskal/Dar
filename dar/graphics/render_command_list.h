@@ -11,6 +11,7 @@ enum class RenderCommandType {
 	DrawIndexedInstanced,
 	SetConstantBuffer,
 	Transition,
+	Dispatch,
 
 	Invalid,
 };
@@ -25,7 +26,9 @@ concept RenderCommandConcept = requires (const T &x, CommandList &l) {
 struct RenderCommandInvalid {
 	RenderCommandType type = RenderCommandType::Invalid;
 
-	void exec(CommandList&) { }
+	void exec(CommandList &) {
+		dassert(false);
+	}
 };
 
 struct RenderCommandDrawInstanced {
@@ -64,17 +67,18 @@ private:
 struct RenderCommandSetConstantBuffer {
 	RenderCommandType type = RenderCommandType::SetConstantBuffer;
 
-	RenderCommandSetConstantBuffer(ResourceHandle constBufferHandle, uint32_t rootIndex) 
-		: constBufferHandle(constBufferHandle), rootIndex(rootIndex) {}
+	RenderCommandSetConstantBuffer(ResourceHandle constBufferHandle, uint32_t rootIndex, bool compute) 
+		: constBufferHandle(constBufferHandle), rootIndex(rootIndex), compute(compute) {}
 
 	void exec(CommandList &cmdList) const {
 		cmdList.transition(constBufferHandle, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-		cmdList.setConstantBufferView(rootIndex, constBufferHandle);
+		cmdList.setConstantBufferView(rootIndex, constBufferHandle, compute);
 	}
 
 private:
 	ResourceHandle constBufferHandle;
 	uint32_t rootIndex;
+	bool compute;
 };
 
 struct RenderCommandTransition {
@@ -95,6 +99,21 @@ private:
 	ResourceHandle resource;
 	D3D12_RESOURCE_STATES toState;
 	uint32_t subresIndex;
+};
+
+struct RenderCommandDispatch {
+	RenderCommandType type = RenderCommandType::Dispatch;
+
+	RenderCommandDispatch(uint32_t threadGroupCount)
+		: threadGroupCount(threadGroupCount) {
+	}
+
+	void exec(CommandList &cmdList) const {
+		cmdList.dispatch(threadGroupCount);
+	}
+
+private:
+	uint32_t threadGroupCount;
 };
 
 // TODO: when execCommands is called cache the commands in a bundle for next frame use.

@@ -84,6 +84,22 @@ void DescriptorHeap::addBufferSRV(ID3D12Resource *resource, UINT numElements, UI
 	cpuHandleRunning.ptr += handleIncrementSize;
 }
 
+void DescriptorHeap::addBufferUAV(ID3D12Resource *resource, UINT numElements, UINT elementSize) {
+	dassert(type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
+	desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+	desc.Buffer.FirstElement = 0;
+	desc.Buffer.NumElements = numElements;
+	desc.Buffer.StructureByteStride = elementSize;
+	desc.Buffer.CounterOffsetInBytes = 0;
+	desc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+
+	device->CreateUnorderedAccessView(resource, nullptr, &desc, cpuHandleRunning);
+	
+	cpuHandleRunning.ptr += handleIncrementSize;
+}
+
 void DescriptorHeap::addRTV(ID3D12Resource *resource, D3D12_RENDER_TARGET_VIEW_DESC *rtvDesc) {
 	dassert(type == D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 

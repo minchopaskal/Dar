@@ -58,97 +58,117 @@ bool PipelineState::init(const ComPtr<ID3D12Device> &device, const PipelineState
 		D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED |
 		D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED;
 
-	if (mask & shaderInfoFlags_useVertex) {
-		rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-	}
 	if (rootSignatureFlags != nullptr) {
 		rsFlags |= *rootSignatureFlags;
 	}
 
 	auto sname = desc.shaderName;
 	auto &reslib = getResourceLibrary();
+	bool isCompute = mask & shaderInfoFlags_useCompute;
+	if (!isCompute) {
+		if (mask & shaderInfoFlags_useVertex) {
+			rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+		}
 
-	auto psShaderName = sname + "_ps";
-	auto psShader = reslib.getShader(psShaderName);
-	if (psShader == nullptr) {
-		LOG_FMT(Error, "Failed to read %s!", psShaderName.c_str());
-		return false;
-	}
-	stream.insert(PixelShaderToken(D3D12_SHADER_BYTECODE{ psShader->GetBufferPointer(), psShader->GetBufferSize() }));
-
-	if (mask & shaderInfoFlags_useVertex) {
-		auto vsShaderName = sname + "_vs";
-		if (auto vsShader = reslib.getShader(vsShaderName)) {
-			stream.insert(VertexShaderToken({ vsShader->GetBufferPointer(), vsShader->GetBufferSize() }));
-		} else {
-			LOG_FMT(Error, "Failed to read %s!", vsShaderName.c_str());
+		auto psShaderName = sname + "_ps";
+		auto psShader = reslib.getShader(psShaderName);
+		if (psShader == nullptr) {
+			LOG_FMT(Error, "Failed to read %s!", psShaderName.c_str());
 			return false;
 		}
-	} else {
-		rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_VERTEX_SHADER_ROOT_ACCESS;
-	}
+		stream.insert(PixelShaderToken(D3D12_SHADER_BYTECODE{ psShader->GetBufferPointer(), psShader->GetBufferSize() }));
 
-	if (mask & shaderInfoFlags_useGeometry) {
-		auto gsShaderName = sname + "_gs";
-		if (auto gsShader = reslib.getShader(gsShaderName)) {
-			stream.insert(GeometryShaderToken({ gsShader->GetBufferPointer(), gsShader->GetBufferSize() }));
+		if (mask & shaderInfoFlags_useVertex) {
+			auto vsShaderName = sname + "_vs";
+			if (auto vsShader = reslib.getShader(vsShaderName)) {
+				stream.insert(VertexShaderToken({ vsShader->GetBufferPointer(), vsShader->GetBufferSize() }));
+			} else {
+				LOG_FMT(Error, "Failed to read %s!", vsShaderName.c_str());
+				return false;
+			}
 		} else {
-			LOG_FMT(Error, "Failed to read %s!", gsShaderName.c_str());
-			return false;
+			rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_VERTEX_SHADER_ROOT_ACCESS;
+		}
+
+		if (mask & shaderInfoFlags_useGeometry) {
+			auto gsShaderName = sname + "_gs";
+			if (auto gsShader = reslib.getShader(gsShaderName)) {
+				stream.insert(GeometryShaderToken({ gsShader->GetBufferPointer(), gsShader->GetBufferSize() }));
+			} else {
+				LOG_FMT(Error, "Failed to read %s!", gsShaderName.c_str());
+				return false;
+			}
+		} else {
+			rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
+		}
+
+		if (mask & shaderInfoFlags_useDomain) {
+			auto dsShaderName = sname + "_ds";
+			if (auto dsShader = reslib.getShader(dsShaderName)) {
+				stream.insert(DomainShaderToken({ dsShader->GetBufferPointer(), dsShader->GetBufferSize() }));
+			} else {
+				LOG_FMT(Error, "Failed to read %s!", dsShaderName.c_str());
+				return false;
+			}
+		} else {
+			rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS;
+		}
+
+		if (mask & shaderInfoFlags_useHull) {
+			auto hsShaderName = sname + "_hs";
+			if (auto hsShader = reslib.getShader(hsShaderName)) {
+				stream.insert(HullShaderToken({ hsShader->GetBufferPointer(), hsShader->GetBufferSize() }));
+			} else {
+				LOG_FMT(Error, "Failed to read %s!", hsShaderName.c_str());
+				return false;
+			}
+		} else {
+			rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS;
+		}
+
+		if (mask & shaderInfoFlags_useMesh) {
+			auto msShaderName = sname + "_ms";
+			if (auto msShader = reslib.getShader(msShaderName)) {
+				stream.insert(MeshShaderToken({ msShader->GetBufferPointer(), msShader->GetBufferSize() }));
+			} else {
+				LOG_FMT(Error, "Failed to read %s!", msShaderName.c_str());
+				return false;
+			}
+		} else {
+			rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_MESH_SHADER_ROOT_ACCESS;
+		}
+
+		if (mask & shaderInfoFlags_useAmplification) {
+			auto asShaderName = sname + "_as";
+			if (auto asShader = reslib.getShader(asShaderName)) {
+				stream.insert(AmplificationShaderToken({ asShader->GetBufferPointer(), asShader->GetBufferSize() }));
+			} else {
+				LOG_FMT(Error, "Failed to read %s!", asShaderName.c_str());
+				return false;
+			}
+		} else {
+			rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_AMPLIFICATION_SHADER_ROOT_ACCESS;
+		}
+
+		stream.insert(PrimitiveTopologyToken{ D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE });
+
+		D3D12_RT_FORMAT_ARRAY rtFormat = {};
+		rtFormat.NumRenderTargets = desc.numRenderTargets;
+		for (UINT i = 0; i < rtFormat.NumRenderTargets; ++i) {
+			rtFormat.RTFormats[i] = desc.renderTargetFormats[i];
+		}
+		stream.insert(RTFormatsToken{ rtFormat });
+
+		stream.insert(DepthStencilFormatToken{ desc.depthStencilBufferFormat });
+
+		D3D12_RASTERIZER_DESC rd = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+		rd.CullMode = desc.cullMode;
+		stream.insert(RasterizerDescToken{ rd });
+
+		if (desc.inputLayouts) {
+			stream.insert(InputLayoutToken(D3D12_INPUT_LAYOUT_DESC{ desc.inputLayouts, desc.numInputLayouts }));
 		}
 	} else {
-		rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
-	}
-
-	if (mask & shaderInfoFlags_useDomain) {
-		auto dsShaderName = sname + "_ds";
-		if (auto dsShader = reslib.getShader(dsShaderName)) {
-			stream.insert(DomainShaderToken({ dsShader->GetBufferPointer(), dsShader->GetBufferSize() }));
-		} else {
-			LOG_FMT(Error, "Failed to read %s!", dsShaderName.c_str());
-			return false;
-		}
-	} else {
-		rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS;
-	}
-
-	if (mask & shaderInfoFlags_useHull) {
-		auto hsShaderName = sname + "_hs";
-		if (auto hsShader = reslib.getShader(hsShaderName)) {
-			stream.insert(HullShaderToken({ hsShader->GetBufferPointer(), hsShader->GetBufferSize() }));
-		} else {
-			LOG_FMT(Error, "Failed to read %s!", hsShaderName.c_str());
-			return false;
-		}
-	} else {
-		rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS;
-	}
-
-	if (mask & shaderInfoFlags_useMesh) {
-		auto msShaderName = sname + "_ms";
-		if (auto msShader = reslib.getShader(msShaderName)) {
-			stream.insert(MeshShaderToken({ msShader->GetBufferPointer(), msShader->GetBufferSize() }));
-		} else {
-			LOG_FMT(Error, "Failed to read %s!", msShaderName.c_str());
-			return false;
-		}
-	} else {
-		rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_MESH_SHADER_ROOT_ACCESS;
-	}
-
-	if (mask & shaderInfoFlags_useAmplification) {
-		auto asShaderName = sname + "_as";
-		if (auto asShader = reslib.getShader(asShaderName)) {
-			stream.insert(AmplificationShaderToken({ asShader->GetBufferPointer(), asShader->GetBufferSize() }));
-		} else {
-			LOG_FMT(Error, "Failed to read %s!", asShaderName.c_str());
-			return false;
-		}
-	} else {
-		rsFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_AMPLIFICATION_SHADER_ROOT_ACCESS;
-	}
-
-	if (mask & shaderInfoFlags_useCompute) {
 		auto csShaderName = sname + "_cs";
 		if (auto csShader = reslib.getShader(csShaderName)) {
 			stream.insert(ComputeShaderToken({ csShader->GetBufferPointer(), csShader->GetBufferSize() }));
@@ -186,27 +206,8 @@ bool PipelineState::init(const ComPtr<ID3D12Device> &device, const PipelineState
 		device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(rootSignature.GetAddressOf())),
 		"Failed to create root signature!"
 	);
-
+	
 	stream.insert(RootSignatureToken{ rootSignature.Get() });
-
-	stream.insert(PrimitiveTopologyToken{ D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE });
-
-	D3D12_RT_FORMAT_ARRAY rtFormat = {};
-	rtFormat.NumRenderTargets = desc.numRenderTargets;
-	for (UINT i = 0; i < rtFormat.NumRenderTargets; ++i) {
-		rtFormat.RTFormats[i] = desc.renderTargetFormats[i];
-	}
-	stream.insert(RTFormatsToken{ rtFormat });
-
-	stream.insert(DepthStencilFormatToken{ desc.depthStencilBufferFormat });
-
-	D3D12_RASTERIZER_DESC rd = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	rd.CullMode = desc.cullMode;
-	stream.insert(RasterizerDescToken{ rd });
-
-	if (desc.inputLayouts) {
-		stream.insert(InputLayoutToken(D3D12_INPUT_LAYOUT_DESC{ desc.inputLayouts, desc.numInputLayouts }));
-	}
 
 	return initPipeline(device, stream);
 }
@@ -225,12 +226,12 @@ void PipelineState::deinit() {
 }
 
 bool PipelineState::initPipeline(const ComPtr<ID3D12Device> &device, PipelineStateStream &pss) {
+	ComPtr<ID3D12Device2> device2;
+	RETURN_FALSE_ON_ERROR(device.As(&device2), "Failed to aquire ID3D12Device2 interface!");
+
 	D3D12_PIPELINE_STATE_STREAM_DESC pipelineDesc = {};
 	pipelineDesc.pPipelineStateSubobjectStream = pss.getData();
 	pipelineDesc.SizeInBytes = pss.getSize();
-
-	ComPtr<ID3D12Device2> device2;
-	RETURN_FALSE_ON_ERROR(device.As(&device2), "Failed to aquire ID3D12Device2 interface!");
 
 	RETURN_FALSE_ON_ERROR(
 		device2->CreatePipelineState(&pipelineDesc, IID_PPV_ARGS(pipelineState.GetAddressOf())),

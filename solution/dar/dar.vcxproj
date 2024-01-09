@@ -204,6 +204,7 @@
     <ClInclude Include="..\..\dar\graphics\d3d12\descriptor_heap.h" />
     <ClInclude Include="..\..\dar\graphics\d3d12\includes.h" />
     <ClInclude Include="..\..\dar\graphics\d3d12\pipeline_state.h" />
+    <ClInclude Include="..\..\dar\graphics\d3d12\read_write_buffer.h" />
     <ClInclude Include="..\..\dar\graphics\d3d12\resource_handle.h" />
     <ClInclude Include="..\..\dar\graphics\d3d12\resource_manager.h" />
     <ClInclude Include="..\..\dar\graphics\d3d12\texture_res.h" />
@@ -235,6 +236,7 @@
     <ClCompile Include="..\..\dar\graphics\d3d12\depth_buffer.cpp" />
     <ClCompile Include="..\..\dar\graphics\d3d12\descriptor_heap.cpp" />
     <ClCompile Include="..\..\dar\graphics\d3d12\pipeline_state.cpp" />
+    <ClCompile Include="..\..\dar\graphics\d3d12\read_write_buffer.cpp" />
     <ClCompile Include="..\..\dar\graphics\d3d12\resource_handle.cpp" />
     <ClCompile Include="..\..\dar\graphics\d3d12\resource_manager.cpp" />
     <ClCompile Include="..\..\dar\graphics\d3d12\texture_res.cpp" />

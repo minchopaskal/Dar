@@ -49,7 +49,7 @@ struct CompiledShader {
 	String name;
 };
 
-Optional<CompiledShader> compileFromSource(const char *source, SizeType srcLen, const String &name, const Vector<WString> includeDirs, ShaderType type);
+Optional<CompiledShader> compileFromSource(const char *source, SizeType srcLen, const String &basename, const Vector<WString> includeDirs, ShaderType type);
 
 /// @brief Given a shader base name generates a single file containing all compiled shaders.
 /// @param basename of shaders. Shaders should follow the following template - basename_{vs,ps,etc}.hlsl

@@ -20,7 +20,6 @@ struct CommandList {
 	bool init(const ComPtr<ID3D12Device> &device, D3D12_COMMAND_LIST_TYPE type);
 
 	void transition(ResourceHandle resource, D3D12_RESOURCE_STATES stateAfter, const UINT subresourceIndex = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES);
-	void setConstantBufferView(unsigned int rootParameterIndex, ResourceHandle constBufferHandle);
 	void resolveLastStates();
 
 	Vector<PendingResourceBarrier> &getPendingResourceBarriers();
@@ -41,15 +40,18 @@ struct CommandList {
 		return reinterpret_cast<ID3D12CommandList**>(cmdList.GetAddressOf());
 	}
 
+	void dispatch(uint32_t threadGroupCount);
+	void setRootSignature(ID3D12RootSignature *rootSignature, bool compute);
+	void setConstantBufferView(unsigned int rootParameterIndex, ResourceHandle constBufferHandle, bool compute);
 	void drawInstanced(uint32_t vertexCount, uint32_t instanceCount, uint32_t startVertex, uint32_t startInstance);
 	void drawIndexedInstanced(uint32_t indexCount, uint32_t instanceCount, uint32_t startIndex, uint32_t baseVertex, uint32_t startInstance);
 	void resourceBarriers(const Vector<D3D12_RESOURCE_BARRIER> &barriers);
+	void copyResource(ResourceHandle dest, ResourceHandle src);
 	void copyBufferRegion(ResourceHandle dest, ResourceHandle src, SizeType size);
 	void setRenderTargets(const D3D12_CPU_DESCRIPTOR_HANDLE *rtvHandle, const D3D12_CPU_DESCRIPTOR_HANDLE *dsvHandle, uint32_t numRenderTargets);
 	void setDescriptorHeap(ID3D12DescriptorHeap *const *heap);
 	void setViewport(const D3D12_VIEWPORT &viewport);
 	void setScissorRect(const D3D12_RECT &rect);
-	void setRootSignature(ID3D12RootSignature *rootSignature);
 	void clearRenderTarget(D3D12_CPU_DESCRIPTOR_HANDLE handle);
 	void clearDepthStencilView(D3D12_CPU_DESCRIPTOR_HANDLE handle, D3D12_CLEAR_FLAGS flags);
 	void setPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY type);

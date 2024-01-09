@@ -5,6 +5,10 @@ struct PSInput {
 	float2 uv : TEXCOORD;
 };
 
+static const uint RT_INDEX = 0;
+static const uint DEPTH_INDEX = 1;
+static const uint HUD_INDEX = 2;
+
 float4 samplePoint(Texture2D<float4> tex, int3 p) {
 	return tex.Load(p);
 }
@@ -32,10 +36,10 @@ float4 blur(Texture2D<float4> tex, int3 p) {
 }
 
 float4 main(PSInput IN) : SV_TARGET{
-	Texture2D<float4> renderTex = ResourceDescriptorHeap[0];
-	// Texture2D<float> depthTex = ResourceDescriptorHeap[1]; // TODO: use for DOF
-	Texture2D<float4> hudTex = ResourceDescriptorHeap[2];
-	
+	Texture2D<float4> renderTex = ResourceDescriptorHeap[RT_INDEX];
+	// Texture2D<float> depthTex = ResourceDescriptorHeap[DEPTH_INDEX]; // TODO: use for DOF
+	Texture2D<float4> hudTex = ResourceDescriptorHeap[HUD_INDEX];
+
 	int3 p = int3(IN.uv.x * sceneData.width, IN.uv.y * sceneData.height, 0);
 	float4 hud = hudTex.Load(p);
 

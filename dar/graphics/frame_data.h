@@ -2,6 +2,7 @@
 
 #include "d3d12/vertex_index_buffer.h"
 #include "d3d12/data_buffer.h"
+#include "d3d12/read_write_buffer.h"
 #include "renderer.h"
 #include "render_command_list.h"
 
@@ -38,6 +39,13 @@ struct FrameData {
 		ShaderResource shaderResource = {};
 		shaderResource.data = &dataBuf;
 		shaderResource.type = ShaderResourceType::Data;
+		shaderResources[passIndex].push_back(shaderResource);
+	}
+
+	void addRWDataBufferResource(const ReadWriteBufferResource &dataBuf) {
+		ShaderResource shaderResource = {};
+		shaderResource.rwData = &dataBuf;
+		shaderResource.type = ShaderResourceType::RWData;
 		shaderResources[passIndex].push_back(shaderResource);
 	}
 
@@ -89,6 +97,7 @@ private:
 
 	enum class ShaderResourceType {
 		Data,
+		RWData,
 		Texture,
 		TextureCube,
 	};
@@ -97,11 +106,12 @@ private:
 		union {
 			const TextureResource *tex;
 			const DataBufferResource *data;
+			const ReadWriteBufferResource *rwData;
 		};
 		ShaderResourceType type;
 	};
 
-	/// Constant buffers are bind to all passes of the pipeline.
+	/// Constant buffers that are bound to all passes of the pipeline.
 	Vector<ConstantResource> constantBuffers;
 
 	/// Shader resources for each pass of the pipeline.

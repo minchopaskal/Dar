@@ -31,6 +31,9 @@
     <ClCompile Include="..\..\dar\graphics\d3d12\pipeline_state.cpp">
       <Filter>graphics\d3d12</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\dar\graphics\d3d12\read_write_buffer.cpp">
+      <Filter>graphics\d3d12</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\dar\graphics\d3d12\resource_handle.cpp">
       <Filter>graphics\d3d12</Filter>
     </ClCompile>
@@ -109,6 +112,9 @@
       <Filter>graphics\d3d12</Filter>
     </ClInclude>
     <ClInclude Include="..\..\dar\graphics\d3d12\pipeline_state.h">
+      <Filter>graphics\d3d12</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\dar\graphics\d3d12\read_write_buffer.h">
       <Filter>graphics\d3d12</Filter>
     </ClInclude>
     <ClInclude Include="..\..\dar\graphics\d3d12\resource_handle.h">

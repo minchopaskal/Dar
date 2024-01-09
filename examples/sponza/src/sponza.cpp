@@ -83,6 +83,8 @@ bool Sponza::initImpl() {
 			LOG(Info, "Sponza::init SUCCESS");
 			return;
 		}
+
+		res = false;
 	};
 
 	initJobRes.app = this;
@@ -366,7 +368,7 @@ void Sponza::onMouseButton(int button, int action, int /*mods*/) {
 		if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
 			Vec2 pos{ mousePos.x / getWidth(), mousePos.y / getHeight() };
 			if (hud.isOverButton(quitButton, pos)) {
-				glfwSetWindowShouldClose(getGLFWWindow(), true);
+				quit();
 			}
 		}
 	}
@@ -635,7 +637,9 @@ bool Sponza::loadMainPipeline() {
 	postPassDesc.attach(Dar::RenderPassAttachment::renderTargetBackbuffer());
 	mainPipeline.addRenderPass(postPassDesc);
 
-	mainPipeline.compilePipeline(device);
+	if (!mainPipeline.compilePipeline(device)) {
+		return false;
+	}
 	renderer.setFramePipeline(&mainPipeline);
 
 	LOG_FMT(Info, "Sponza::loadMainPipeline SUCCESS");
@@ -683,6 +687,10 @@ void Sponza::updateLoadingScreen() {
 		}
 
 		Dar::JobSystem::waitFenceAndFree(initFence);
+
+		if (!initJobRes.res) {
+			quit();
+		}
 
 		state.setState(AppState::State::Game);
 

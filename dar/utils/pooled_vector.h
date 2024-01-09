@@ -47,7 +47,7 @@ public:
 			return false;
 		}
 
-		arr[idx] = std::nullopt;
+		arr[idx] = nullOpt;
 		freeIndices.push(idx);
 		return true;
 	}
@@ -56,16 +56,17 @@ public:
 		auto lock = mutex.lock();
 
 		if (idx == INVALID_POOLED_INDEX || idx >= arr.size()) {
-			return std::nullopt;
+			return nullOpt;
 		}
 
 		return arr[idx];
 	}
 
 private:
-	Vector<std::optional<T>> arr;
+	Vector<Optional<T>> arr;
 	Queue<PooledIndex> freeIndices;
 	mutable SpinLock mutex;
+	Optional<T> nullOpt;
 };
 
 }

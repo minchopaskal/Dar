@@ -10,9 +10,9 @@ namespace Dar {
 
 struct DataBufferResource {
 	/// Intialize or resize the data buffer.
-	/// @elemSize Size of the elements in the buffer to be allocated.
-	/// @numElems Number of elements in the buffer to be allocated.
-	/// @heapInfo Optional pointer to a HeapInfo object describing the heap on which we want the allocation to happen.
+	/// @param elemSize Size of the elements in the buffer to be allocated.
+	/// @param numElems Number of elements in the buffer to be allocated.
+	/// @param heapInfo Optional pointer to a HeapInfo object describing the heap on which we want the allocation to happen.
 	/// @return true on success, false otherwise.
 	bool init(SizeType elemSize, SizeType numElems, Optional<HeapHandle> heapHandle = std::nullopt);
 
@@ -48,6 +48,8 @@ private:
 	ResourceHandle handle = INVALID_RESOURCE_HANDLE;
 	SizeType size = 0;
 	SizeType elementSize = 0;
+
+	friend class ReadWriteBufferResource;
 };
 
 } // namespace Dar

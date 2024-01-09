@@ -10,7 +10,7 @@ bool DataBufferResource::init(SizeType elemSize, SizeType numElems, Optional<Hea
 	initData.heapHandle = heapHandle;
 	initData.state = D3D12_RESOURCE_STATE_COMMON;
 
-	if (elementSize == elemSize && initData.size == size && initData.heapHandle == heapHandle && handle != INVALID_RESOURCE_HANDLE) {
+	if (elementSize == elemSize && initData.size == size && handle != INVALID_RESOURCE_HANDLE) {
 		return true;
 	}
 

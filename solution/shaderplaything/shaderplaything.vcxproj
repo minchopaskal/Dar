@@ -257,22 +257,26 @@
 xcopy /d /F /R /H /V /Y "..\..\examples\shader_plaything\res\shaders\common.hlsli" "output\win64\debug\res\shaders" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\examples\shader_plaything\res\shaders\screen_quad.hlsli" "output\win64\debug\res\shaders" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\lib\D3D12AgilitySDK\D3D12Core.dll" "output\win64\debug\D3D12" &gt;nul
+xcopy /d /F /R /H /V /Y "..\..\lib\D3D12AgilitySDK\D3D12Core.pdb" "output\win64\debug\D3D12" &gt;nul
+xcopy /d /F /R /H /V /Y "..\..\lib\D3D12AgilitySDK\D3D12SDKLayers.dll" "output\win64\debug\D3D12" &gt;nul
+xcopy /d /F /R /H /V /Y "..\..\lib\D3D12AgilitySDK\d3d12SDKLayers.pdb" "output\win64\debug\D3D12" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\lib\nvtt30204.dll" "output\win64\debug" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\third_party\dxc_1.7\dxcompiler.dll" "output\win64\debug" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\third_party\dxc_1.7\dxil.dll" "output\win64\debug" &gt;nul</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\..\examples\shader_plaything\res\shaders.shlib;..\..\examples\shader_plaything\res\shaders\common.hlsli;..\..\examples\shader_plaything\res\shaders\screen_quad.hlsli;..\..\lib\D3D12AgilitySDK\D3D12Core.dll;..\..\lib\nvtt30204.dll;..\..\third_party\dxc_1.7\dxcompiler.dll;..\..\third_party\dxc_1.7\dxil.dll</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">output\win64\debug\D3D12\D3D12Core.dll;output\win64\debug\dxcompiler.dll;output\win64\debug\dxil.dll;output\win64\debug\nvtt30204.dll;output\win64\debug\res\shaders\common.hlsli;output\win64\debug\res\shaders\screen_quad.hlsli;output\win64\debug\res\shaders\shaders.shlib</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\..\examples\shader_plaything\res\shaders.shlib;..\..\examples\shader_plaything\res\shaders\common.hlsli;..\..\examples\shader_plaything\res\shaders\screen_quad.hlsli;..\..\lib\D3D12AgilitySDK\D3D12Core.dll;..\..\lib\D3D12AgilitySDK\D3D12Core.pdb;..\..\lib\D3D12AgilitySDK\D3D12SDKLayers.dll;..\..\lib\D3D12AgilitySDK\d3d12SDKLayers.pdb;..\..\lib\nvtt30204.dll;..\..\third_party\dxc_1.7\dxcompiler.dll;..\..\third_party\dxc_1.7\dxil.dll</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">output\win64\debug\D3D12\D3D12Core.dll;output\win64\debug\D3D12\D3D12Core.pdb;output\win64\debug\D3D12\D3D12SDKLayers.dll;output\win64\debug\D3D12\d3d12SDKLayers.pdb;output\win64\debug\dxcompiler.dll;output\win64\debug\dxil.dll;output\win64\debug\nvtt30204.dll;output\win64\debug\res\shaders\common.hlsli;output\win64\debug\res\shaders\screen_quad.hlsli;output\win64\debug\res\shaders\shaders.shlib</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">False</LinkObjects>
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Copy files to output paths...</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">xcopy /d /F /R /H /V /Y "..\..\examples\shader_plaything\res\shaders.shlib" "output\win64\release\res\shaders" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\examples\shader_plaything\res\shaders\common.hlsli" "output\win64\release\res\shaders" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\examples\shader_plaything\res\shaders\screen_quad.hlsli" "output\win64\release\res\shaders" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\lib\D3D12AgilitySDK\D3D12Core.dll" "output\win64\release\D3D12" &gt;nul
+xcopy /d /F /R /H /V /Y "..\..\lib\D3D12AgilitySDK\D3D12SDKLayers.dll" "output\win64\release\D3D12" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\lib\nvtt30204.dll" "output\win64\release" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\third_party\dxc_1.7\dxcompiler.dll" "output\win64\release" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\third_party\dxc_1.7\dxil.dll" "output\win64\release" &gt;nul</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\..\examples\shader_plaything\res\shaders.shlib;..\..\examples\shader_plaything\res\shaders\common.hlsli;..\..\examples\shader_plaything\res\shaders\screen_quad.hlsli;..\..\lib\D3D12AgilitySDK\D3D12Core.dll;..\..\lib\nvtt30204.dll;..\..\third_party\dxc_1.7\dxcompiler.dll;..\..\third_party\dxc_1.7\dxil.dll</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">output\win64\release\D3D12\D3D12Core.dll;output\win64\release\dxcompiler.dll;output\win64\release\dxil.dll;output\win64\release\nvtt30204.dll;output\win64\release\res\shaders\common.hlsli;output\win64\release\res\shaders\screen_quad.hlsli;output\win64\release\res\shaders\shaders.shlib</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\..\examples\shader_plaything\res\shaders.shlib;..\..\examples\shader_plaything\res\shaders\common.hlsli;..\..\examples\shader_plaything\res\shaders\screen_quad.hlsli;..\..\lib\D3D12AgilitySDK\D3D12Core.dll;..\..\lib\D3D12AgilitySDK\D3D12SDKLayers.dll;..\..\lib\nvtt30204.dll;..\..\third_party\dxc_1.7\dxcompiler.dll;..\..\third_party\dxc_1.7\dxil.dll</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">output\win64\release\D3D12\D3D12Core.dll;output\win64\release\D3D12\D3D12SDKLayers.dll;output\win64\release\dxcompiler.dll;output\win64\release\dxil.dll;output\win64\release\nvtt30204.dll;output\win64\release\res\shaders\common.hlsli;output\win64\release\res\shaders\screen_quad.hlsli;output\win64\release\res\shaders\shaders.shlib</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">False</LinkObjects>
     </CustomBuild>
   </ItemGroup>

@@ -24,7 +24,7 @@ public:
 	/// Any subsequent calls to addRenderPass will start creating a new frame pipeline that
 	/// needs to be compiled again. Subsequent calls to compilePipeline deinitialize the current state
 	/// and compile only the render passes that were added after the previous call to compilePipeline.
-	void compilePipeline(Device &device);
+	bool compilePipeline(Device &device);
 
 	RenderPass &getPass(SizeType index) {
 		dassert(renderPasses.size() > index && renderPasses[index]);
