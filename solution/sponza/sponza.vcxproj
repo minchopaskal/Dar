@@ -237,6 +237,7 @@
     <ClInclude Include="..\..\examples\sponza\compile_resources.bat" />
     <ClInclude Include="..\..\examples\sponza\compile_shaders.bat" />
     <ClInclude Include="..\..\examples\sponza\compile_textures.bat" />
+    <ClInclude Include="..\..\examples\sponza\include\animation.h" />
     <ClInclude Include="..\..\examples\sponza\include\fps_camera_controller.h" />
     <ClInclude Include="..\..\examples\sponza\include\fps_edit_camera_controller.h" />
     <ClInclude Include="..\..\examples\sponza\include\hud.h" />
@@ -245,11 +246,14 @@
     <ClInclude Include="..\..\examples\sponza\include\scene_loader.h" />
     <ClInclude Include="..\..\examples\sponza\include\sponza.h" />
     <ClInclude Include="..\..\examples\sponza\include\texture_utils.h" />
+    <ClInclude Include="..\..\examples\sponza\res\scenes\SkeletonBoy\skelly.glb" />
     <ClInclude Include="..\..\examples\sponza\res\scenes\sponza.json" />
     <ClInclude Include="..\..\examples\sponza\res\scenes\Sponza\Sponza.bin" />
     <ClInclude Include="..\..\examples\sponza\res\scenes\Sponza\Sponza.gltf" />
     <ClInclude Include="..\..\examples\sponza\res\shaders\common.hlsli" />
     <ClInclude Include="..\..\examples\sponza\res\shaders\comptest_cs.hlsl" />
+    <ClInclude Include="..\..\examples\sponza\res\shaders\deferred_animated_ps.hlsl" />
+    <ClInclude Include="..\..\examples\sponza\res\shaders\deferred_animated_vs.hlsl" />
     <ClInclude Include="..\..\examples\sponza\res\shaders\deferred_ps.hlsl" />
     <ClInclude Include="..\..\examples\sponza\res\shaders\deferred_vs.hlsl" />
     <ClInclude Include="..\..\examples\sponza\res\shaders\forward_ps.hlsl" />
@@ -271,10 +275,11 @@
     <ClInclude Include="..\..\examples\sponza\res\shaders\screen_quad_vs.hlsli" />
     <ClInclude Include="..\..\examples\sponza\res\shaders\shadow_map_ps.hlsl" />
     <ClInclude Include="..\..\examples\sponza\res\shaders\shadow_map_vs.hlsl" />
-    <ClInclude Include="..\..\third_party\res\shaders.shlib" />
-    <ClInclude Include="..\..\third_party\res\textures.txlib" />
+    <ClInclude Include="..\..\res\shaders.shlib" />
+    <ClInclude Include="..\..\res\textures.txlib" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\examples\sponza\src\animation.cpp" />
     <ClCompile Include="..\..\examples\sponza\src\fps_camera_controller.cpp" />
     <ClCompile Include="..\..\examples\sponza\src\fps_edit_camera_controller.cpp" />
     <ClCompile Include="..\..\examples\sponza\src\hud.cpp" />
@@ -289,7 +294,8 @@
     <CustomBuild Include="sponza_runtimedependencies.txt">
       <FileType>Document</FileType>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Copy files to output paths...</Message>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">xcopy /d /F /R /H /V /Y "..\..\examples\sponza\res\scenes\sponza.json" "output\win64\debug\res\scenes" &gt;nul
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">xcopy /d /F /R /H /V /Y "..\..\examples\sponza\res\scenes\SkeletonBoy\skelly.glb" "output\win64\debug\res\scenes\SkeletonBoy" &gt;nul
+xcopy /d /F /R /H /V /Y "..\..\examples\sponza\res\scenes\sponza.json" "output\win64\debug\res\scenes" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\examples\sponza\res\scenes\Sponza\Sponza.bin" "output\win64\debug\res\scenes\Sponza" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\examples\sponza\res\scenes\Sponza\Sponza.gltf" "output\win64\debug\res\scenes\Sponza" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\examples\sponza\res\shaders.shlib" "output\win64\debug\res\shaders" &gt;nul
@@ -301,11 +307,12 @@ xcopy /d /F /R /H /V /Y "..\..\lib\D3D12AgilitySDK\d3d12SDKLayers.pdb" "output\w
 xcopy /d /F /R /H /V /Y "..\..\lib\nvtt30204.dll" "output\win64\debug" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\third_party\dxc_1.7\dxcompiler.dll" "output\win64\debug" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\third_party\dxc_1.7\dxil.dll" "output\win64\debug" &gt;nul</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\..\examples\sponza\res\scenes\sponza.json;..\..\examples\sponza\res\scenes\Sponza\Sponza.bin;..\..\examples\sponza\res\scenes\Sponza\Sponza.gltf;..\..\examples\sponza\res\shaders.shlib;..\..\examples\sponza\res\textures.txlib;..\..\lib\D3D12AgilitySDK\D3D12Core.dll;..\..\lib\D3D12AgilitySDK\D3D12Core.pdb;..\..\lib\D3D12AgilitySDK\D3D12SDKLayers.dll;..\..\lib\D3D12AgilitySDK\d3d12SDKLayers.pdb;..\..\lib\nvtt30204.dll;..\..\third_party\dxc_1.7\dxcompiler.dll;..\..\third_party\dxc_1.7\dxil.dll</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">output\win64\debug\D3D12\D3D12Core.dll;output\win64\debug\D3D12\D3D12Core.pdb;output\win64\debug\D3D12\D3D12SDKLayers.dll;output\win64\debug\D3D12\d3d12SDKLayers.pdb;output\win64\debug\dxcompiler.dll;output\win64\debug\dxil.dll;output\win64\debug\nvtt30204.dll;output\win64\debug\res\scenes\sponza.json;output\win64\debug\res\scenes\Sponza\Sponza.bin;output\win64\debug\res\scenes\Sponza\Sponza.gltf;output\win64\debug\res\shaders\shaders.shlib;output\win64\debug\res\textures\textures.txlib</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\..\examples\sponza\res\scenes\SkeletonBoy\skelly.glb;..\..\examples\sponza\res\scenes\sponza.json;..\..\examples\sponza\res\scenes\Sponza\Sponza.bin;..\..\examples\sponza\res\scenes\Sponza\Sponza.gltf;..\..\examples\sponza\res\shaders.shlib;..\..\examples\sponza\res\textures.txlib;..\..\lib\D3D12AgilitySDK\D3D12Core.dll;..\..\lib\D3D12AgilitySDK\D3D12Core.pdb;..\..\lib\D3D12AgilitySDK\D3D12SDKLayers.dll;..\..\lib\D3D12AgilitySDK\d3d12SDKLayers.pdb;..\..\lib\nvtt30204.dll;..\..\third_party\dxc_1.7\dxcompiler.dll;..\..\third_party\dxc_1.7\dxil.dll</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">output\win64\debug\D3D12\D3D12Core.dll;output\win64\debug\D3D12\D3D12Core.pdb;output\win64\debug\D3D12\D3D12SDKLayers.dll;output\win64\debug\D3D12\d3d12SDKLayers.pdb;output\win64\debug\dxcompiler.dll;output\win64\debug\dxil.dll;output\win64\debug\nvtt30204.dll;output\win64\debug\res\scenes\SkeletonBoy\skelly.glb;output\win64\debug\res\scenes\sponza.json;output\win64\debug\res\scenes\Sponza\Sponza.bin;output\win64\debug\res\scenes\Sponza\Sponza.gltf;output\win64\debug\res\shaders\shaders.shlib;output\win64\debug\res\textures\textures.txlib</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">False</LinkObjects>
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Copy files to output paths...</Message>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">xcopy /d /F /R /H /V /Y "..\..\examples\sponza\res\scenes\sponza.json" "output\win64\release\res\scenes" &gt;nul
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">xcopy /d /F /R /H /V /Y "..\..\examples\sponza\res\scenes\SkeletonBoy\skelly.glb" "output\win64\release\res\scenes\SkeletonBoy" &gt;nul
+xcopy /d /F /R /H /V /Y "..\..\examples\sponza\res\scenes\sponza.json" "output\win64\release\res\scenes" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\examples\sponza\res\scenes\Sponza\Sponza.bin" "output\win64\release\res\scenes\Sponza" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\examples\sponza\res\scenes\Sponza\Sponza.gltf" "output\win64\release\res\scenes\Sponza" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\examples\sponza\res\shaders.shlib" "output\win64\release\res\shaders" &gt;nul
@@ -315,8 +322,8 @@ xcopy /d /F /R /H /V /Y "..\..\lib\D3D12AgilitySDK\D3D12SDKLayers.dll" "output\w
 xcopy /d /F /R /H /V /Y "..\..\lib\nvtt30204.dll" "output\win64\release" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\third_party\dxc_1.7\dxcompiler.dll" "output\win64\release" &gt;nul
 xcopy /d /F /R /H /V /Y "..\..\third_party\dxc_1.7\dxil.dll" "output\win64\release" &gt;nul</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\..\examples\sponza\res\scenes\sponza.json;..\..\examples\sponza\res\scenes\Sponza\Sponza.bin;..\..\examples\sponza\res\scenes\Sponza\Sponza.gltf;..\..\examples\sponza\res\shaders.shlib;..\..\examples\sponza\res\textures.txlib;..\..\lib\D3D12AgilitySDK\D3D12Core.dll;..\..\lib\D3D12AgilitySDK\D3D12SDKLayers.dll;..\..\lib\nvtt30204.dll;..\..\third_party\dxc_1.7\dxcompiler.dll;..\..\third_party\dxc_1.7\dxil.dll</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">output\win64\release\D3D12\D3D12Core.dll;output\win64\release\D3D12\D3D12SDKLayers.dll;output\win64\release\dxcompiler.dll;output\win64\release\dxil.dll;output\win64\release\nvtt30204.dll;output\win64\release\res\scenes\sponza.json;output\win64\release\res\scenes\Sponza\Sponza.bin;output\win64\release\res\scenes\Sponza\Sponza.gltf;output\win64\release\res\shaders\shaders.shlib;output\win64\release\res\textures\textures.txlib</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\..\examples\sponza\res\scenes\SkeletonBoy\skelly.glb;..\..\examples\sponza\res\scenes\sponza.json;..\..\examples\sponza\res\scenes\Sponza\Sponza.bin;..\..\examples\sponza\res\scenes\Sponza\Sponza.gltf;..\..\examples\sponza\res\shaders.shlib;..\..\examples\sponza\res\textures.txlib;..\..\lib\D3D12AgilitySDK\D3D12Core.dll;..\..\lib\D3D12AgilitySDK\D3D12SDKLayers.dll;..\..\lib\nvtt30204.dll;..\..\third_party\dxc_1.7\dxcompiler.dll;..\..\third_party\dxc_1.7\dxil.dll</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">output\win64\release\D3D12\D3D12Core.dll;output\win64\release\D3D12\D3D12SDKLayers.dll;output\win64\release\dxcompiler.dll;output\win64\release\dxil.dll;output\win64\release\nvtt30204.dll;output\win64\release\res\scenes\SkeletonBoy\skelly.glb;output\win64\release\res\scenes\sponza.json;output\win64\release\res\scenes\Sponza\Sponza.bin;output\win64\release\res\scenes\Sponza\Sponza.gltf;output\win64\release\res\shaders\shaders.shlib;output\win64\release\res\textures\textures.txlib</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">False</LinkObjects>
     </CustomBuild>
   </ItemGroup>

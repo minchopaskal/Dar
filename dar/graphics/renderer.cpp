@@ -236,24 +236,26 @@ CommandList Renderer::populateCommandList(const FrameData &frameData) {
 			rtvHandle = renderPass.rtvHeap[backbufferIndex].getCPUHandle(0);
 			const D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = hasDepthBuffer ? renderPass.depthBufferAttachment.getCPUHandle() : D3D12_CPU_DESCRIPTOR_HANDLE{ 0 };
 
-			for (int i = 0; i < numRenderTargets; ++i) {
-				cmdList.clearRenderTarget(renderPass.rtvHeap[backbufferIndex].getCPUHandle(i));
-			}
+			if (frameData.clearRenderTargets[renderPassIndex]) {
+				for (int i = 0; i < numRenderTargets; ++i) {
+					cmdList.clearRenderTarget(renderPass.rtvHeap[backbufferIndex].getCPUHandle(i));
+				}
 
-			if (hasDepthBuffer && renderPass.depthBufferAttachment.clearDepthBuffer()) {
-				cmdList.transition(renderPass.depthBufferAttachment.getResourceHandle(0), D3D12_RESOURCE_STATE_DEPTH_WRITE);
-				cmdList.clearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH);
+				if (hasDepthBuffer && renderPass.depthBufferAttachment.clearDepthBuffer()) {
+					cmdList.transition(renderPass.depthBufferAttachment.getResourceHandle(0), D3D12_RESOURCE_STATE_DEPTH_WRITE);
+					cmdList.clearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH);
+				}
 			}
 
 			cmdList.setPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-			if (frameData.vertexBuffer) {
-				cmdList.transition(frameData.vertexBuffer->bufferHandle, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-				cmdList.setVertexBuffers(&frameData.vertexBuffer->bufferView, 1);
+			if (frameData.vertexBuffers[renderPassIndex]) {
+				cmdList.transition(frameData.vertexBuffers[renderPassIndex]->bufferHandle, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+				cmdList.setVertexBuffers(&frameData.vertexBuffers[renderPassIndex]->bufferView, 1);
 			}
-			if (frameData.indexBuffer) {
-				cmdList.transition(frameData.indexBuffer->bufferHandle, D3D12_RESOURCE_STATE_INDEX_BUFFER);
-				cmdList.setIndexBuffer(&frameData.indexBuffer->bufferView);
+			if (frameData.indexBuffers[renderPassIndex]) {
+				cmdList.transition(frameData.indexBuffers[renderPassIndex]->bufferHandle, D3D12_RESOURCE_STATE_INDEX_BUFFER);
+				cmdList.setIndexBuffer(&frameData.indexBuffers[renderPassIndex]->bufferView);
 			}
 
 			cmdList.setRenderTargets(

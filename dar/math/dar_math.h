@@ -18,6 +18,8 @@ using Vec3 = glm::vec3;
 using Vec4 = glm::vec4;
 using Mat3 = glm::mat3;
 using Mat4 = glm::mat4;
+using Mat4x3 = glm::mat4x3;
+using Quaternion = glm::quat;
 
 static inline Vec3 Vec3UnitX() {
 	return Vec3(1.f, 0.f, 0.f);

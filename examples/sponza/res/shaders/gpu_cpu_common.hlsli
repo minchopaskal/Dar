@@ -16,6 +16,7 @@ struct ShaderRenderData {
 	int numLights;
 	int width;
 	int height;
+	UINT boneIdx;
 	
 	UINT frame;
 	float delta;

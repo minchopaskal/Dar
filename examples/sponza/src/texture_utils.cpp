@@ -10,6 +10,10 @@ bool uploadTextureData(
 ) {
 	SizeType numTextures = textureDescs.size();
 
+	if (numTextures == 0) {
+		return true;
+	}
+
 	std::for_each(
 		textures.begin(),
 		textures.end(),

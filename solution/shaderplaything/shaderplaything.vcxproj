@@ -241,7 +241,7 @@
     <ClInclude Include="..\..\examples\shader_plaything\res\shaders\screen_quad.hlsli" />
     <ClInclude Include="..\..\examples\shader_plaything\res\shaders\screen_quad_ps.hlsl" />
     <ClInclude Include="..\..\examples\shader_plaything\res\shaders\screen_quad_vs.hlsl" />
-    <ClInclude Include="..\..\third_party\res\shaders.shlib" />
+    <ClInclude Include="..\..\res\shaders.shlib" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\examples\shader_plaything\src\main.cpp" />

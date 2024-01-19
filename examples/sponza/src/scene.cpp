@@ -34,7 +34,7 @@ void ModelNode::updateMeshDataHandles(const Scene &scene) const {
 	Dar::UploadHandle handle = resManager.beginNewUpload();
 
 	for (SizeType i = startMesh; i < startMesh + numMeshes; ++i) {
-		scene.meshes[i].uploadMeshData(handle);
+		scene.staticData.meshes[i].uploadMeshData(handle);
 	}
 
 	resManager.uploadBuffers();
@@ -44,7 +44,7 @@ void ModelNode::draw(Dar::FrameData &frameData, const Scene &scene) const {
 	updateMeshDataHandles(scene);
 
 	for (SizeType i = startMesh; i < startMesh + numMeshes; ++i) {
-		const Mesh &mesh = scene.meshes[i];
+		const Mesh &mesh = scene.staticData.meshes[i];
 
 		frameData.addRenderCommand(Dar::RenderCommandSetConstantBuffer(mesh.meshDataHandle, static_cast<UINT>(DefaultConstantBufferView::MeshData), false));
 		frameData.addRenderCommand(Dar::RenderCommandDrawIndexedInstanced(static_cast<UINT>(mesh.numIndices), 1, static_cast<UINT>(mesh.indexOffset), 0, 0));
@@ -138,6 +138,15 @@ void Scene::prepareFrameData(Dar::FrameData &frameData, Dar::UploadHandle upload
 	drawMeshes(frameData, uploadHandle);
 }
 
+void Scene::prepareFrameDataForAnimated(Dar::FrameData &frameData, Dar::UploadHandle uploadHandle) {
+	frameData.addDataBufferResource(materialsBuffer);
+	for (int i = 0; i < textures.size(); ++i) {
+		frameData.addTextureResource(textures[i]);
+	}
+
+	drawAnimatedMeshes(frameData, uploadHandle);
+}
+
 void Scene::prepareFrameDataForShadowMap(int shadowMapPassIndex, Dar::FrameData & frameData, Dar::UploadHandle uploadHandle) {
 	if (shadowMapPassIndex == 0) {
 		updateLightData(uploadHandle);
@@ -208,7 +217,7 @@ void Scene::updateLightData(Dar::UploadHandle uploadHandle) {
 		{
 			auto &cam = *getRenderCamera();
 
-			Vec3 offset = 10.f * cam.getCameraZ() - 50.f * cam.getCameraY();
+			Vec3 offset = 10.f * cam.getCameraZ() + 50.f * cam.getCameraY();
 
 			// TODO: wiggle while moving?
 			gpuLight.position = cam.getPos() + offset;
@@ -245,12 +254,25 @@ void Scene::updateLightData(Dar::UploadHandle uploadHandle) {
 }
 
 void Scene::drawMeshes(Dar::FrameData &frameData, Dar::UploadHandle uploadHandle) {
-	for (SizeType i = 0; i < meshes.size(); ++i) {
-		meshes[i].uploadMeshData(uploadHandle);
+	for (SizeType i = 0; i < staticData.meshes.size(); ++i) {
+		staticData.meshes[i].uploadMeshData(uploadHandle);
 	}
 
-	for (SizeType i = 0; i < meshes.size(); ++i) {
-		const Mesh &mesh = meshes[i];
+	for (SizeType i = 0; i < staticData.meshes.size(); ++i) {
+		const Mesh &mesh = staticData.meshes[i];
+
+		frameData.addRenderCommand(Dar::RenderCommandSetConstantBuffer(mesh.meshDataHandle, static_cast<UINT>(DefaultConstantBufferView::MeshData), false));
+		frameData.addRenderCommand(Dar::RenderCommandDrawIndexedInstanced(static_cast<UINT>(mesh.numIndices), 1, static_cast<UINT>(mesh.indexOffset), 0, 0));
+	}
+}
+
+void Scene::drawAnimatedMeshes(Dar::FrameData &frameData, Dar::UploadHandle uploadHandle) {
+	for (SizeType i = 0; i < animatedData.meshes.size(); ++i) {
+		animatedData.meshes[i].uploadMeshData(uploadHandle);
+	}
+
+	for (SizeType i = 0; i < animatedData.meshes.size(); ++i) {
+		const Mesh &mesh = animatedData.meshes[i];
 
 		frameData.addRenderCommand(Dar::RenderCommandSetConstantBuffer(mesh.meshDataHandle, static_cast<UINT>(DefaultConstantBufferView::MeshData), false));
 		frameData.addRenderCommand(Dar::RenderCommandDrawIndexedInstanced(static_cast<UINT>(mesh.numIndices), 1, static_cast<UINT>(mesh.indexOffset), 0, 0));

@@ -243,7 +243,7 @@ class HelloTriangleProject : BaseProject
 
 		SourceFilesExtensions.Add("bat");
 
-		ResourceFiles.Add(@"[project.SharpmakeCsPath]/third_party/res/shaders.shlib");
+		ResourceFiles.Add(@"[project.SharpmakeCsPath]/res/shaders.shlib");
 
 		ResourceFilesExtensions.Add("hlsl");
 		ResourceFilesExtensions.Add("hlsli");
@@ -286,7 +286,7 @@ class ShaderPlaythingProject : BaseProject
 
 		SourceFilesExtensions.Add("bat");
 
-		ResourceFiles.Add(@"[project.SharpmakeCsPath]/third_party/res/shaders.shlib");
+		ResourceFiles.Add(@"[project.SharpmakeCsPath]/res/shaders.shlib");
 
 		ResourceFilesExtensions.Add("hlsl");
 		ResourceFilesExtensions.Add("hlsli");
@@ -333,13 +333,14 @@ class SponzaProject : BaseProject
 
 		SourceFilesExtensions.Add("bat");
 
-		ResourceFiles.Add(@"[project.SharpmakeCsPath]/third_party/res/shaders.shlib");
-		ResourceFiles.Add(@"[project.SharpmakeCsPath]/third_party/res/textures.txlib");
+		ResourceFiles.Add(@"[project.SharpmakeCsPath]/res/shaders.shlib");
+		ResourceFiles.Add(@"[project.SharpmakeCsPath]/res/textures.txlib");
 
 		ResourceFilesExtensions.Add("hlsl");
 		ResourceFilesExtensions.Add("hlsli");
 		ResourceFilesExtensions.Add("bin");
 		ResourceFilesExtensions.Add("gltf");
+		ResourceFilesExtensions.Add("glb");
 		ResourceFilesExtensions.Add("json");
 	}
 
@@ -372,6 +373,9 @@ class SponzaProject : BaseProject
 		);
 		conf.TargetCopyFilesToSubDirectory.Add(new KeyValuePair<string, string>(
 				@"[project.SourceRootPath]/res/scenes/sponza.json", "res/scenes/"));
+		conf.TargetCopyFilesToSubDirectory.Add(new KeyValuePair<string, string>(
+			@"[project.SourceRootPath]/res/scenes/SkeletonBoy/skelly.glb", "res/scenes/SkeletonBoy"));
+
 
 		conf.AddPrivateDependency<DarLibrary>(target);
 		conf.AddPrivateDependency<MikkTSpaceLib>(target);

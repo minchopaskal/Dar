@@ -94,6 +94,10 @@ if (cond) { \
 #define _DAR_STR(x) #x
 #define DAR_STR(x) _DAR_STR(x)
 #define TODO(x) static_assert(false, "TODO: " DAR_STR(x) " at " __FILE__ ":" DAR_STR(__LINE__))
+#define IMPLEMENT_ME(x) do { \
+  LOG(Error, "TODO: " DAR_STR(x) " at " __FILE__ ":" DAR_STR(__LINE__)); \
+  DebugBreak(); \
+} while(0)
 
 using SizeType = size_t;
 

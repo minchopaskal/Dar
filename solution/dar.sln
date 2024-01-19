@@ -14,6 +14,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ResourceManagerLib", "resou
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ShaderPlaything", "shaderplaything\shaderplaything.vcxproj", "{C57EBEA0-476F-3637-EE95-336986792061}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SkeletalAnimation", "skeletalanimation\skeletalanimation.vcxproj", "{848394F9-09B7-18CF-66E0-1B1CA296B27B}"
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Sponza", "sponza\sponza.vcxproj", "{EE98EE88-72CB-0CF9-059D-0F8175F81214}"
 EndProject
 Global
@@ -50,6 +52,10 @@ Global
 		{C57EBEA0-476F-3637-EE95-336986792061}.Debug|x64.Build.0 = Debug|x64
 		{C57EBEA0-476F-3637-EE95-336986792061}.Release|x64.ActiveCfg = Release|x64
 		{C57EBEA0-476F-3637-EE95-336986792061}.Release|x64.Build.0 = Release|x64
+		{848394F9-09B7-18CF-66E0-1B1CA296B27B}.Debug|x64.ActiveCfg = Debug|x64
+		{848394F9-09B7-18CF-66E0-1B1CA296B27B}.Debug|x64.Build.0 = Debug|x64
+		{848394F9-09B7-18CF-66E0-1B1CA296B27B}.Release|x64.ActiveCfg = Release|x64
+		{848394F9-09B7-18CF-66E0-1B1CA296B27B}.Release|x64.Build.0 = Release|x64
 		{EE98EE88-72CB-0CF9-059D-0F8175F81214}.Debug|x64.ActiveCfg = Debug|x64
 		{EE98EE88-72CB-0CF9-059D-0F8175F81214}.Debug|x64.Build.0 = Debug|x64
 		{EE98EE88-72CB-0CF9-059D-0F8175F81214}.Release|x64.ActiveCfg = Release|x64

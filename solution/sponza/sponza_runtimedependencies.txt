@@ -1,5 +1,6 @@
 ﻿
 Debug|x64
+  ..\..\examples\sponza\res\scenes\SkeletonBoy\skelly.glb
   ..\..\examples\sponza\res\scenes\sponza.json
   ..\..\examples\sponza\res\scenes\Sponza\Sponza.bin
   ..\..\examples\sponza\res\scenes\Sponza\Sponza.gltf
@@ -14,6 +15,7 @@ Debug|x64
   ..\..\third_party\dxc_1.7\dxil.dll
 
 Release|x64
+  ..\..\examples\sponza\res\scenes\SkeletonBoy\skelly.glb
   ..\..\examples\sponza\res\scenes\sponza.json
   ..\..\examples\sponza\res\scenes\Sponza\Sponza.bin
   ..\..\examples\sponza\res\scenes\Sponza\Sponza.gltf

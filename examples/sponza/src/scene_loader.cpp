@@ -8,91 +8,32 @@
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
 #include "assimp/GltfMaterial.h"
-#include "MikkTSpace/mikktspace.h"
+#include "assimp/DefaultLogger.hpp"
 #include "nlohmann/json.hpp"
 
 #include <fstream>
 
-#define USE_MIKKTSPACE
-
-struct MikkTSpaceMeshData {
-	Scene *scene;
-	aiMesh *mesh;
-	Map<UINT, UINT> *indicesMapping;
+struct JointData {
+	SkeletonId skeletonId;
+	uint8_t jointId;
 };
 
-/// Helper structure for generating the tangents with the MikkTSpace algorithm
-/// as given by glTF2.0 specs.
-struct MikkTSpaceTangentSpaceGenerator {
-	void init(MikkTSpaceMeshData *meshData) {
-		tSpaceIface.m_getNumFaces = getNumFaces;
-		tSpaceIface.m_getNormal = getNormal;
-		tSpaceIface.m_getNumVerticesOfFace = getNumVerticesOfFace;
-		tSpaceIface.m_getPosition = getPosition;
-		tSpaceIface.m_getTexCoord = getTexCoord;
-		tSpaceIface.m_setTSpaceBasic = setTSpaceBasic;
+struct AssimpSceneParseContext {
+	const aiScene *aiScene = nullptr;
+	aiNode *currentNode;
+	Node *parentNode;
+	Scene &scene;
 
-		tSpaceCtx.m_pInterface = &tSpaceIface;
-		tSpaceCtx.m_pUserData = reinterpret_cast<void*>(meshData);
-	}
+	Vector<uint32_t> meshBaseVertex;
+	Map<String, JointData> jointNameToData;
 
-	tbool generateTangets() {
-		return genTangSpaceDefault(&tSpaceCtx);
-	}
+	JointData getJointData(const String &name) {
+		if (auto it = jointNameToData.find(name); it != jointNameToData.end()) {
+			return it->second;
+		}
 
-private:
-	SMikkTSpaceInterface tSpaceIface = {};
-	SMikkTSpaceContext tSpaceCtx = {};
-
-	static int getNumFaces(const SMikkTSpaceContext *pContext) {
-		MikkTSpaceMeshData *meshData = static_cast<MikkTSpaceMeshData *>(pContext->m_pUserData);
-		return meshData->mesh->mNumFaces;
-	}
-
-	static int getNumVerticesOfFace(const SMikkTSpaceContext */*pContext*/, const int /*iFace*/) {
-		return 3; // We always triangulate the imported mesh
-	}
-
-	static void getPosition(const SMikkTSpaceContext *pContext, float fvPosOut[], const int iFace, const int iVert) {
-		MikkTSpaceMeshData *meshData = static_cast<MikkTSpaceMeshData*>(pContext->m_pUserData);
-		aiMesh *mesh = meshData->mesh;
-		aiVector3D &v = mesh->mVertices[mesh->mFaces[iFace].mIndices[iVert]];
-		fvPosOut[0] = v.x;
-		fvPosOut[1] = v.y;
-		fvPosOut[2] = v.z;
-	}
-
-	static void getNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
-		MikkTSpaceMeshData *meshData = static_cast<MikkTSpaceMeshData*>(pContext->m_pUserData);
-		aiMesh *mesh = meshData->mesh;
-		aiVector3D &v = mesh->mNormals[mesh->mFaces[iFace].mIndices[iVert]];
-		fvNormOut[0] = v.x;
-		fvNormOut[1] = v.y;
-		fvNormOut[2] = v.z;
-	}
-
-	static void getTexCoord(const SMikkTSpaceContext *pContext, float fvTexcOut[], const int iFace, const int iVert) {
-		MikkTSpaceMeshData *meshData = static_cast<MikkTSpaceMeshData*>(pContext->m_pUserData);
-		aiMesh *mesh = meshData->mesh;
-		aiVector3D &uv = mesh->mTextureCoords[0][mesh->mFaces[iFace].mIndices[iVert]];
-		fvTexcOut[0] = uv.x;
-		fvTexcOut[1] = uv.y;
-	}
-
-	static void setTSpaceBasic(const SMikkTSpaceContext *pContext, const float fvTangent[], const float /*fSign*/, const int iFace, const int iVert) {
-		MikkTSpaceMeshData *meshData = static_cast<MikkTSpaceMeshData*>(pContext->m_pUserData);
-		Scene &scene = *meshData->scene;
-		const aiMesh &mesh = *meshData->mesh;
-		const auto &indicesMap = *meshData->indicesMapping;
-		const UINT offsetIndex = indicesMap.at(mesh.mFaces[iFace].mIndices[iVert]);
-		
-		Vertex &v = scene.vertices[offsetIndex];
-		v.tangent.x = fvTangent[0];
-		v.tangent.y = fvTangent[1];
-		v.tangent.z = fvTangent[2];
-
-		// TODO: Ignore the sign for now. See if that's needed.
-		// v.tangentSign = fSign;
+		dassert(false);
+		return JointData{};
 	}
 };
 
@@ -106,7 +47,7 @@ Assimp::Importer& getAssimpImporter() {
 	return *importer_;
 }
 
-TextureId loadTexture(aiMaterial *aiMat, aiTextureType aiType, Scene &scene) {
+TextureId getTexture(aiMaterial *aiMat, aiTextureType aiType, Scene &scene) {
 	const int matTypeCount = aiMat->GetTextureCount(aiType);
 	if (matTypeCount <= 0 && aiType != aiTextureType_METALNESS) {
 		return INVALID_TEXTURE_ID;
@@ -144,6 +85,15 @@ Vec3 aiVector3DToVec3(const aiColor3D &aiVec) {
 	return Vec3{ aiVec.r, aiVec.g, aiVec.b };
 };
 
+Mat4 aiMatrix4x4ToMat4(const aiMatrix4x4 &aiMat) {
+	return Mat4{
+		aiMat.a1, aiMat.a2, aiMat.a3, aiMat.a4,
+		aiMat.b1, aiMat.b2, aiMat.b3, aiMat.b4,
+		aiMat.c1, aiMat.c2, aiMat.c3, aiMat.c4,
+		aiMat.d1, aiMat.d2, aiMat.d3, aiMat.d4
+	};
+}
+
 MaterialId readMaterialDataForMesh(aiMesh *mesh, const aiScene *sc, Scene &scene) {
 	auto matIdx = mesh->mMaterialIndex;
 	if (matIdx < 0) {
@@ -161,10 +111,10 @@ MaterialId readMaterialDataForMesh(aiMesh *mesh, const aiScene *sc, Scene &scene
 
 	// PBR model materials
 	MaterialData material;
-	material.baseColorIndex = loadTexture(aiMat, aiTextureType_BASE_COLOR, scene);
-	material.normalsIndex = loadTexture(aiMat, aiTextureType_NORMALS, scene);
-	material.metallicRoughnessIndex = loadTexture(aiMat, aiTextureType_METALNESS, scene);
-	material.ambientOcclusionIndex = loadTexture(aiMat, aiTextureType_AMBIENT_OCCLUSION, scene);
+	material.baseColorIndex = getTexture(aiMat, aiTextureType_BASE_COLOR, scene);
+	material.normalsIndex = getTexture(aiMat, aiTextureType_NORMALS, scene);
+	material.metallicRoughnessIndex = getTexture(aiMat, aiTextureType_METALNESS, scene);
+	material.ambientOcclusionIndex = getTexture(aiMat, aiTextureType_AMBIENT_OCCLUSION, scene);
 
 	ai_real metallicFactor, roughnessFactor;
 	aiVector3D baseColorFactor;
@@ -180,74 +130,138 @@ MaterialId readMaterialDataForMesh(aiMesh *mesh, const aiScene *sc, Scene &scene
 	return scene.getNewMaterial(material);
 }
 
-void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode, Scene &scene, SizeType &vertexOffset, SizeType &indexOffset, SceneLoaderFlags flags) {
-	dassert(aiScene != nullptr);
-
-	if (node == nullptr || aiScene == nullptr) {
-		return;
-	}
-
-	if (node == aiScene->mRootNode) {
-		for (unsigned int i = 0; i < aiScene->mNumLights; ++i) {
-			aiLight *aiL = aiScene->mLights[i];
-			if (aiL == nullptr) {
-				continue;
-			}
-
-			LightNode *light = new LightNode;
-			light->lightData.position = aiVector3DToVec3(aiL->mPosition);
-			light->lightData.diffuse = aiVector3DToVec3(aiL->mColorDiffuse);
-			light->lightData.specular = aiVector3DToVec3(aiL->mColorSpecular);
-			light->lightData.ambient = aiVector3DToVec3(aiL->mColorAmbient);
-			light->lightData.direction = aiVector3DToVec3(aiL->mDirection);
-			light->lightData.attenuation = Vec3{aiL->mAttenuationConstant, aiL->mAttenuationLinear, aiL->mAttenuationQuadratic};
-			light->lightData.innerAngleCutoff = aiL->mAngleInnerCone;
-			light->lightData.outerAngleCutoff = aiL->mAngleOuterCone;
-			
-			scene.addNewLight(light);
+void readLights(const aiScene *aiScene, Scene &scene) {
+	for (unsigned int i = 0; i < aiScene->mNumLights; ++i) {
+		aiLight *aiL = aiScene->mLights[i];
+		if (aiL == nullptr) {
+			continue;
 		}
 
-		for (unsigned int i = 0; i < aiScene->mNumCameras; ++i) {
-			aiCamera *aiCam = aiScene->mCameras[i];
-			if (aiCam == nullptr) {
-				continue;
-			}
+		LightNode *light = new LightNode;
+		light->lightData.position = aiVector3DToVec3(aiL->mPosition);
+		light->lightData.diffuse = aiVector3DToVec3(aiL->mColorDiffuse);
+		light->lightData.specular = aiVector3DToVec3(aiL->mColorSpecular);
+		light->lightData.ambient = aiVector3DToVec3(aiL->mColorAmbient);
+		light->lightData.direction = aiVector3DToVec3(aiL->mDirection);
+		light->lightData.attenuation = Vec3{ aiL->mAttenuationConstant, aiL->mAttenuationLinear, aiL->mAttenuationQuadratic };
+		light->lightData.innerAngleCutoff = aiL->mAngleInnerCone;
+		light->lightData.outerAngleCutoff = aiL->mAngleOuterCone;
 
-			Dar::Camera cam;
+		scene.addNewLight(light);
+	}
+}
 
-			if (std::fabs(aiCam->mOrthographicWidth) < 1e-6f) {
-				cam = Dar::Camera::perspectiveCamera(
-					aiVector3DToVec3(aiCam->mPosition),
-					aiCam->mHorizontalFOV,
-					aiCam->mAspect,
-					aiCam->mClipPlaneNear,
-					aiCam->mClipPlaneFar
-				);
-			} else {
-				cam = Dar::Camera::orthographicCamera(
-					aiVector3DToVec3(aiCam->mPosition),
-					2 * aiCam->mOrthographicWidth,
-					2 * aiCam->mOrthographicWidth / aiCam->mAspect,
-					aiCam->mClipPlaneNear,
-					aiCam->mClipPlaneFar
-				);
-			}
+void readCameras(const aiScene *aiScene, Scene &scene) {
+	for (unsigned int i = 0; i < aiScene->mNumCameras; ++i) {
+		aiCamera *aiCam = aiScene->mCameras[i];
+		if (aiCam == nullptr) {
+			continue;
+		}
 
-			CameraNode *camNode = new CameraNode(std::move(cam));
+		Dar::Camera cam;
 
-			scene.addNewCamera(camNode);
+		if (std::fabs(aiCam->mOrthographicWidth) < 1e-6f) {
+			cam = Dar::Camera::perspectiveCamera(
+				aiVector3DToVec3(aiCam->mPosition),
+				aiCam->mHorizontalFOV,
+				aiCam->mAspect,
+				aiCam->mClipPlaneNear,
+				aiCam->mClipPlaneFar
+			);
+		} else {
+			cam = Dar::Camera::orthographicCamera(
+				aiVector3DToVec3(aiCam->mPosition),
+				2 * aiCam->mOrthographicWidth,
+				2 * aiCam->mOrthographicWidth / aiCam->mAspect,
+				aiCam->mClipPlaneNear,
+				aiCam->mClipPlaneFar
+			);
+		}
+
+		CameraNode *camNode = new CameraNode(std::move(cam));
+
+		scene.addNewCamera(camNode);
+	}
+}
+
+void readMeshBones(unsigned int meshId, AssimpSceneParseContext &ctx) {
+	const aiScene *aiScene = ctx.aiScene;
+	aiMesh *mesh = aiScene->mMeshes[meshId];
+
+	for (unsigned int i = 0; i < mesh->mNumBones; ++i) {
+		aiBone *bone = mesh->mBones[i];
+		auto jointData = ctx.getJointData(String{ bone->mName.C_Str(), bone->mName.length });
+
+		ctx.scene.animationManager.skeletons[jointData.skeletonId].joints[jointData.jointId].invBindPose = aiMatrix4x4ToMat4(bone->mOffsetMatrix);
+
+		for (unsigned int j = 0; j < bone->mNumWeights; ++j) {
+			const auto &vertexWeight = bone->mWeights[j];
+			const auto vertexId = ctx.meshBaseVertex[meshId] + vertexWeight.mVertexId;
+			ctx.scene.animatedData.vertexBuffer[vertexId].addJointData(jointData.jointId, vertexWeight.mWeight);
+
+			LOG_FMT(Info, "Bone %d affects vertex %d by %f", jointData.jointId, vertexId, vertexWeight.mWeight);
 		}
 	}
+}
 
-	ModelNode *model = new ModelNode;
-	if (node->mNumMeshes > 0) {
-		model->startMesh = scene.meshes.size();
-		model->numMeshes = node->mNumMeshes;
+void readJoint(AssimpSceneParseContext &ctx, Skeleton &skeleton, uint8_t parent) {
+	Joint joint = {};
+
+	aiNode *jointNode = ctx.currentNode;
+	joint.name = String{ jointNode->mName.C_Str(), jointNode->mName.length };
+	joint.parent = parent;
+
+	dassert(skeleton.joints.size() < 256);
+	uint8_t jointId = static_cast<uint8_t>(skeleton.joints.size());
+	ctx.jointNameToData[joint.name] = JointData{ .skeletonId = skeleton.id, .jointId = jointId };
+	skeleton.joints.push_back(joint);
+
+	for (unsigned int i = 0; i < jointNode->mNumChildren; ++i) {
+		ctx.currentNode = jointNode->mChildren[i];
+		readJoint(ctx, skeleton, jointId);
 	}
+}
+
+SkeletonId readSkeleton(AssimpSceneParseContext &ctx) {
+	aiNode *jointNode = ctx.currentNode;
+	if (auto it = ctx.jointNameToData.find(String{ jointNode->mName.C_Str(), jointNode->mName.length}); it != ctx.jointNameToData.end()) {
+		return it->second.skeletonId;
+	}
+
+	Skeleton skeleton = {};
+	skeleton.id = ctx.scene.animationManager.skeletons.size();
+
+	readJoint(ctx, skeleton, -1);
+
+	ctx.scene.animationManager.skeletons.push_back(skeleton);
+	return ctx.scene.animationManager.skeletons.size() - 1;
+}
+
+void readAnimations(AssimpSceneParseContext &ctx) {
+	const aiScene *aiScene = ctx.aiScene;
+
+	for (unsigned int i = 0; i < aiScene->mNumAnimations; ++i) {
+		auto anim = aiScene->mAnimations[i];
+		
+		AnimationClip clip = {};
+		const auto animationClipName = String{ anim->mName.C_Str(), anim->mName.length };
+
+		// TODO: ...
+
+		ctx.scene.animationManager.nameToAnimation[animationClipName] = clip;
+	}
+}
+
+void readStaticMeshes(AssimpSceneParseContext &ctx) {
+	aiNode *node = ctx.currentNode;
+	const aiScene *aiScene = ctx.aiScene;
+	Scene &scene = ctx.scene;
+
 	for (unsigned int i = 0; i < node->mNumMeshes; ++i) {
 		aiMesh *mesh = aiScene->mMeshes[node->mMeshes[i]];
 
-		const bool genTangents = mesh->HasTextureCoords(0) && ((flags & sceneLoaderFlags_overrideGenTangents) || !mesh->HasTangentsAndBitangents());
+		auto vertexOffset = scene.staticData.vertexCount();
+		auto indexOffset = scene.staticData.indexCount();
 
 		// Setup the mesh
 		Mesh resMesh;
@@ -255,12 +269,9 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 		resMesh.numIndices = mesh->mNumFaces ? mesh->mNumFaces * mesh->mFaces[0].mNumIndices : 0;
 		resMesh.mat = readMaterialDataForMesh(mesh, aiScene, scene);
 
-		// Make sure the next mesh knows where its indices begin
-		indexOffset += resMesh.numIndices;
-
 		// save vertex data for the mesh in the global scene structure
 		for (unsigned int j = 0; j < mesh->mNumVertices; ++j) {
-			Vertex vertex;
+			StaticVertex vertex;
 			vertex.pos = aiVector3DToVec3(mesh->mVertices[j]);
 
 			if (mesh->HasTextureCoords(0)) {
@@ -272,22 +283,12 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 				vertex.normal = aiVector3DToVec3(mesh->mNormals[j]);
 			}
 
-			if (mesh->HasTangentsAndBitangents() && !genTangents) {
+			if (mesh->HasTangentsAndBitangents()) {
 				vertex.tangent = aiVector3DToVec3(mesh->mTangents[j]);
 			}
-
-			scene.vertices.push_back(vertex);
+			
+			scene.staticData.vertexBuffer.push_back(static_cast<StaticVertex>(vertex));
 			scene.sceneBox.addPoint(vertex.pos);
-		}
-
-		MikkTSpaceTangentSpaceGenerator tangentGenerator = {};
-		MikkTSpaceMeshData meshData = {};
-		Map<UINT, UINT> indicesMapping;
-		if (genTangents) {
-			meshData.scene = &scene;
-			meshData.mesh = mesh;
-			meshData.indicesMapping = &indicesMapping;
-			tangentGenerator.init(&meshData);
 		}
 
 		// Read the mesh indices into the index buffer
@@ -296,26 +297,25 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 
 			// We should have triangulated the mesh already
 			dassert(face.mNumIndices == 3);
-			
+
+			Vector<unsigned int> &indices = scene.staticData.indexBuffer;
+
 			for (unsigned int k = 0; k < face.mNumIndices; ++k) {
 				// Adding the vertex offset here since these indices are zero-based
 				// and the actual vertices of the current mesh begin at index vertexOffset
 				// in the global scene.vertices array
 				unsigned int offsetIndex = face.mIndices[k] + static_cast<unsigned int>(vertexOffset);
-				scene.indices.push_back(offsetIndex);
 
-				if (genTangents) {
-					indicesMapping[face.mIndices[k]] = offsetIndex;
-				}
+				indices.push_back(offsetIndex);
 			}
 
 			// Generate normals and tangents if the mesh doesn't contain them
-			const SizeType index = scene.indices.size() - 3;
-			if (!mesh->HasNormals() || !mesh->HasTangentsAndBitangents() || (genTangents && !mesh->HasNormals())) {
-				Vertex *v[3];
-				v[0] = &scene.vertices[scene.indices[index + 0]];
-				v[1] = &scene.vertices[scene.indices[index + 1]];
-				v[2] = &scene.vertices[scene.indices[index + 2]];
+			const SizeType index = indices.size() - 3;
+			if (!mesh->HasNormals() || !mesh->HasTangentsAndBitangents()) {
+				StaticVertex *v[3];
+				v[0] = &scene.staticData.vertexBuffer[indices[index + 0]];
+				v[1] = &scene.staticData.vertexBuffer[indices[index + 1]];
+				v[2] = &scene.staticData.vertexBuffer[indices[index + 2]];
 
 				Vec3 edge0 = v[1]->pos - v[0]->pos;
 				Vec3 edge1 = v[2]->pos - v[0]->pos;
@@ -324,7 +324,6 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 					v[0]->normal = v[1]->normal = v[2]->normal = glm::normalize(glm::cross(edge0, edge1));
 				}
 
-#ifndef USE_MIKKTSPACE
 				// Check for texture coordinates before generating the tangent vector
 				if (!mesh->HasTangentsAndBitangents() && mesh->HasTextureCoords(0)) {
 					Vec2 &uv0 = v[0]->uv;
@@ -338,40 +337,198 @@ void traverseAssimpScene(aiNode *node, const aiScene *aiScene, Node *parentNode,
 					v[0]->tangent.y = v[1]->tangent.y = v[2]->tangent.y = dUV1.y * edge0.y - dUV0.y * edge1.y;
 					v[0]->tangent.z = v[1]->tangent.z = v[2]->tangent.z = dUV1.y * edge0.z - dUV0.y * edge1.z;
 				}
-#endif // !USE_MIKKTSPACE
 			}
 		}
-		scene.meshes.push_back(resMesh);
 
-#ifdef USE_MIKKTSPACE
-		if (genTangents) {
-#pragma warning(suppress: 4189)
-			tbool result = tangentGenerator.generateTangets();
-			dassert(result);
+		scene.staticData.meshes.push_back(resMesh);
+	}
+}
+
+void readSkinnedMeshes(AssimpSceneParseContext &ctx) {
+	aiNode *node = ctx.currentNode;
+	const aiScene *aiScene = ctx.aiScene;
+	Scene &scene = ctx.scene;
+
+	ctx.meshBaseVertex.resize(aiScene->mNumMeshes);
+	for (unsigned int i = 0; i < aiScene->mNumMeshes; ++i) {
+		aiMesh *mesh = aiScene->mMeshes[i];
+
+		dassert(mesh->HasBones());
+		auto vertexOffset = scene.animatedData.vertexCount();
+		auto indexOffset = scene.animatedData.indexCount();
+		ctx.meshBaseVertex[i] = vertexOffset;
+
+		// Setup the mesh
+		Mesh resMesh;
+		resMesh.indexOffset = indexOffset;
+		resMesh.numIndices = mesh->mNumFaces ? mesh->mNumFaces * mesh->mFaces[0].mNumIndices : 0;
+		resMesh.mat = readMaterialDataForMesh(mesh, aiScene, scene);
+
+		// save vertex data for the mesh in the global scene structure
+		for (unsigned int j = 0; j < mesh->mNumVertices; ++j) {
+			AnimatedVertex vertex;
+			vertex.pos = aiVector3DToVec3(mesh->mVertices[j]);
+
+			if (mesh->HasTextureCoords(0)) {
+				vertex.uv.x = mesh->mTextureCoords[0][j].x;
+				vertex.uv.y = mesh->mTextureCoords[0][j].y;
+			}
+
+			if (mesh->HasNormals()) {
+				vertex.normal = aiVector3DToVec3(mesh->mNormals[j]);
+			}
+
+			if (mesh->HasTangentsAndBitangents()) {
+				vertex.tangent = aiVector3DToVec3(mesh->mTangents[j]);
+			}
+
+			scene.animatedData.vertexBuffer.push_back(vertex);
 		}
-#endif // USE_MIKKTSPACE
+
+		// Read the mesh indices into the index buffer
+		for (unsigned int j = 0; j < mesh->mNumFaces; ++j) {
+			aiFace &face = mesh->mFaces[j];
+
+			// We should have triangulated the mesh already
+			dassert(face.mNumIndices == 3);
+
+			Vector<unsigned int> &indices = scene.animatedData.indexBuffer;
+
+			for (unsigned int k = 0; k < face.mNumIndices; ++k) {
+				// Adding the vertex offset here since these indices are zero-based
+				// and the actual vertices of the current mesh begin at index vertexOffset
+				// in the global scene.vertices array
+				unsigned int offsetIndex = face.mIndices[k] + static_cast<unsigned int>(vertexOffset);
+				
+				indices.push_back(offsetIndex);
+			}
+
+			// Generate normals and tangents if the mesh doesn't contain them
+			const SizeType index = indices.size() - 3;
+			if (!mesh->HasNormals() || !mesh->HasTangentsAndBitangents()) {
+				AnimatedVertex *v[3];
+				v[0] = &scene.animatedData.vertexBuffer[indices[index + 0]];
+				v[1] = &scene.animatedData.vertexBuffer[indices[index + 1]];
+				v[2] = &scene.animatedData.vertexBuffer[indices[index + 2]];
+
+				Vec3 edge0 = v[1]->pos - v[0]->pos;
+				Vec3 edge1 = v[2]->pos - v[0]->pos;
+
+				if (!mesh->HasNormals()) {
+					v[0]->normal = v[1]->normal = v[2]->normal = glm::normalize(glm::cross(edge0, edge1));
+				}
+
+				// Check for texture coordinates before generating the tangent vector
+				if (!mesh->HasTangentsAndBitangents() && mesh->HasTextureCoords(0)) {
+					Vec2 &uv0 = v[0]->uv;
+					Vec2 &uv1 = v[1]->uv;
+					Vec2 &uv2 = v[2]->uv;
+
+					Vec2 dUV0 = uv1 - uv0;
+					Vec2 dUV1 = uv2 - uv0;
+
+					v[0]->tangent.x = v[1]->tangent.x = v[2]->tangent.x = dUV1.y * edge0.x - dUV0.y * edge1.x;
+					v[0]->tangent.y = v[1]->tangent.y = v[2]->tangent.y = dUV1.y * edge0.y - dUV0.y * edge1.y;
+					v[0]->tangent.z = v[1]->tangent.z = v[2]->tangent.z = dUV1.y * edge0.z - dUV0.y * edge1.z;
+				}
+			}
+		}
+
+		readMeshBones(i, ctx);
+		scene.animatedData.meshes.push_back(resMesh);
 
 		// Add the number of vertices we added to the global scene vertex buffer
 		// so the next mesh's indices are offset correctly.
 		vertexOffset += mesh->mNumVertices;
 	}
+}
 
+void traverseAssimpScene(AssimpSceneParseContext &ctx) {
+	aiNode *node = ctx.currentNode;
+	const aiScene *aiScene = ctx.aiScene;
+	Scene &scene = ctx.scene;
+	Node *parentNode = ctx.parentNode;
+
+	dassert(aiScene != nullptr);
+
+	if (node == nullptr || aiScene == nullptr) {
+		return;
+	}
+
+	if (node == aiScene->mRootNode) {
+		readLights(aiScene, scene);
+
+		readCameras(aiScene, scene);
+
+		// If the root node of the scene is a Skin we only have 1 skinned mesh
+		if (node->mName == aiString{ "Skin" }) {
+			dassert(aiScene->HasAnimations());
+
+			uint32_t rootJointChildId = -1;
+			for (int i = 0; i < node->mNumChildren; ++i) {
+				if (node->mChildren[i]->mNumMeshes == 0) {
+					dassert(rootJointChildId == -1);
+					rootJointChildId = i;
+				}
+			}
+
+			ctx.currentNode = node->mChildren[rootJointChildId];
+			SkeletonId skeletonId = readSkeleton(ctx);
+			ctx.currentNode = node;
+
+			readAnimations(ctx);
+
+			auto meshOffset = ctx.scene.animatedData.meshes.size();
+			readSkinnedMeshes(ctx);
+
+			AnimatedModelNode *modelNode = new AnimatedModelNode;
+			modelNode->startMesh = meshOffset;
+			modelNode->numMeshes = ctx.scene.animatedData.meshes.size() - meshOffset;
+			modelNode->currentAnimation = INVALID_ANIMATION_ID;
+			modelNode->skeletonId = skeletonId;
+			modelNode->id = ctx.scene.nodes.size();
+			ctx.scene.nodes.push_back(modelNode);
+
+			return;
+		}
+	}
+
+	Node *currentNode = nullptr;
 	if (node->mNumMeshes > 0) {
+		ModelNode *model = new ModelNode;
+		model->startMesh = scene.staticData.meshes.size();
+		model->numMeshes = node->mNumMeshes;
 		model->id = scene.nodes.size();
 		scene.nodes.push_back(model);
+
+		readStaticMeshes(ctx);
 
 		if (parentNode) {
 			parentNode->children.push_back(model->id);
 		}
+		currentNode = model;
+	} else {
+		LOG_FMT(Info, "Assimp node (%s) has no meshes", node->mName);
 	}
 
 	for (unsigned int i = 0; i < node->mNumChildren; ++i) {
-		traverseAssimpScene(node->mChildren[i], aiScene, model, scene, vertexOffset, indexOffset, flags);
+		ctx.currentNode = node->mChildren[i];
+		ctx.parentNode = currentNode;
+		traverseAssimpScene(ctx);
 	}
 }
 
-// TODO: make own importer implementation. Should be able to import .obj, gltf2 files.
-SceneLoaderError loadStatic(const std::filesystem::path &path, Scene &scene, SceneLoaderFlags flags) {
+struct AssimpLogger {
+	AssimpLogger() {
+		Assimp::DefaultLogger::create("", Assimp::Logger::VERBOSE);
+	}
+
+	~AssimpLogger() {
+		Assimp::DefaultLogger::kill();
+	}
+};
+
+SceneLoaderError loadAssimpScene(const std::filesystem::path &path, Scene &scene) {
 	LOG(Info, "SceneLoader::loadScene");
 
 	Assimp::Importer &importer = getAssimpImporter();
@@ -380,6 +537,8 @@ SceneLoaderError loadStatic(const std::filesystem::path &path, Scene &scene, Sce
 	if (!importer.IsExtensionSupported(ext)) {
 		return SceneLoaderError::UnsupportedExtention;
 	}
+
+	AssimpLogger logger;
 
 	const aiScene *assimpScene = importer.ReadFile(
 		path.string(),
@@ -393,19 +552,32 @@ SceneLoaderError loadStatic(const std::filesystem::path &path, Scene &scene, Sce
 		return SceneLoaderError::InvalidScene;
 	}
 
-	SizeType vertexOffset = 0;
-	SizeType indexOffset = 0;
-	traverseAssimpScene(assimpScene->mRootNode, assimpScene, nullptr, scene, vertexOffset, indexOffset, flags);
+	AssimpSceneParseContext ctx {
+		.aiScene = assimpScene,
+		.currentNode = assimpScene->mRootNode,
+		.parentNode = nullptr,
+		.scene = scene,
+	};
+	traverseAssimpScene(ctx);
 
 	LOG(Info, "SceneLoader::loadScene SUCCESS");
 	return SceneLoaderError::Success;
 }
 
-Vec3 fromJson(const nlohmann::json &data) {
+Vec3 vec3FromJson(const nlohmann::json &data) {
 	return Vec3{ data[0].get<float>(), data[1].get<float>(), data[2].get<float>() };
 }
 
-SceneLoaderError loadScene(const String &path, Scene &outScene, SceneLoaderFlags flags) {
+Vec4 vec4FromJson(const nlohmann::json &data) {
+	return Vec4{ data[0].get<float>(), data[1].get<float>(), data[2].get<float>(), data[3].get<float>() };
+}
+
+Mat4 transformFromJson(const nlohmann::json &data) {
+	Mat4 trans{ vec4FromJson(data), vec4FromJson(data + 4), vec4FromJson(data + 8), Vec4(0, 0, 0, 1) };
+	return trans;
+}
+
+SceneLoaderError loadScene(const String &path, Scene &outScene) {
 	using json = nlohmann::json;
 
 	auto p = std::filesystem::path(path);
@@ -425,7 +597,13 @@ SceneLoaderError loadScene(const String &path, Scene &outScene, SceneLoaderFlags
 
 	json scene = data["scene"];
 	json staticPath = scene["static"];
-	auto res = loadStatic(rootDir / staticPath.get<String>(), outScene, flags);
+	auto res = loadAssimpScene(rootDir / staticPath.get<String>(), outScene);
+	if (res != SceneLoaderError::Success) {
+		return res;
+	}
+
+	json animatedPath = scene["animated"];
+	res = loadAssimpScene(rootDir / animatedPath.get<String>(), outScene);
 	if (res != SceneLoaderError::Success) {
 		return res;
 	}
@@ -434,14 +612,14 @@ SceneLoaderError loadScene(const String &path, Scene &outScene, SceneLoaderFlags
 	for (auto &l : lights) {
 		json light = l["light"];
 		String lightType = light["type"];
-		Vec3 diffuse = fromJson(light["diffuse"]);
-		Vec3 specular = fromJson(light["specular"]);
-		Vec3 ambient = fromJson(light["ambient"]);
+		Vec3 diffuse = vec3FromJson(light["diffuse"]);
+		Vec3 specular = vec3FromJson(light["specular"]);
+		Vec3 ambient = vec3FromJson(light["ambient"]);
 
 		if (lightType == "directional") {
 			LightNode *lDir = new LightNode(
 				LightNode::directional(
-					fromJson(light["direction"]),
+					vec3FromJson(light["direction"]),
 					diffuse,
 					specular,
 					ambient
@@ -466,11 +644,11 @@ SceneLoaderError loadScene(const String &path, Scene &outScene, SceneLoaderFlags
 		if (lightType == "point") {
 			LightNode *lPoint = new LightNode;
 			lPoint->lightData.type = LightType::Point;
-			lPoint->lightData.position = fromJson(light["position"]);
+			lPoint->lightData.position = vec3FromJson(light["position"]);
 			lPoint->lightData.diffuse = diffuse;
 			lPoint->lightData.ambient = ambient;
 			lPoint->lightData.specular = specular;
-			lPoint->lightData.attenuation = fromJson(light["attenuation"]);
+			lPoint->lightData.attenuation = vec3FromJson(light["attenuation"]);
 			outScene.addNewLight(lPoint);
 		}
 	}
@@ -482,7 +660,7 @@ SceneLoaderError loadScene(const String &path, Scene &outScene, SceneLoaderFlags
 		Dar::Camera cam;
 		if (cameraType == "perspective") {
 			cam = Dar::Camera::perspectiveCamera(
-				fromJson(camera["position"]), 
+				vec3FromJson(camera["position"]),
 				camera["fov"].get<float>(),
 				app->getWidth() / static_cast<float>(app->getHeight()),
 				camera["nearPlane"].get<float>(),
@@ -493,7 +671,7 @@ SceneLoaderError loadScene(const String &path, Scene &outScene, SceneLoaderFlags
 
 		if (cameraType == "orthographic") {
 			cam = Dar::Camera::orthographicCamera(
-				fromJson(camera["position"]),
+				vec3FromJson(camera["position"]),
 				camera["rectWidth"].get<float>(),
 				camera["rectHeight"].get<float>(),
 				camera["nearPlane"].get<float>(),

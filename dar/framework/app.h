@@ -23,7 +23,12 @@ struct Fence;
 }
 
 struct App : public IKeyboardInputQuery {
-	App(UINT width, UINT height, const char *windowTitle);
+	/// @brieff App constructor
+	/// @param width Width for rendering.
+	/// @param height Height for rendering
+	/// @param windowTitle Title of the window
+	/// @param numThreads Num threads to run the system on. Default -1 means use all system threads.
+	App(UINT width, UINT height, const char *windowTitle, int numThreads = -1);
 	virtual ~App();
 
 	/// The main loop.

@@ -236,11 +236,11 @@ FenceValue HUD::render() {
 
 	auto &fd = frameData[frameIndex];
 	fd.addUploadContextToWait(uploadCtx);
-	fd.setVertexBuffer(&vertexBuffer[frameIndex]);
-	fd.setIndexBuffer(&indexBuffer[frameIndex]);
 	fd.addConstResource(constData[frameIndex], 0);
 
 	fd.startNewPass();
+	fd.setVertexBuffer(&vertexBuffer[frameIndex]);
+	fd.setIndexBuffer(&indexBuffer[frameIndex]);
 	fd.addDataBufferResource(widgetDataBuffer);
 	for (auto &tex : textures) {
 		fd.addTextureResource(tex);

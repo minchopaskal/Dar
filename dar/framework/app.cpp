@@ -73,7 +73,7 @@ App *getApp() {
 ////////////
 // App
 ////////////
-App::App(UINT width, UINT height, const char *windowTitle) :
+App::App(UINT width, UINT height, const char *windowTitle, int numThreads) :
 	resManager(nullptr),
 	width(width),
 	height(height),
@@ -84,7 +84,7 @@ App::App(UINT width, UINT height, const char *windowTitle) :
 {
 	strncpy(title, windowTitle, strlen(windowTitle) + 1);
 	title[strlen(windowTitle)] = '\0';
-	setNumThreads(-1);
+	setNumThreads(numThreads);
 }
 
 App::~App() {

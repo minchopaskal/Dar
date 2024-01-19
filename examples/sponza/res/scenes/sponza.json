@@ -1,30 +1,23 @@
 {
   "scene": {
-    "static": "Sponza/Sponza.gltf",
-    "dynamic": [
-        {
-          "name": "box",
-          "model": "Box/Box.gltf",
-          "position": [100, 0, 0],
-          "type": "quest_box"
-        }
-    ],
+    "static": "Sponza/sponza.gltf",
+    "animated": "SkeletonBoy/skelly.glb",
     "lights": [
       {
         "light": {
           "type": "directional",
-          "direction": [1, -1, 0],
-          "diffuse": [10.9, 10.9, 10.9],
-          "specular": [0.1, 0.1, 0.1],
-          "ambient": [0.2, 0.2, 0.2]
+          "direction": [ 1, -1, 0 ],
+          "diffuse": [ 10.9, 10.9, 10.9 ],
+          "specular": [ 0.1, 0.1, 0.1 ],
+          "ambient": [ 0.2, 0.2, 0.2 ]
         }
       },
       {
         "light": {
           "type": "spot",
-          "diffuse": [0.9, 0.9, 0.9],
-          "specular": [1.0, 1.0, 1.0],
-          "ambient": [0.05, 0.05, 0.05],
+          "diffuse": [ 0.9, 0.9, 0.9 ],
+          "specular": [ 1.0, 1.0, 1.0 ],
+          "ambient": [ 0.05, 0.05, 0.05 ],
           "innerCutoff": 7.0,
           "outerCutoff": 40.0
         }
@@ -32,20 +25,20 @@
       {
         "light": {
           "type": "point",
-          "position": [-1200, 175, 450],
-          "diffuse": [0.8, 0.1, 0.2],
-          "specular": [1.0, 0.0, 0.0],
-          "ambient": [0.1, 0.1, 0.1],
-          "attenuation": [1.0, 0.007, 0.0002]
+          "position": [ -1200, 175, 450 ],
+          "diffuse": [ 0.8, 0.1, 0.2 ],
+          "specular": [ 1.0, 0.0, 0.0 ],
+          "ambient": [ 0.1, 0.1, 0.1 ],
+          "attenuation": [ 1.0, 0.007, 0.0002 ]
         },
         "modifiers": {
           "animate": {
             "frames": [
               {
-                "translate": [-1200, 175, 450]
+                "translate": [ -1200, 175, 450 ]
               },
               {
-                "translate": [-1200, 175, -400]
+                "translate": [ -1200, 175, -400 ]
               }
             ],
             "mode": "lerp"
@@ -55,7 +48,7 @@
     ],
     "camera": {
       "type": "perspective",
-      "position": [0.0, 100.0, 0.0],
+      "position": [ 0.0, 100.0, 0.0 ],
       "fov": 90.0,
       "nearPlane": 0.1,
       "farPlane": 10000.0

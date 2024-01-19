@@ -151,17 +151,26 @@ void Sponza::updateMainLoop() {
 	// TODO: If the app state is changed we need to disable using the same commands.
 	const auto frameIndex = renderer.getBackbufferIndex();
 	Dar::FrameData& fd = frameData[frameIndex];
-	fd.setIndexBuffer(&indexBuffer);
-	fd.setVertexBuffer(&vertexBuffer);
 	fd.addConstResource(sceneDataHandle[frameIndex].getHandle(), static_cast<int>(DefaultConstantBufferView::SceneData));
 
 	// Deferred pass:
 	fd.startNewPass();
+	fd.setVertexBuffer(&vertexBufferStatic);
+	fd.setIndexBuffer(&indexBufferStatic);
 	scene.prepareFrameData(fd, uploadHandle);
+
+	// Deferred Animated pass:
+	fd.startNewPass();
+	fd.dontClearRenderTargets();
+	fd.setVertexBuffer(&vertexBufferAnimated);
+	fd.setIndexBuffer(&indexBufferAnimated);
+	scene.prepareFrameDataForAnimated(fd, uploadHandle);
 
 	// Shadow map pass:
 	for (int i = 0; i < MAX_SHADOW_MAPS_COUNT; ++i) {
 		fd.startNewPass();
+		fd.setVertexBuffer(&vertexBufferStatic);
+		fd.setIndexBuffer(&indexBufferStatic);
 		scene.prepareFrameDataForShadowMap(i, fd, uploadHandle);
 	}
 
@@ -338,6 +347,10 @@ void Sponza::onKeyboardInput(int /*key*/, int /*action*/) {
 		return;
 	}
 
+	if (queryPressed(GLFW_KEY_B)) {
+		boneIdx = (boneIdx + 1) % 7;
+	}
+
 	if (keyPressed[GLFW_KEY_P] && !keyRepeated[GLFW_KEY_P]) {
 		toggleFullscreen();
 	}
@@ -426,7 +439,7 @@ bool Sponza::loadAssets() {
 	// MikkTSpace tangents give slightly better results than the tangents in the gltf file.
 	//SceneLoaderError sceneLoadErr = loadScene("res\\scenes\\Sponza\\glTF\\Sponza.gltf", scene, sceneLoaderFlags_overrideGenTangents);
 	// .. but the algorithm is too slow for run-time evaluation.
-	SceneLoaderError sceneLoadErr = loadScene("res\\scenes\\sponza.json", scene, sceneLoaderFlags_none);
+	SceneLoaderError sceneLoadErr = loadScene("res\\scenes\\sponza.json", scene);
 	LOG_FMT(Info, "Sponza::loadScene SUCCESS");
 
 	if (sceneLoadErr != SceneLoaderError::Success) {
@@ -536,6 +549,7 @@ void Sponza::uploadShaderRenderData(Dar::UploadHandle uploadHandle) {
 	sceneData.farPlane = cam.getFarPlane();
 	sceneData.width = width;
 	sceneData.height = height;
+	sceneData.boneIdx = boneIdx;
 	sceneData.time = static_cast<float>(getTotalTime());
 	sceneData.delta = static_cast<float>(getDeltaTime());
 	sceneData.frame = static_cast<UINT>(renderer.getNumRenderedFrames()); // see LoadingScreen::uploadConstData
@@ -556,6 +570,15 @@ bool Sponza::loadMainPipeline() {
 		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 		{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+	};
+
+	D3D12_INPUT_ELEMENT_DESC inputLayoutsAnimated[] = {
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{ "JOINTWEIGHTS", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{ "JOINTINDICES", 0, DXGI_FORMAT_R32_UINT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 	};
 
 	D3D12_STATIC_SAMPLER_DESC staticSamplers[]{
@@ -593,6 +616,27 @@ bool Sponza::loadMainPipeline() {
 	}
 	deferredPassDesc.attach(Dar::RenderPassAttachment::depthStencil(&depthBuffer, true));
 	mainPipeline.addRenderPass(deferredPassDesc);
+
+	Dar::RenderPassDesc deferredAnimatedPassDesc = {};
+	Dar::PipelineStateDesc deferredAnimatedPSDesc = {};
+	deferredAnimatedPSDesc.shaderName = "deferred_animated";
+	deferredAnimatedPSDesc.shadersMask = Dar::shaderInfoFlags_useVertex;
+	deferredAnimatedPSDesc.inputLayouts = inputLayoutsAnimated;
+	deferredAnimatedPSDesc.numInputLayouts = _countof(inputLayoutsAnimated);
+	deferredAnimatedPSDesc.staticSamplerDescs = staticSamplers;
+	deferredAnimatedPSDesc.numStaticSamplers = _countof(staticSamplers);
+	deferredAnimatedPSDesc.depthStencilBufferFormat = depthBuffer.getFormatAsDepthBuffer();
+	deferredAnimatedPSDesc.numConstantBufferViews = static_cast<UINT>(DefaultConstantBufferView::Count);
+	deferredAnimatedPSDesc.numRenderTargets = static_cast<UINT>(GBuffer::Count);
+	for (UINT i = 0; i < deferredAnimatedPSDesc.numRenderTargets; ++i) {
+		deferredAnimatedPSDesc.renderTargetFormats[i] = gBufferFormats[i];
+	}
+	deferredAnimatedPassDesc.setPipelineStateDesc(deferredAnimatedPSDesc);
+	for (int i = 0; i < static_cast<int>(GBuffer::Count); ++i) {
+		deferredAnimatedPassDesc.attach(Dar::RenderPassAttachment::renderTarget(&gBufferRTs[i]));
+	}
+	deferredAnimatedPassDesc.attach(Dar::RenderPassAttachment::depthStencil(&depthBuffer, true));
+	mainPipeline.addRenderPass(deferredAnimatedPassDesc);
 
 	for (int i = 0; i < MAX_SHADOW_MAPS_COUNT; ++i) {
 		Dar::RenderPassDesc shadowMapPassDesc = {};
@@ -650,20 +694,38 @@ bool Sponza::prepareVertexIndexBuffers(Dar::UploadHandle uploadHandle) {
 	LOG_FMT(Info, "Sponza::prepareVertexIndexBuffers");
 
 	Dar::VertexIndexBufferDesc vertexDesc = {};
-	vertexDesc.data = scene.getVertexBuffer();
-	vertexDesc.size = scene.getVertexBufferSize();
-	vertexDesc.name = "VertexBuffer";
-	vertexDesc.vertexBufferStride = sizeof(Vertex);
-	if (!vertexBuffer.init(vertexDesc, uploadHandle)) {
+	vertexDesc.data = scene.staticData.vertexBuffer.data();
+	vertexDesc.size = scene.staticData.getVertexBufferSize();
+	vertexDesc.name = "VertexBufferStatic";
+	vertexDesc.vertexBufferStride = sizeof(StaticVertex);
+	if (!vertexBufferStatic.init(vertexDesc, uploadHandle)) {
 		return false;
 	}
 
 	Dar::VertexIndexBufferDesc indexDesc = {};
-	indexDesc.data = scene.getIndexBuffer();
-	indexDesc.size = scene.getIndexBufferSize();
-	indexDesc.name = "IndexBuffer";
+	indexDesc.data = scene.staticData.indexBuffer.data();
+	indexDesc.size = scene.staticData.getIndexBufferSize();
+	indexDesc.name = "IndexBufferStatic";
 	indexDesc.indexBufferFormat = DXGI_FORMAT_R32_UINT;
-	if (!indexBuffer.init(indexDesc, uploadHandle)) {
+	if (!indexBufferStatic.init(indexDesc, uploadHandle)) {
+		return false;
+	}
+
+	Dar::VertexIndexBufferDesc vertexDescAnimated = {};
+	vertexDescAnimated.data = scene.animatedData.vertexBuffer.data();
+	vertexDescAnimated.size = scene.animatedData.getVertexBufferSize();
+	vertexDescAnimated.name = "VertexBufferAnimated";
+	vertexDescAnimated.vertexBufferStride = sizeof(AnimatedVertex);
+	if (!vertexBufferAnimated.init(vertexDescAnimated, uploadHandle)) {
+		return false;
+	}
+
+	Dar::VertexIndexBufferDesc indexDescAnimated = {};
+	indexDescAnimated.data = scene.animatedData.indexBuffer.data();
+	indexDescAnimated.size = scene.animatedData.getIndexBufferSize();
+	indexDescAnimated.name = "IndexBufferAnimated";
+	indexDescAnimated.indexBufferFormat = DXGI_FORMAT_R32_UINT;
+	if (!indexBufferAnimated.init(indexDescAnimated, uploadHandle)) {
 		return false;
 	}
 

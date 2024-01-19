@@ -239,7 +239,7 @@
     <ClInclude Include="..\..\examples\hello_triangle\include\hello_triangle.h" />
     <ClInclude Include="..\..\examples\hello_triangle\res\shaders\basic_ps.hlsl" />
     <ClInclude Include="..\..\examples\hello_triangle\res\shaders\basic_vs.hlsl" />
-    <ClInclude Include="..\..\third_party\res\shaders.shlib" />
+    <ClInclude Include="..\..\res\shaders.shlib" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\examples\hello_triangle\src\hello_triangle.cpp" />

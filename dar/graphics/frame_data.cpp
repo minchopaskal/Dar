@@ -6,24 +6,32 @@ namespace Dar {
 
 void FrameData::clear() {
 	useSameCommands = false;
-	vertexBuffer = nullptr;
-	indexBuffer = nullptr;
+	vertexBuffers.clear();
+	indexBuffers.clear();
 	constantBuffers.clear();
 	shaderResources.clear();
 	renderCommands.clear();
 	uploadsToWait.clear();
 	fencesToWait.clear();
+	clearRenderTargets.clear();
 }
 
 void FrameData::beginFrame(const Renderer &renderer) {
 	passIndex = -1;
-	vertexBuffer = nullptr;
-	indexBuffer = nullptr;
 	constantBuffers.clear();
 	shaderResources.clear();
 	uploadsToWait.clear();
 	fencesToWait.clear();
+
+	clearRenderTargets.resize(renderer.getNumPasses());
+	std::fill(clearRenderTargets.begin(), clearRenderTargets.end(), true);
+
 	shaderResources.resize(renderer.getNumPasses());
+
+	vertexBuffers.resize(renderer.getNumPasses());
+	std::fill(vertexBuffers.begin(), vertexBuffers.end(), nullptr);
+	indexBuffers.resize(renderer.getNumPasses());
+	std::fill(indexBuffers.begin(), indexBuffers.end(), nullptr);
 	
 	if (!useSameCommands) {
 		renderCommands.clear();

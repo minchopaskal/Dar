@@ -1,6 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
+    <ClCompile Include="..\..\examples\sponza\src\animation.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\examples\sponza\src\fps_camera_controller.cpp">
       <Filter>src</Filter>
     </ClCompile>
@@ -33,6 +36,9 @@
     <ClInclude Include="..\..\examples\sponza\compile_resources.bat" />
     <ClInclude Include="..\..\examples\sponza\compile_shaders.bat" />
     <ClInclude Include="..\..\examples\sponza\compile_textures.bat" />
+    <ClInclude Include="..\..\examples\sponza\include\animation.h">
+      <Filter>include</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\examples\sponza\include\fps_camera_controller.h">
       <Filter>include</Filter>
     </ClInclude>
@@ -57,6 +63,9 @@
     <ClInclude Include="..\..\examples\sponza\include\texture_utils.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\scenes\SkeletonBoy\skelly.glb">
+      <Filter>res\scenes\SkeletonBoy</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\examples\sponza\res\scenes\sponza.json">
       <Filter>res\scenes</Filter>
     </ClInclude>
@@ -70,6 +79,12 @@
       <Filter>res\shaders</Filter>
     </ClInclude>
     <ClInclude Include="..\..\examples\sponza\res\shaders\comptest_cs.hlsl">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\deferred_animated_ps.hlsl">
+      <Filter>res\shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\sponza\res\shaders\deferred_animated_vs.hlsl">
       <Filter>res\shaders</Filter>
     </ClInclude>
     <ClInclude Include="..\..\examples\sponza\res\shaders\deferred_ps.hlsl">
@@ -135,11 +150,11 @@
     <ClInclude Include="..\..\examples\sponza\res\shaders\shadow_map_vs.hlsl">
       <Filter>res\shaders</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\third_party\res\shaders.shlib">
-      <Filter>third_party\res</Filter>
+    <ClInclude Include="..\..\res\shaders.shlib">
+      <Filter>res</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\third_party\res\textures.txlib">
-      <Filter>third_party\res</Filter>
+    <ClInclude Include="..\..\res\textures.txlib">
+      <Filter>res</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -155,6 +170,9 @@
     <Filter Include="res\scenes">
       <UniqueIdentifier>{90bba80e-d642-8c76-9df4-ce171a92cdc6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="res\scenes\SkeletonBoy">
+      <UniqueIdentifier>{b5f67212-d939-8d16-427d-41fee9c4bda9}</UniqueIdentifier>
+    </Filter>
     <Filter Include="res\scenes\Sponza">
       <UniqueIdentifier>{18e59384-ccfe-75d8-4f64-4dfbf88a308f}</UniqueIdentifier>
     </Filter>
@@ -163,12 +181,6 @@
     </Filter>
     <Filter Include="src">
       <UniqueIdentifier>{c202d925-8342-8cab-fbac-54dfa101ad31}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="third_party">
-      <UniqueIdentifier>{5d0e2315-94ad-aeff-fa7b-526c0c1e89e5}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="third_party\res">
-      <UniqueIdentifier>{f5ff89d1-32e4-82e9-d744-f4c7953b7949}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

@@ -128,8 +128,11 @@ private:
 	Dar::Renderer renderer;
 	Dar::FramePipeline mainPipeline;
 
-	Dar::VertexBuffer vertexBuffer;
-	Dar::IndexBuffer indexBuffer;
+	Dar::VertexBuffer vertexBufferStatic;
+	Dar::IndexBuffer indexBufferStatic;
+
+	Dar::VertexBuffer vertexBufferAnimated;
+	Dar::IndexBuffer indexBufferAnimated;
 
 	StaticArray<Dar::RenderTarget, static_cast<SizeType>(GBuffer::Count)> gBufferRTs;
 	Dar::RenderTarget lightPassRT;
@@ -172,4 +175,5 @@ private:
 	const char *gBufferLabels[9] = {"Render", "Diffuse", "Normals", "Metalness", "Roughness", "Occlusion", "Position", "Depth Map", "Shadow Map"};
 	bool editMode;
 	bool pause = false; ///< Pause all updates
+	uint32_t boneIdx = 0;
 };

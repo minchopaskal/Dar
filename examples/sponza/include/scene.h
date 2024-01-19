@@ -1,5 +1,6 @@
 #pragma once
 
+#include "animation.h"
 #include "texture_utils.h"
 
 #include "d3d12/command_list.h"
@@ -16,6 +17,7 @@ using MeshId = SizeType;
 using NodeId = SizeType;
 using LightId = SizeType;
 using CameraId = SizeType;
+
 
 #define INVALID_MATERIAL_ID SizeType(-1)
 #define INVALID_NODE_ID SizeType(-1)
@@ -102,6 +104,7 @@ enum class NodeType : int {
 	Camera = 0,
 	Light,
 	Model,
+	AnimatedModel,
 
 	Count
 };
@@ -132,8 +135,20 @@ struct ModelNode : Node {
 
 	void draw(Dar::FrameData &frameData, const Scene &scene) const override;
 
-private:
+protected:
 	void updateMeshDataHandles(const Scene &scene) const;
+};
+
+struct AnimatedModelNode : ModelNode {
+	SkeletonId skeletonId = INVALID_SKELETON_ID;
+	Vector<AnimationId> animations;
+	AnimationId currentAnimation = INVALID_ANIMATION_ID;
+
+	AnimatedModelNode() : ModelNode() {
+		nodeType = NodeType::AnimatedModel;
+	}
+
+	void draw(Dar::FrameData &frameData, const Scene &scene) const override { IMPLEMENT_ME(); }
 };
 
 struct LightNode : Node {
@@ -225,23 +240,78 @@ private:
 	Dar::Camera camera;
 };
 
-struct Vertex {
+struct StaticVertex {
 	Vec3 pos;
 	Vec3 normal;
 	Vec3 tangent;
 	Vec2 uv;
 };
 
+constexpr SizeType MAX_JOINTS_PER_VERTEX = 4;
+struct AnimatedVertex : StaticVertex {
+	float jointWeights[MAX_JOINTS_PER_VERTEX] = { 0.f, 0.f, 0.f, 0.f };
+	uint32_t jointIndices = 0; ///< 4 unsigned 8-bit indices encoded in a uint32_t
+	// If we have 4 joints, the 4th one's weight is 1 - sum(jointWeights[0..2])
+
+	void addJointData(uint8_t jointIndex, float weight) {
+		for (int i = 0; i < 4; ++i) {
+			if (jointWeights[i] == 0.f) {
+				jointIndices |= static_cast<uint32_t>(jointIndex << (8 * i));
+				jointWeights[i] = weight;
+				return;
+			}
+		}
+
+		// We can have up to MAX_JOINTS_PER_VERTEX joints
+		dassert(false);
+	}
+};
+
 // Scene structure. Not very cache friendly, especially with these nodes on the heap :/
 struct Scene {
+	template <class VT>
+	struct MeshData {
+		using VertexType = VT;
+
+		Vector<Mesh> meshes; ///< Vector with all the meshes of the given type in the scene
+		Vector<VertexType> vertexBuffer;
+		Vector<uint32_t> indexBuffer;
+
+		SizeType vertexCount() const {
+			return vertexBuffer.size();
+		}
+
+		SizeType vertexStride() const {
+			return sizeof(VertexType);
+		}
+
+		SizeType indexCount() const {
+			return indexBuffer.size();
+		}
+
+		const UINT getVertexBufferSize() const {
+			SizeType sz = vertexBuffer.size() == 0 ? 0 : vertexBuffer.size() * vertexStride();
+			dassert(sz < ((SizeType(1) << 32) - 1));
+			return static_cast<UINT>(sz);
+		}
+
+		const UINT getIndexBufferSize() const {
+			SizeType sz = indexBuffer.size() == 0 ? 0 : indexBuffer.size() * sizeof(indexBuffer[0]);
+			dassert(sz < ((SizeType(1) << 32) - 1));
+			return static_cast<UINT>(sz);
+		}
+
+	};
+
+	AnimationManager animationManager;
+
 	Vector<Node*> nodes; ///< Vector with pointers to all nodes in the scene
 	Vector<LightId> lightIndices; ///< Indices of the lights in the nodes vector
 	Vector<CameraId> cameraIndices; ///< Indices of the cameras in the nodes vector
-	Vector<Mesh> meshes; ///< Vector will all the meshes in the scene.
 	Vector<Material> materials; ///< Vector with all materials in the scene
 	Vector<TextureDesc> textureDescs; ///< Vector with all textures in the scene. Meshes could share texture ids.
-	Vector<Vertex> vertices; ///< All vertices in the scene.
-	Vector<unsigned int> indices; ///< All indices for all meshes, indexing in the vertices array.
+	MeshData<StaticVertex> staticData; ///< Static meshes data
+	MeshData<AnimatedVertex> animatedData; ///< Animated meshes data
 	Vector<Dar::TextureResource> textures;
 	Dar::DataBufferResource materialsBuffer; ///< GPU buffer holding all materials' data.
 	Dar::DataBufferResource lightsBuffer; ///< GPU buffer holding all lights' data.
@@ -334,26 +404,6 @@ struct Scene {
 		return textureDescs[id];
 	}
 
-	const void *getVertexBuffer() const {
-		return &vertices[0];
-	}
-
-	const void *getIndexBuffer() const {
-		return &indices[0];
-	}
-
-	const UINT getVertexBufferSize() const {
-		SizeType sz = vertices.size() == 0 ? 0 : vertices.size() * sizeof(vertices[0]);
-		dassert(sz < ((SizeType(1) << 32) - 1));
-		return static_cast<UINT>(sz);
-	}
-
-	const UINT getIndexBufferSize() const {
-		SizeType sz = indices.size() == 0 ? 0 : indices.size() * sizeof(indices[0]);
-		dassert(sz < ((SizeType(1) << 32) - 1));
-		return static_cast<UINT>(sz);
-	}
-
 	Dar::Camera *getRenderCamera() {
 		return dynamic_cast<CameraNode *>(nodes[cameraIndices[renderCamera]])->getCamera();
 	}
@@ -380,6 +430,7 @@ struct Scene {
 	}
 
 	void prepareFrameData(Dar::FrameData &frameData, Dar::UploadHandle uploadHandle);
+	void prepareFrameDataForAnimated(Dar::FrameData &frameData, Dar::UploadHandle uploadHandle);
 	void prepareFrameDataForShadowMap(int shadowMapPassIndex, Dar::FrameData &frameData, Dar::UploadHandle uploadHandle);
 
 	LightId getLightcasterId(int lightcasterIndex) const;
@@ -392,6 +443,7 @@ private:
 	// update view-projection matrices for moving lightcasters
 	void updateLightData(Dar::UploadHandle uploadHandle);
 	void drawMeshes(Dar::FrameData &frameData, Dar::UploadHandle uploadHandle);
+	void drawAnimatedMeshes(Dar::FrameData &frameData, Dar::UploadHandle uploadHandle);
 
 	//void draw(Dar::FrameData &frameData) const;
 	//void drawNodeImpl(Node *node, Dar::FrameData &frameData, const Scene &scene, DynamicBitset &drawnNodes) const;

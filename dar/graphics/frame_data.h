@@ -20,12 +20,16 @@ struct FrameData {
 
 	void startNewPass();
 
+	void dontClearRenderTargets() {
+		clearRenderTargets[passIndex] = false;
+	}
+
 	void setVertexBuffer(VertexBuffer *vb) {
-		vertexBuffer = vb;
+		vertexBuffers[passIndex] = vb;
 	}
 
 	void setIndexBuffer(IndexBuffer *ib) {
-		indexBuffer = ib;
+		indexBuffers[passIndex] = ib;
 	}
 
 	/// Add common constant buffer that will be bound to all passes of the pipeline.
@@ -126,8 +130,9 @@ private:
 	Vector<UploadContextHandle> uploadsToWait;
 	Vector<FenceValue> fencesToWait;
 
-	VertexBuffer *vertexBuffer = nullptr;
-	IndexBuffer *indexBuffer = nullptr;
+	Vector<VertexBuffer*> vertexBuffers;
+	Vector<IndexBuffer*> indexBuffers;
+	Vector<bool> clearRenderTargets;
 
 	int passIndex = -1;
 

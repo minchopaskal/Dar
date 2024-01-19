@@ -34,8 +34,8 @@
     <ClInclude Include="..\..\examples\shader_plaything\res\shaders\screen_quad_vs.hlsl">
       <Filter>res\shaders</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\third_party\res\shaders.shlib">
-      <Filter>third_party\res</Filter>
+    <ClInclude Include="..\..\res\shaders.shlib">
+      <Filter>res</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -62,9 +62,6 @@
     </Filter>
     <Filter Include="third_party\imguifiledialog">
       <UniqueIdentifier>{0b363a44-e9a7-ee2a-78f4-4fce5ba0d5d9}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="third_party\res">
-      <UniqueIdentifier>{f5ff89d1-32e4-82e9-d744-f4c7953b7949}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

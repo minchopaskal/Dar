@@ -9,16 +9,11 @@ enum class SceneLoaderError : int {
 	UnsupportedExtention,
 	InvalidScene,
 	InvalidScenePath,
+	InvalidPath,
 	CorruptSceneFile,
-};
-
-enum SceneLoaderFlags : int {
-	sceneLoaderFlags_none = 0,
-	sceneLoaderFlags_overrideGenTangents = 1 << 0,
 };
 
 SceneLoaderError loadScene(
 	const String &path,
-	Scene &scene,
-	SceneLoaderFlags flags = sceneLoaderFlags_none
+	Scene &scene
 );
